@@ -899,7 +899,9 @@ async function uploadRecordsInBatches(records) {
     const batchRecords = records.slice(i, i + batchSize);
     
     batchRecords.forEach(record => {
-      const docRef = doc(db, "morphers", record.MorphersNumber || doc(db, "morphers").id);
+      // Generate a unique document ID for each record
+      const docId = `morpher_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`;
+      const docRef = doc(db, "morphers", docId);
       batch.set(docRef, record);
     });
     
