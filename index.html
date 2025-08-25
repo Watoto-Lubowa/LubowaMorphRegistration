@@ -50,7 +50,9 @@
         <span class="required">*</span>
       </label>
       <input type="tel" id="morphersNumber" required aria-describedby="phoneHelp">
-      <small id="phoneHelp" class="field-help">Enter your phone number</small>
+      <small id="phoneHelp" class="field-help">
+        Enter your phone number. You may try up to 3 times using your own or any of your parents' / guardian's phone number.
+      </small>
     </div>
     
     <div class="search-button-container">
@@ -70,6 +72,9 @@
       </div>
       <div class="identity-info">
         <strong>Phone:</strong> <span id="displayPhone"></span>
+      </div>
+      <div class="identity-info">
+        <strong>Parent's Number:</strong> <span id="displayParentsPhone"></span>
       </div>
     </div>
     <p class="confirmation-text">Is this information correct?</p>
@@ -110,18 +115,18 @@
       <div class="field">
         <label for="editablePhone">Phone Number <span class="required">*</span></label>
         <input type="tel" id="editablePhone" required>
-        <small class="field-help">Your phone number (e.g., 0700123456)</small>
+        <small class="field-help">Your phone number (e.g., 0700123456). Use your own or any of your parents' / guardian's phone number if you don't have one.</small>
       </div>
       
       <div class="field">
-        <label for="editableParentsName">Parent's Name</label>
-        <input type="text" id="editableParentsName">
+        <label for="editableParentsName">Parent's Name<span class="required">*</span></label>
+        <input type="text" id="editableParentsName" required>
         <small class="field-help">Your Parent's  or guardian's name</small>
       </div>
       
       <div class="field">
-        <label for="editableParentsPhone">Parent's Phone</label>
-        <input type="tel" id="editableParentsPhone">
+        <label for="editableParentsPhone">Parent's Phone<span class="required">*</span></label>
+        <input type="tel" id="editableParentsPhone" required>
         <small class="field-help">Your Parent's  or guardian's phone number</small>
       </div>
     </div>
@@ -156,24 +161,26 @@
     <small class="field-help">Enter your school's full name (no abbreviations)</small>
   </div>
   <div class="field" id="classField">
-    <label for="class">Class</label>
-    <input type="text" id="class">
-    <small class="field-help">e.g., S1, S2, S3, etc.</small>
+    <label for="class">Class<span class="required">*</span></label>
+    <input type="text" id="class" required>
+    <small class="field-help">
+      e.g., S1 (Senior 1), Y2 (Year 2), G3 (Grade 3), etc.
+    </small>
   </div>
   <div class="field" id="residenceField">
-    <label for="residence">Residence</label>
-    <input type="text" id="residence">
+    <label for="residence">Residence<span class="required">*</span></label>
+    <input type="text" id="residence" required>
     <small class="field-help">Your place of residence</small>
   </div>
   <div class="field" id="cellField">
     <label for="cell">In Cell? <span class="required">*</span></label>
-    <div class="radio-group">
+    <div class="radio-group" aria-required="true">
       <label class="radio-option" style="display: inherit;">
-        <input type="radio" name="cell" value="1" id="cellYes">
+        <input type="radio" name="cell" value="1" id="cellYes" required>
         <span class="radio-label">Yes</span>
       </label>
       <label class="radio-option" style="display: inherit;">
-        <input type="radio" name="cell" value="0" id="cellNo">
+        <input type="radio" name="cell" value="0" id="cellNo" required>
         <span class="radio-label">No</span>
       </label>
     </div>

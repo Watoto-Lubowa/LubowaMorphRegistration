@@ -427,14 +427,47 @@ async function searchForRecord() {
         const searchPromise = async () => {
           // Search for records where phone number matches AND name starts with searchName
           const morphersCollection = collection(db, "morphers");
-          const searchQuery = query(
+          
+          // Search in MorphersNumber field with name filter
+          const query1 = query(
             morphersCollection,
             where("MorphersNumber", "==", normalizedPhone),
             where("Name", ">=", searchName),
             where("Name", "<=", searchName + '\uf8ff')
           );
-          const snapshot = await getDocs(searchQuery);
-          return snapshot;
+          
+          // Search in ParentsNumber field with name filter
+          const query2 = query(
+            morphersCollection,
+            where("ParentsNumber", "==", normalizedPhone),
+            where("Name", ">=", searchName),
+            where("Name", "<=", searchName + '\uf8ff')
+          );
+          
+          // Execute both queries in parallel
+          const [snapshot1, snapshot2] = await Promise.all([
+            getDocs(query1),
+            getDocs(query2)
+          ]);
+          
+          // Combine results (avoiding duplicates)
+          const combinedDocs = new Map();
+          
+          snapshot1.forEach(doc => {
+            combinedDocs.set(doc.id, doc);
+          });
+          
+          snapshot2.forEach(doc => {
+            combinedDocs.set(doc.id, doc);
+          });
+          
+          // Return combined results in a snapshot-like object
+          return {
+            size: combinedDocs.size,
+            forEach: (callback) => {
+              combinedDocs.forEach(callback);
+            }
+          };
         };
 
         // Create a timeout promise
@@ -477,15 +510,35 @@ async function searchForRecord() {
         console.log('🔄 Trying fallback search...');
         try {
           const morphersCollection = collection(db, "morphers");
-          const fallbackQuery = query(morphersCollection, where("MorphersNumber", "==", normalizedPhone));
-          const fallbackSnapshot = await getDocs(fallbackQuery);
           
-          console.log(`📊 Fallback query returned ${fallbackSnapshot.size} results`);
+          // Search in MorphersNumber field
+          const fallbackQuery1 = query(morphersCollection, where("MorphersNumber", "==", normalizedPhone));
+          // Search in ParentsNumber field  
+          const fallbackQuery2 = query(morphersCollection, where("ParentsNumber", "==", normalizedPhone));
+          
+          // Execute both queries in parallel
+          const [fallbackSnapshot1, fallbackSnapshot2] = await Promise.all([
+            getDocs(fallbackQuery1),
+            getDocs(fallbackQuery2)
+          ]);
+          
+          // Combine results (avoiding duplicates)
+          const combinedDocs = new Map();
+          
+          fallbackSnapshot1.forEach(doc => {
+            combinedDocs.set(doc.id, doc);
+          });
+          
+          fallbackSnapshot2.forEach(doc => {
+            combinedDocs.set(doc.id, doc);
+          });
+          
+          console.log(`📊 Fallback query returned ${combinedDocs.size} results`);
             
-          fallbackSnapshot.forEach(docSnapshot => {
+          combinedDocs.forEach(docSnapshot => {
             const data = docSnapshot.data();
             console.log('📄 Fallback found document:', data.Name);
-            if (data.Name && data.Name.toLowerCase().startsWith(searchName.toLowerCase())) {
+            if (data.Name && data.Name.toLowerCase().includes(searchName.toLowerCase())) {
               found = data;
               foundDoc = docSnapshot;
               existingDocId = docSnapshot.id;
@@ -598,7 +651,13 @@ function showConfirmationSection(found) {
     if (displayPhone && found.MorphersNumber) {
       displayPhone.innerText = "0" + found.MorphersNumber;
     }
-    
+
+    // Display parent's phone number with leading 0 for user readability
+    const displayParentsPhone = document.getElementById("displayParentsPhone");
+    if (displayParentsPhone && found.ParentsNumber) {
+      displayParentsPhone.innerText = "0" + found.ParentsNumber;
+    }
+
     // Update instructions
     const instructions = document.getElementById("instructions");
     if (instructions) {
