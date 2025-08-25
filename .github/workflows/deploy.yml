@@ -6,20 +6,16 @@ on:
   pull_request:
     branches: [ main, master ]
 
-# Sets permissions of the GITHUB_TOKEN to allow deployment to GitHub Pages
 permissions:
   contents: read
   pages: write
   id-token: write
 
-# Allow only one concurrent deployment, skipping runs queued between the run in-progress and latest queued.
-# However, do NOT cancel in-progress runs as we want to allow these production deployments to complete.
 concurrency:
   group: "pages"
   cancel-in-progress: false
 
 jobs:
-  # Build job
   build:
     runs-on: ubuntu-latest
     steps:
@@ -50,35 +46,25 @@ jobs:
           sed -i "s/AUTHORIZED_ADMIN_EMAILS_PLACEHOLDER/${{ secrets.AUTHORIZED_ADMIN_EMAILS }}/g" config.js
           sed -i "s/AUTHORIZED_PHONE_NUMBERS_PLACEHOLDER/${{ secrets.AUTHORIZED_PHONE_NUMBERS }}/g" config.js
 
-
       - name: Minify JavaScript files
         run: |
-          # Create minified directory
           mkdir -p minified
-          
-          # Minify JavaScript files with obfuscation
           terser scripts.js --compress --mangle --output minified/scripts.min.js
           terser admin.js --compress --mangle --output minified/admin.min.js
           terser config.js --compress --mangle --output minified/config.min.js
-          
-          # Replace original files with minified versions
           mv minified/scripts.min.js scripts.js
           mv minified/admin.min.js admin.js
           mv minified/config.min.js config.js
 
       - name: Minify CSS files
         run: |
-          # Minify CSS files
           cleancss styles.css --output styles.min.css
           cleancss admin-styles.css --output admin-styles.min.css
-          
-          # Replace original files with minified versions
           mv styles.min.css styles.css
           mv admin-styles.min.css admin-styles.css
 
       - name: Minify HTML files
         run: |
-          # Minify HTML files
           html-minifier-terser --input-dir . --output-dir . --file-ext html \
             --remove-comments \
             --remove-optional-tags \
@@ -93,6 +79,18 @@ jobs:
             --sort-attributes \
             --sort-class-name
 
+      - name: Generate file hashes for cache-busting
+        run: |
+          CSS_HASH=$(md5sum styles.css | cut -d ' ' -f1)
+          JS_HASH=$(md5sum scripts.js | cut -d ' ' -f1)
+          echo "CSS_HASH=$CSS_HASH" >> $GITHUB_ENV
+          echo "JS_HASH=$JS_HASH" >> $GITHUB_ENV
+
+      - name: Update HTML with cache-busted URLs
+        run: |
+          sed -i "s/styles.css/styles.css?v=$CSS_HASH/g" index.html
+          sed -i "s/scripts.js/scripts.js?v=$JS_HASH/g" index.html
+
       - name: Setup Pages
         uses: actions/configure-pages@v4
 
@@ -105,7 +103,6 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
 
-  # Deployment job
   deploy:
     environment:
       name: github-pages
