@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Admin Panel - Lubowa Morph Registration</title>
+<link rel="stylesheet" href="styles.css">
+<link rel="stylesheet" href="admin-styles.css">
+</head>
+<body>
+
+<!-- Toast Container -->
+<div id="toast-container" class="toast-container"></div>
+
+<div class="admin-container">
+  <div class="admin-header">
+    <h1>🔐 Admin Panel</h1>
+    <p class="admin-subtitle">Lubowa Morph Registration System</p>
+  </div>
+
+  <!-- Authentication Section -->
+  <div id="authSection" class="auth-section">
+    <div class="auth-card">
+      <div class="auth-icon">📧</div>
+      <h2>Email Authentication Required</h2>
+      <p class="auth-description">Enter your authorized admin email to receive a sign-in link</p>
+      
+      <div class="field">
+        <label for="adminEmail">Admin Email Address</label>
+        <input type="email" id="adminEmail" placeholder="admin@example.com" required>
+        <small class="field-help">Enter your authorized admin email address</small>
+      </div>
+      
+      <div class="button-container">
+        <button id="sendLinkBtn" onclick="sendSignInLink()">
+          <span class="btn-text">📨 Send Sign-In Link</span>
+          <span class="btn-loading" style="display: none;">Sending...</span>
+        </button>
+      </div>
+      
+      <div class="auth-status" id="authStatus"></div>
+    </div>
+  </div>
+
+  <!-- Admin Dashboard (Hidden until authenticated) -->
+  <div id="adminDashboard" class="admin-dashboard hidden">
+    <div class="dashboard-header">
+      <div class="admin-info">
+        <div class="admin-avatar">👤</div>
+        <div class="admin-details">
+          <h3 id="adminEmailDisplay">Admin User</h3>
+          <p>Authenticated Admin</p>
+        </div>
+      </div>
+      <button id="signOutBtn" onclick="signOutAdmin()" class="sign-out-btn">
+        🚪 Sign Out
+      </button>
+    </div>
+
+    <div class="dashboard-content">
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-icon">👥</div>
+          <div class="stat-info">
+            <h3 id="totalRecords">Loading...</h3>
+            <p>Total Morphers</p>
+          </div>
+        </div>
+        
+        <div class="stat-card">
+          <div class="stat-icon">📅</div>
+          <div class="stat-info">
+            <h3 id="recentAttendance">Loading...</h3>
+            <p>Recent Attendance</p>
+          </div>
+        </div>
+        
+        <div class="stat-card">
+          <div class="stat-icon">🏫</div>
+          <div class="stat-info">
+            <h3 id="uniqueSchools">Loading...</h3>
+            <p>Schools Represented</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="actions-grid">
+        <div class="action-card">
+          <div class="action-icon">📥</div>
+          <h3>Download Data</h3>
+          <p>Export all morpher records to CSV format</p>
+          <button onclick="downloadAll()" class="action-btn">
+            <span class="btn-text">Download CSV</span>
+            <span class="btn-loading" style="display: none;">Downloading...</span>
+          </button>
+        </div>
+
+        <div class="action-card">
+          <div class="action-icon">📤</div>
+          <h3>Upload Data</h3>
+          <p>Import morphers records from CSV file</p>
+          <label for="csvFileInput" class="action-btn file-upload-btn">
+            <span class="btn-text">Upload CSV</span>
+            <input type="file" id="csvFileInput" accept=".csv" style="display: none;" onchange="handleCSVFileInput(event)">
+          </label>
+        </div>
+
+        <div class="action-card">
+          <div class="action-icon">🧪</div>
+          <h3>Sample Data</h3>
+          <p>Load sample morpher data for testing</p>
+          <button onclick="loadSampleData()" class="action-btn secondary">
+            Load Sample Data
+          </button>
+        </div>
+
+        <div class="action-card">
+          <div class="action-icon">🧹</div>
+          <h3>Clear All Data</h3>
+          <p class="danger-text">Permanently delete all records</p>
+          <button onclick="clearAllData()" class="action-btn danger">
+            Clear All Data
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Firebase Scripts -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/libphonenumber-js/1.10.44/libphonenumber-js.min.js"></script>
+<script src="config.js"></script>
+<script src="admin.js"></script>
+</body>
+</html>
