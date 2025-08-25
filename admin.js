@@ -110,14 +110,12 @@ const firebaseConfig = window.APP_CONFIG ? window.APP_CONFIG.firebase : {};
   const { signInWithEmailAndPassword, sendPasswordResetEmail, signOut, onAuthStateChanged } = window.firebaseAuth;
 
   // Authorized admin email addresses
-  const AUTHORIZED_ADMIN_EMAILS = [
-    'admin@lubowamorphregistration.com',
-    'jeromessenyonjo@gmail.com', // Replace with actual admin emails
-    'pastor@lubowamorphregistration.com', // Add more admin emails as needed
-  ];
+  const AUTHORIZED_ADMIN_EMAILS = window.APP_CONFIG ? window.APP_CONFIG.authorizedAdminEmails : [];
 
   // Authentication state
   let currentUser = null;
+
+  console.log('🔐 Admin panel initialized for project:', firebaseConfig.projectId);
 
 // Check authentication state
 onAuthStateChanged(auth, async (user) => {
@@ -166,7 +164,6 @@ async function signInWithPassword() {
   }
   
   // Check if email is authorized
-  console.log('Authorized emails:', AUTHORIZED_ADMIN_EMAILS);
   if (!AUTHORIZED_ADMIN_EMAILS.includes(email)) {
     showToast('This email address is not authorized for admin access', 'error');
     return;
