@@ -164,6 +164,7 @@ async function signInWithPassword() {
   }
   
   // Check if email is authorized
+  console.log("Authorized emails:", AUTHORIZED_ADMIN_EMAILS);
   if (!AUTHORIZED_ADMIN_EMAILS.includes(email)) {
     showToast('This email address is not authorized for admin access', 'error');
     return;
