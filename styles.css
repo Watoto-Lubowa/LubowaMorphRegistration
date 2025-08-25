@@ -941,7 +941,7 @@ button:not(:first-of-type):active:not(:disabled) {
     padding: 20px 16px;
     width: 100%;
     max-width: calc(100vw - 16px);
-    margin: 0;
+    margin: auto;
     border-radius: 12px;
     min-height: auto;
   }

@@ -290,7 +290,7 @@ function setupEventListeners() {
   
   // Set initial placeholders and state
   if (nameInput) nameInput.placeholder = "Enter your first name only";
-  if (phoneInput) phoneInput.placeholder = "Enter your phone number (e.g., 0700123456)";
+  if (phoneInput) phoneInput.placeholder = "(e.g., 0700123456)";
   if (saveBtn) saveBtn.disabled = true;
   
   // Initialize global attendance variable
