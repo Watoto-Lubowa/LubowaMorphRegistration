@@ -629,6 +629,9 @@ function showNewRecordSection() {
   existingDocId = null;
   foundRecord = null;
   
+  // Hide the identity section (first name and phone fields)
+  document.getElementById("identitySection").classList.add("hidden");
+  
   // Hide no record section, show completion section directly for new records
   document.getElementById("noRecordSection").classList.add("hidden");
   showCompletionSection(true);
@@ -849,6 +852,9 @@ function confirmIdentity() {
   document.getElementById("recordMessage").innerText = "✅ Identity confirmed! Complete the missing fields below.";
   document.getElementById("recordMessage").className = "confirmed";
   
+  // Hide the identity section (first name and phone fields)
+  document.getElementById("identitySection").classList.add("hidden");
+  
   // Show completion section
   showCompletionSection(false);
 }
@@ -899,6 +905,9 @@ function enableIdentitySection() {
   phoneInput.disabled = false;
   nameInput.style.opacity = "1";
   phoneInput.style.opacity = "1";
+  
+  // Show the identity section
+  document.getElementById("identitySection").classList.remove("hidden");
 }
 
 function resetToStep1() {

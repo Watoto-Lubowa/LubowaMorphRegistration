@@ -106,7 +106,7 @@ const firebaseConfig = window.APP_CONFIG ? window.APP_CONFIG.firebase : {};
   const auth = window.firebaseAuth.getAuth(app);
 
   // Firebase functions for easy access
-  const { collection, getDocs, query, where, getCountFromServer, Timestamp, writeBatch } = window.firebaseFirestore;
+  const { collection, getDocs, query, where, getCountFromServer, Timestamp, writeBatch, limit } = window.firebaseFirestore;
   const { signInWithEmailAndPassword, sendPasswordResetEmail, signOut, onAuthStateChanged } = window.firebaseAuth;
 
   // Authorized admin email addresses
@@ -694,17 +694,250 @@ async function downloadAll() {
   }
 }
 
-// Upload CSV function (you may need to implement the full uploadCSV function from main scripts.js)
-function handleCSVFileInput(event) {
-  const file = event.target.files[0];
-  if (file) {
-    if (!currentUser || !AUTHORIZED_ADMIN_EMAILS.includes(currentUser.email)) {
-      showToast("Admin authentication required to upload CSV", "error");
+// Upload CSV function (copied from main scripts.js)
+async function uploadCSV(file) {
+  if (!currentUser || !AUTHORIZED_ADMIN_EMAILS.includes(currentUser.email)) {
+    showToast("Admin authentication required to upload CSV", "error");
+    return;
+  }
+  
+  if (!file) return showToast("Please select a file", "warning");
+  
+  if (!file.name.toLowerCase().endsWith('.csv')) {
+    return showToast("Please select a CSV file", "warning");
+  }
+  
+  try {
+    const text = await file.text();
+    const lines = text.split('\n').map(line => line.trim()).filter(line => line);
+    
+    if (lines.length < 2) {
+      return showToast("CSV file must have headers and at least one data row", "warning");
+    }
+    
+    // Parse CSV headers
+    const headers = lines[0].split(',').map(h => h.trim());
+    const dataRows = lines.slice(1);
+    
+    // Convert CSV rows to JSON objects
+    const records = dataRows.map(row => {
+      const values = parseCSVRow(row);
+      const record = {};
+      
+      headers.forEach((header, index) => {
+        const value = values[index] ? values[index].trim() : '';
+        
+        if (header.startsWith('attendance_')) {
+          // Handle attendance columns
+          if (!record.attendance) record.attendance = {};
+          const dateKey = header.replace('attendance_', '');
+          if (value && value !== '' && value !== '-') {
+            record.attendance[dateKey] = value;
+          }
+        } else {
+          // Handle regular fields
+          switch(header) {
+            case 'Name':
+              record.Name = value;
+              break;
+            case 'MorphersNumber':
+              record.MorphersNumber = value && value !== '-' ? normalizePhoneNumber(value) : '';
+              break;
+            case 'ParentsName':
+              record.ParentsName = value;
+              break;
+            case 'ParentsNumber':
+              record.ParentsNumber = value && value !== '-' ? normalizePhoneNumber(value) : '';
+              break;
+            case 'School':
+              record.School = value;
+              break;
+            case 'Class':
+              record.Class = value;
+              break;
+            case 'Residence':
+              record.Residence = value;
+              break;
+            case 'Cell':
+              record.Cell = value;
+              break;
+            case 'createdAt':
+              if (value && value !== '') {
+                record.createdAt = Timestamp.fromDate(new Date(value));
+              }
+              break;
+            case 'lastUpdated':
+              if (value && value !== '') {
+                record.lastUpdated = Timestamp.fromDate(new Date(value));
+              }
+              break;
+            default:
+              // Handle any other fields
+              record[header] = value;
+              break;
+          }
+        }
+      });
+      
+      // Ensure required timestamps exist
+      if (!record.lastUpdated) {
+        record.lastUpdated = Timestamp.now();
+      }
+      if (!record.createdAt) {
+        record.createdAt = Timestamp.now();
+      }
+      
+      // Ensure attendance object exists
+      if (!record.attendance) {
+        record.attendance = {};
+      }
+      
+      return record;
+    }).filter(record => record.Name && record.Name.trim() !== ''); // Only include records with names
+    
+    if (records.length === 0) {
+      return showToast("No valid records found in CSV", "warning");
+    }
+    
+    // Confirm before proceeding
+    const confirmMessage = `This will delete all existing ${await getRecordCount()} records and upload ${records.length} new records. Are you sure?`;
+    if (!confirm(confirmMessage)) {
       return;
     }
-    showToast('CSV upload functionality would be implemented here', 'info');
-    // You can copy the full uploadCSV function from your main scripts.js here
+    
+    showToast("Deleting existing data and uploading new records...", "info");
+    
+    // Delete all existing records
+    await deleteAllRecords();
+    
+    // Upload new records in batches
+    await uploadRecordsInBatches(records);
+    
+    showToast(`Successfully uploaded ${records.length} records!`, "success");
+    
+    // Refresh dashboard stats
+    await loadDashboardStats();
+    
+  } catch (error) {
+    console.error("CSV upload error:", error);
+    showToast("Error processing CSV file. Please check the format and try again.", "error");
   }
+}
+
+// Helper function to parse CSV row with proper quote handling
+function parseCSVRow(row) {
+  const result = [];
+  let current = '';
+  let inQuotes = false;
+  
+  for (let i = 0; i < row.length; i++) {
+    const char = row[i];
+    
+    if (char === '"') {
+      if (inQuotes && row[i + 1] === '"') {
+        // Escaped quote
+        current += '"';
+        i++; // Skip next quote
+      } else {
+        // Toggle quote state
+        inQuotes = !inQuotes;
+      }
+    } else if (char === ',' && !inQuotes) {
+      // End of field
+      result.push(current);
+      current = '';
+    } else {
+      current += char;
+    }
+  }
+  
+  // Add the last field
+  result.push(current);
+  
+  return result;
+}
+
+// Helper function to get current record count
+async function getRecordCount() {
+  try {
+    const morphersCollection = collection(db, "morphers");
+    const countSnapshot = await getCountFromServer(morphersCollection);
+    return countSnapshot.data().count;
+  } catch (error) {
+    console.error("Error getting record count:", error);
+    return 0;
+  }
+}
+
+// Helper function to delete all existing records
+async function deleteAllRecords() {
+  const morphersCollection = collection(db, "morphers");
+  
+  while (true) {
+    const snapshot = await getDocs(query(morphersCollection, limit(500)));
+    
+    if (snapshot.empty) {
+      break;
+    }
+    
+    const batch = writeBatch(db);
+    snapshot.docs.forEach((docSnapshot) => {
+      batch.delete(docSnapshot.ref);
+    });
+    
+    await batch.commit();
+  }
+}
+
+// Helper function to upload records in batches
+async function uploadRecordsInBatches(records) {
+  const batchSize = 500;
+  const { setDoc, doc } = window.firebaseFirestore;
+  
+  for (let i = 0; i < records.length; i += batchSize) {
+    const batch = writeBatch(db);
+    const batchRecords = records.slice(i, i + batchSize);
+    
+    batchRecords.forEach(record => {
+      const docRef = doc(db, "morphers", record.MorphersNumber || doc(db, "morphers").id);
+      batch.set(docRef, record);
+    });
+    
+    await batch.commit();
+    
+    // Show progress for large uploads
+    if (records.length > batchSize) {
+      const progress = Math.min(i + batchSize, records.length);
+      showToast(`Uploaded ${progress} of ${records.length} records...`, "info", 1000);
+    }
+  }
+}
+
+// Normalize phone number for storage and searching
+function normalizePhoneNumber(phoneNumber) {
+  if (!phoneNumber || typeof phoneNumber !== 'string') {
+    return '';
+  }
+  
+  // Remove all non-digit characters
+  let cleaned = phoneNumber.replace(/\D/g, '');
+  
+  // Handle Ugandan numbers
+  if (cleaned.startsWith('256')) {
+    // Remove country code for Uganda
+    cleaned = cleaned.substring(3);
+  } else if (cleaned.startsWith('0')) {
+    // Remove leading 0
+    cleaned = cleaned.substring(1);
+  }
+  
+  // Ensure it's a valid length (9 digits for Uganda mobile)
+  if (cleaned.length === 9) {
+    return cleaned;
+  }
+  
+  // Return original if we can't normalize it properly
+  return phoneNumber;
 }
 
 // Load sample data function (copy from main scripts.js if needed)
@@ -768,6 +1001,14 @@ document.addEventListener('DOMContentLoaded', function() {
     emailInput.focus();
   }
 });
+
+// Handle CSV file input
+function handleCSVFileInput(event) {
+  const file = event.target.files[0];
+  if (file) {
+    uploadCSV(file);
+  }
+}
 
 // Make functions globally accessible
 window.signInWithPassword = signInWithPassword;
