@@ -317,6 +317,10 @@ function showAdminDashboard() {
   }
 }
 
+// Chart variables
+let residentialChart = null;
+let attendanceChart = null;
+
 // Load dashboard statistics
 async function loadDashboardStats() {
   try {
@@ -326,42 +330,253 @@ async function loadDashboardStats() {
     // Total records
     document.getElementById('totalRecords').textContent = docs.length;
     
-    // Recent attendance (last 7 days)
-    const oneWeekAgo = new Date();
-    oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+    // Initialize date picker with today's date
+    const datePicker = document.getElementById('attendanceDatePicker');
+    const today = new Date().toISOString().split('T')[0];
+    datePicker.value = today;
     
-    let recentAttendanceCount = 0;
-    const schools = new Set();
+    // Update service attendance for today initially
+    updateServiceAttendance(docs, today);
     
-    docs.forEach(doc => {
-      const data = doc.data();
-      
-      // Count schools
-      if (data.School) {
-        schools.add(data.School);
-      }
-      
-      // Count recent attendance
-      if (data.attendance && typeof data.attendance === 'object') {
-        Object.keys(data.attendance).forEach(dateKey => {
-          const [day, month, year] = dateKey.split('_');
-          const attendanceDate = new Date(year, month - 1, day);
-          if (attendanceDate >= oneWeekAgo) {
-            recentAttendanceCount++;
-          }
-        });
-      }
+    // Create residential areas chart
+    createResidentialChart(docs);
+    
+    // Create attendance by date chart
+    createServiceDistributionChart(docs, today);
+    
+    // Add date picker event listener for service distribution chart
+    const serviceDistributionPicker = document.getElementById('serviceDistributionDatePicker');
+    serviceDistributionPicker.value = today;
+    serviceDistributionPicker.addEventListener('change', (e) => {
+      createServiceDistributionChart(docs, e.target.value);
     });
     
-    document.getElementById('recentAttendance').textContent = recentAttendanceCount;
-    document.getElementById('uniqueSchools').textContent = schools.size;
+    // Add date picker event listener
+    datePicker.addEventListener('change', (e) => {
+      updateServiceAttendance(docs, e.target.value);
+    });
     
   } catch (error) {
     console.error('Error loading dashboard stats:', error);
     document.getElementById('totalRecords').textContent = 'Error';
-    document.getElementById('recentAttendance').textContent = 'Error';
-    document.getElementById('uniqueSchools').textContent = 'Error';
+    document.getElementById('serviceAttendance').textContent = 'Error';
   }
+}
+
+// Update service attendance based on selected date
+function updateServiceAttendance(docs, selectedDate) {
+  const [year, month, day] = selectedDate.split('-');
+  const dateKey = `${day}_${month}_${year}`;
+  
+  let attendanceCount = 0;
+  docs.forEach(doc => {
+    const data = doc.data();
+    if (data.attendance && data.attendance[dateKey]) {
+      attendanceCount++;
+    }
+  });
+  
+  document.getElementById('serviceAttendance').textContent = attendanceCount;
+}
+
+// Create residential areas pie chart
+function createResidentialChart(docs) {
+  const residentialAreas = {};
+  
+  docs.forEach(doc => {
+    const data = doc.data();
+    if (data.ResidentialArea) {
+      // Convert to lowercase and trim
+      const area = data.ResidentialArea.toLowerCase().trim();
+      residentialAreas[area] = (residentialAreas[area] || 0) + 1;
+    }
+  });
+  
+  const ctx = document.getElementById('residentialChart').getContext('2d');
+  
+  // Destroy existing chart if it exists
+  if (residentialChart) {
+    residentialChart.destroy();
+  }
+  
+  const labels = Object.keys(residentialAreas);
+  const data = Object.values(residentialAreas);
+  
+  residentialChart = new Chart(ctx, {
+    type: 'pie',
+    data: {
+      labels: labels,
+      datasets: [{
+        data: data,
+        backgroundColor: [
+          '#FF6384',
+          '#36A2EB',
+          '#FFCE56',
+          '#4BC0C0',
+          '#9966FF',
+          '#FF9F40',
+          '#FF6B9D',
+          '#45B7D1',
+          '#96CEB4',
+          '#FECA57',
+          '#FF6B6B',
+          '#4ECDC4',
+          '#45B7D1',
+          '#FFA07A',
+          '#98D8C8'
+        ],
+        borderWidth: 2,
+        borderColor: '#ffffff'
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: {
+          position: 'bottom',
+          labels: {
+            padding: 20,
+            usePointStyle: true,
+            font: {
+              size: 12
+            }
+          }
+        },
+        tooltip: {
+          callbacks: {
+            label: function(context) {
+              const label = context.label || '';
+              const value = context.parsed;
+              const total = context.dataset.data.reduce((a, b) => a + b, 0);
+              const percentage = ((value / total) * 100).toFixed(1);
+              return `${label}: ${value} (${percentage}%)`;
+            }
+          }
+        }
+      }
+    }
+  });
+}
+
+// Create service distribution chart for a specific date
+function createServiceDistributionChart(docs, selectedDate) {
+  const [year, month, day] = selectedDate.split('-');
+  const dateKey = `${day}_${month}_${year}`;
+  
+  const serviceDistribution = {};
+  
+  docs.forEach(doc => {
+    const data = doc.data();
+    if (data.attendance && data.attendance[dateKey]) {
+      const service = data.attendance[dateKey];
+      const serviceName = getServiceName(service);
+      serviceDistribution[serviceName] = (serviceDistribution[serviceName] || 0) + 1;
+    }
+  });
+  
+  const ctx = document.getElementById('attendanceChart').getContext('2d');
+  
+  // Destroy existing chart if it exists
+  if (attendanceChart) {
+    attendanceChart.destroy();
+  }
+  
+  const labels = Object.keys(serviceDistribution);
+  const data = Object.values(serviceDistribution);
+  
+  // If no data for the selected date, show empty chart
+  if (labels.length === 0) {
+    labels.push('No Attendance Data');
+    data.push(0);
+  }
+  
+  attendanceChart = new Chart(ctx, {
+    type: 'pie',
+    data: {
+      labels: labels,
+      datasets: [{
+        data: data,
+        backgroundColor: [
+          '#667eea',  // First Service
+          '#764ba2',  // Second Service  
+          '#f093fb',  // Third Service
+          '#f5576c',  // Fourth Service (if needed)
+          '#4facfe',  // Fifth Service (if needed)
+          '#00f2fe',  // Additional services
+          '#43e97b',
+          '#38f9d7'
+        ],
+        borderWidth: 2,
+        borderColor: '#ffffff'
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: {
+          position: 'bottom',
+          labels: {
+            padding: 20,
+            usePointStyle: true,
+            font: {
+              size: 12
+            }
+          }
+        },
+        tooltip: {
+          callbacks: {
+            label: function(context) {
+              const label = context.label || '';
+              const value = context.parsed;
+              if (value === 0) {
+                return 'No attendance recorded for this date';
+              }
+              const total = context.dataset.data.reduce((a, b) => a + b, 0);
+              const percentage = ((value / total) * 100).toFixed(1);
+              return `${label}: ${value} attendees (${percentage}%)`;
+            }
+          }
+        },
+        title: {
+          display: true,
+          text: `Service Distribution - ${formatDate(selectedDate)}`,
+          font: {
+            size: 14
+          },
+          padding: {
+            bottom: 20
+          }
+        }
+      }
+    }
+  });
+}
+
+// Helper function to get service name from service number
+function getServiceName(serviceNumber) {
+  const serviceNames = {
+    '1': 'First Service',
+    '2': 'Second Service', 
+    '3': 'Third Service',
+    '4': 'Fourth Service',
+    '5': 'Fifth Service'
+  };
+  
+  return serviceNames[serviceNumber] || `Service ${serviceNumber}`;
+}
+
+// Helper function to format date for display
+function formatDate(dateString) {
+  const [year, month, day] = dateString.split('-');
+  const date = new Date(year, month - 1, day);
+  return date.toLocaleDateString('en-US', {
+    weekday: 'long',
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric'
+  });
 }
 
 // Download CSV function (copied from main scripts.js)

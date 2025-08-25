@@ -14,16 +14,18 @@
 .admin-header h1 {
   margin: 0;
   font-size: 2.5em;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, #333 0%, #666 50%, #999 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
+  font-weight: 700;
 }
 
 .admin-subtitle {
-  color: #666;
+  color: #555;
   margin: 10px 0 0 0;
   font-size: 1.1em;
+  font-weight: 500;
 }
 
 /* Authentication Section */
@@ -194,6 +196,76 @@
   margin: 5px 0 0 0;
   color: #666;
   font-size: 0.9em;
+}
+
+/* Date Picker */
+.date-picker-container {
+  margin-top: 15px;
+}
+
+.date-picker {
+  padding: 8px 12px;
+  border: 2px solid #e1e5e9;
+  border-radius: 8px;
+  font-size: 0.9em;
+  background: white;
+  color: #333;
+  width: 100%;
+  max-width: 200px;
+}
+
+.date-picker:focus {
+  outline: none;
+  border-color: #667eea;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.date-label {
+  display: block;
+  margin-top: 8px;
+  font-size: 0.8em;
+  color: #666;
+  text-align: center;
+}
+
+/* Charts Grid */
+.charts-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+  gap: 30px;
+  margin-bottom: 40px;
+}
+
+.chart-card {
+  background: white;
+  border-radius: 15px;
+  padding: 30px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+  border: 1px solid #f0f0f0;
+  transition: all 0.3s ease;
+}
+
+.chart-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
+}
+
+.chart-card h3 {
+  margin: 0 0 20px 0;
+  color: #333;
+  font-size: 1.3em;
+  text-align: center;
+}
+
+.chart-container {
+  position: relative;
+  height: 300px;
+  width: 100%;
+}
+
+.chart-container canvas {
+  max-height: 100%;
+  max-width: 100%;
 }
 
 /* Actions Grid */
@@ -434,6 +506,14 @@
   
   .stats-grid {
     grid-template-columns: 1fr;
+  }
+  
+  .charts-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .chart-container {
+    height: 250px;
   }
   
   .actions-grid {

@@ -70,16 +70,32 @@
         <div class="stat-card">
           <div class="stat-icon">📅</div>
           <div class="stat-info">
-            <h3 id="recentAttendance">Loading...</h3>
-            <p>Recent Attendance</p>
+            <h3 id="serviceAttendance">Loading...</h3>
+            <p>Total Service Attendance</p>
+          </div>
+          <div class="date-picker-container">
+            <input type="date" id="attendanceDatePicker" class="date-picker">
+          </div>
+        </div>
+      </div>
+
+      <!-- Charts Section -->
+      <div class="charts-grid">
+        <div class="chart-card">
+          <h3>Residential Areas Distribution</h3>
+          <div class="chart-container">
+            <canvas id="residentialChart"></canvas>
           </div>
         </div>
         
-        <div class="stat-card">
-          <div class="stat-icon">🏫</div>
-          <div class="stat-info">
-            <h3 id="uniqueSchools">Loading...</h3>
-            <p>Schools Represented</p>
+        <div class="chart-card">
+          <h3>Service Distribution</h3>
+          <div class="date-picker-container">
+            <input type="date" id="serviceDistributionDatePicker" class="date-picker">
+            <label for="serviceDistributionDatePicker" class="date-label">Select Service Date</label>
+          </div>
+          <div class="chart-container">
+            <canvas id="attendanceChart"></canvas>
           </div>
         </div>
       </div>
@@ -106,15 +122,6 @@
         </div>
 
         <div class="action-card">
-          <div class="action-icon">🧪</div>
-          <h3>Sample Data</h3>
-          <p>Load sample morpher data for testing</p>
-          <button onclick="loadSampleData()" class="action-btn secondary">
-            Load Sample Data
-          </button>
-        </div>
-
-        <div class="action-card">
           <div class="action-icon">🧹</div>
           <h3>Clear All Data</h3>
           <p class="danger-text">Permanently delete all records</p>
@@ -132,6 +139,7 @@
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/libphonenumber-js/1.10.44/libphonenumber-js.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script src="config.js"></script>
 <script src="admin.js"></script>
 </body>
