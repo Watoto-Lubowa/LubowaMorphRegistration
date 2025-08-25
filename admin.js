@@ -94,33 +94,33 @@ function removeToast(toast) {
   }
 }
 
-// 1️⃣ Initialize Firebase
-const firebaseConfig = window.APP_CONFIG ? window.APP_CONFIG.firebase : {
-  apiKey: "AIzaSyBB533JOkvbcF8zvyClb2noCZifQjUbJ2k",
-  authDomain: "lubowamorphregistration.firebaseapp.com",
-  projectId: "lubowamorphregistration",
-  storageBucket: "lubowamorphregistration.firebasestorage.app",
-  messagingSenderId: "1011234595387",
-  appId: "1:1011234595387:web:96c8b7e129f8cf2173321e",
-  measurementId: "G-07PTV3DXG4"
-};
+// Wait for Firebase to be ready before initializing
+function initializeAdmin() {
+  // 1️⃣ Initialize Firebase v9+ Modular SDK
+const firebaseConfig = window.APP_CONFIG ? window.APP_CONFIG.firebase : {};
 
-firebase.initializeApp(firebaseConfig);
-const db = firebase.firestore();
-const auth = firebase.auth();
 
-// Authorized admin email addresses
-const AUTHORIZED_ADMIN_EMAILS = window.APP_CONFIG ? window.APP_CONFIG.authorizedAdminEmails : [
-  'admin@lubowamorphregistration.com',
-  'jeromessenyonjo@gmail.com', // Replace with actual admin emails
-  'pastor@lubowamorphregistration.com', // Add more admin emails as needed
-];
+  // Initialize Firebase app
+  const app = window.firebaseApp.initializeApp(firebaseConfig);
+  const db = window.firebaseFirestore.getFirestore(app);
+  const auth = window.firebaseAuth.getAuth(app);
 
-// Authentication state
-let currentUser = null;
+  // Firebase functions for easy access
+  const { collection, getDocs, query, where, getCountFromServer, Timestamp, writeBatch } = window.firebaseFirestore;
+  const { signInWithEmailAndPassword, sendPasswordResetEmail, signOut, onAuthStateChanged } = window.firebaseAuth;
+
+  // Authorized admin email addresses
+  const AUTHORIZED_ADMIN_EMAILS = [
+    'admin@lubowamorphregistration.com',
+    'jeromessenyonjo@gmail.com', // Replace with actual admin emails
+    'pastor@lubowamorphregistration.com', // Add more admin emails as needed
+  ];
+
+  // Authentication state
+  let currentUser = null;
 
 // Check authentication state
-auth.onAuthStateChanged(async (user) => {
+onAuthStateChanged(auth, async (user) => {
   if (user) {
     currentUser = user;
     if (AUTHORIZED_ADMIN_EMAILS.includes(user.email)) {
@@ -129,30 +129,111 @@ auth.onAuthStateChanged(async (user) => {
       showToast(`Welcome back, ${user.email}`, 'success');
     } else {
       // Unauthorized user
-      await auth.signOut();
+      await signOut(auth);
       showToast('This email is not authorized for admin access', 'error');
       showAuthSection();
     }
   } else {
     currentUser = null;
     showAuthSection();
-    
-    // Check if we're returning from email link
-    if (auth.isSignInWithEmailLink(window.location.href)) {
-      handleEmailLinkSignIn();
-    }
   }
 });
 
-// Send sign-in link to email
-async function sendSignInLink() {
+// Sign in with email and password
+async function signInWithPassword() {
   const emailInput = document.getElementById('adminEmail');
+  const passwordInput = document.getElementById('adminPassword');
   const email = emailInput.value.trim();
-  const sendBtn = document.getElementById('sendLinkBtn');
+  const password = passwordInput.value;
+  const signInBtn = document.getElementById('signInBtn');
   const authStatus = document.getElementById('authStatus');
   
   if (!email) {
     showToast('Please enter your email address', 'warning');
+    return;
+  }
+  
+  // Validate email format
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(email)) {
+    showToast('Please enter a valid email address', 'warning');
+    return;
+  }
+  
+  if (!password) {
+    showToast('Please enter your password', 'warning');
+    return;
+  }
+  
+  // Check if email is authorized
+  console.log('Authorized emails:', AUTHORIZED_ADMIN_EMAILS);
+  if (!AUTHORIZED_ADMIN_EMAILS.includes(email)) {
+    showToast('This email address is not authorized for admin access', 'error');
+    return;
+  }
+  
+  // Show loading state
+  signInBtn.classList.add('loading');
+  signInBtn.disabled = true;
+  authStatus.innerHTML = '';
+  
+  try {
+    await signInWithEmailAndPassword(auth, email, password);
+    
+    authStatus.className = 'auth-status success';
+    authStatus.innerHTML = `
+      <strong>✅ Sign-in successful!</strong><br>
+      Welcome to the admin dashboard.
+    `;
+    
+    showToast('Sign-in successful!', 'success');
+    
+  } catch (error) {
+    console.error('Error signing in:', error);
+    
+    let errorMessage = 'Failed to sign in. ';
+    switch(error.code) {
+      case 'auth/invalid-email':
+        errorMessage += 'Invalid email address format.';
+        break;
+      case 'auth/user-disabled':
+        errorMessage += 'This user account has been disabled.';
+        break;
+      case 'auth/user-not-found':
+        errorMessage += 'No user found with this email address.';
+        break;
+      case 'auth/wrong-password':
+        errorMessage += 'Incorrect password.';
+        break;
+      case 'auth/too-many-requests':
+        errorMessage += 'Too many failed attempts. Please try again later.';
+        break;
+      case 'auth/network-request-failed':
+        errorMessage += 'Network error. Please check your connection.';
+        break;
+      default:
+        errorMessage += 'Please check your credentials and try again.';
+    }
+    
+    authStatus.className = 'auth-status error';
+    authStatus.textContent = errorMessage;
+    showToast(errorMessage, 'error');
+    
+  } finally {
+    // Reset loading state
+    signInBtn.classList.remove('loading');
+    signInBtn.disabled = false;
+  }
+}
+
+// Reset password function
+async function resetPassword() {
+  const emailInput = document.getElementById('adminEmail');
+  const email = emailInput.value.trim();
+  const authStatus = document.getElementById('authStatus');
+  
+  if (!email) {
+    showToast('Please enter your email address first', 'warning');
     return;
   }
   
@@ -169,128 +250,78 @@ async function sendSignInLink() {
     return;
   }
   
-  // Show loading state
-  sendBtn.classList.add('loading');
-  sendBtn.disabled = true;
-  authStatus.innerHTML = '';
-  
   try {
-    // Create a clean continue URL
-    const continueUrl = `${window.location.protocol}//${window.location.host}${window.location.pathname}`;
-    
-    // Updated action code settings with cleaner URL
-    const emailActionCodeSettings = {
-      url: continueUrl,
-      handleCodeInApp: true,
-    };
-    
-    console.log('Sending email link with URL:', continueUrl); // Debug log
-    
-    await auth.sendSignInLinkToEmail(email, emailActionCodeSettings);
-    
-    // Save the email locally so we can confirm it when the user clicks the link
-    window.localStorage.setItem('emailForSignIn', email);
+    await sendPasswordResetEmail(auth, email);
     
     authStatus.className = 'auth-status success';
     authStatus.innerHTML = `
-      <strong>📧 Sign-in link sent!</strong><br>
-      Check your email inbox for a sign-in link from Firebase.<br>
-      <small>The link will expire in 1 hour.</small>
+      <strong>📧 Password reset email sent!</strong><br>
+      Check your email for instructions to reset your password.
     `;
     
-    showToast('Sign-in link sent to your email!', 'success');
+    showToast('Password reset email sent!', 'success');
     
   } catch (error) {
-    console.error('Error sending email link:', error);
+    console.error('Error sending password reset email:', error);
     
-    let errorMessage = 'Failed to send sign-in link. ';
+    let errorMessage = 'Failed to send password reset email. ';
     switch(error.code) {
       case 'auth/invalid-email':
         errorMessage += 'Invalid email address format.';
+        break;
+      case 'auth/user-not-found':
+        errorMessage += 'No user found with this email address.';
         break;
       case 'auth/too-many-requests':
         errorMessage += 'Too many requests. Please try again later.';
         break;
       default:
-        errorMessage += 'Please check your email and try again.';
+        errorMessage += 'Please try again later.';
     }
     
     authStatus.className = 'auth-status error';
     authStatus.textContent = errorMessage;
     showToast(errorMessage, 'error');
-    
-  } finally {
-    sendBtn.classList.remove('loading');
-    sendBtn.disabled = false;
   }
 }
-
-// Handle email link sign-in
-async function handleEmailLinkSignIn() {
-  const authStatus = document.getElementById('authStatus');
-  
-  try {
-    // Get the email from local storage
-    let email = window.localStorage.getItem('emailForSignIn');
-    
-    if (!email) {
-      // User opened the link on a different device or browser
-      email = window.prompt('Please provide your email for confirmation');
-    }
-    
-    if (!email) {
-      throw new Error('Email is required for authentication');
-    }
-    
-    // Check if email is authorized
-    if (!AUTHORIZED_ADMIN_EMAILS.includes(email)) {
-      throw new Error('This email address is not authorized for admin access');
-    }
-    
-    authStatus.className = 'auth-status info';
-    authStatus.textContent = '🔐 Verifying sign-in link...';
-    
-    // Sign in with email link
-    const result = await auth.signInWithEmailLink(email, window.location.href);
     
     // Clear the email from storage
     window.localStorage.removeItem('emailForSignIn');
     
-    // Clean up URL by removing query parameters
-    window.history.replaceState({}, document.title, window.location.pathname);
-    
-    showToast(`Successfully signed in as ${result.user.email}`, 'success');
-    
-  } catch (error) {
-    console.error('Error with email link sign-in:', error);
-    
-    let errorMessage = 'Authentication failed. ';
-    switch(error.code) {
-      case 'auth/invalid-action-code':
-        errorMessage += 'Invalid or expired sign-in link.';
-        break;
-      case 'auth/invalid-email':
-        errorMessage += 'Invalid email address.';
-        break;
-      default:
-        errorMessage += error.message || 'Please request a new sign-in link.';
-    }
-    
-    const authStatus = document.getElementById('authStatus');
-    authStatus.className = 'auth-status error';
-    authStatus.textContent = errorMessage;
-    showToast(errorMessage, 'error');
-    
-    // Clean up URL
-    window.history.replaceState({}, document.title, window.location.pathname);
-  }
-}
-
 // Sign out admin
 async function signOutAdmin() {
   try {
-    await auth.signOut();
+    await signOut(auth);
+    
+    // Clear login form fields
+    const emailInput = document.getElementById('adminEmail');
+    const passwordInput = document.getElementById('adminPassword');
+    const authStatus = document.getElementById('authStatus');
+    const signInBtn = document.getElementById('signInBtn');
+    
+    if (emailInput) emailInput.value = '';
+    if (passwordInput) passwordInput.value = '';
+    
+    // Clear authentication status
+    if (authStatus) {
+      authStatus.innerHTML = '';
+      authStatus.className = 'auth-status';
+    }
+    
+    // Reset sign-in button state
+    if (signInBtn) {
+      signInBtn.classList.remove('loading');
+      signInBtn.disabled = false;
+    }
+    
+    // Clear any global state variables
+    currentUser = null;
+    existingDocId = null;
+    foundRecord = null;
+    currentAttendance = {};
+    
     showToast('Signed out successfully', 'info');
+    
   } catch (error) {
     console.error('Error signing out:', error);
     showToast('Error signing out', 'error');
@@ -301,6 +332,27 @@ async function signOutAdmin() {
 function showAuthSection() {
   document.getElementById('authSection').classList.remove('hidden');
   document.getElementById('adminDashboard').classList.add('hidden');
+  
+  // Clear login form fields when showing auth section
+  const emailInput = document.getElementById('adminEmail');
+  const passwordInput = document.getElementById('adminPassword');
+  const authStatus = document.getElementById('authStatus');
+  const signInBtn = document.getElementById('signInBtn');
+  
+  if (emailInput) emailInput.value = '';
+  if (passwordInput) passwordInput.value = '';
+  
+  // Clear authentication status
+  if (authStatus) {
+    authStatus.innerHTML = '';
+    authStatus.className = 'auth-status';
+  }
+  
+  // Reset sign-in button state
+  if (signInBtn) {
+    signInBtn.classList.remove('loading');
+    signInBtn.disabled = false;
+  }
 }
 
 // Show admin dashboard
@@ -317,18 +369,47 @@ function showAdminDashboard() {
   }
 }
 
+// Add keyboard event listeners for better UX
+document.addEventListener('DOMContentLoaded', function() {
+  const emailInput = document.getElementById('adminEmail');
+  const passwordInput = document.getElementById('adminPassword');
+  
+  // Add Enter key support for form submission
+  if (emailInput) {
+    emailInput.addEventListener('keypress', function(e) {
+      if (e.key === 'Enter') {
+        const passwordField = document.getElementById('adminPassword');
+        if (passwordField && passwordField.value) {
+          signInWithPassword();
+        } else {
+          passwordField.focus();
+        }
+      }
+    });
+  }
+  
+  if (passwordInput) {
+    passwordInput.addEventListener('keypress', function(e) {
+      if (e.key === 'Enter') {
+        signInWithPassword();
+      }
+    });
+  }
+});
+
 // Chart variables
-let residentialChart = null;
 let attendanceChart = null;
 
 // Load dashboard statistics
 async function loadDashboardStats() {
   try {
-    const snapshot = await db.collection("morphers").get();
-    const docs = snapshot.docs;
+    // Use getCountFromServer for optimal performance - most efficient way to get document count
+    const morphersCollection = collection(db, "morphers");
+    const countSnapshot = await getCountFromServer(morphersCollection);
+    const totalCount = countSnapshot.data().count;
     
-    // Total records
-    document.getElementById('totalRecords').textContent = docs.length;
+    // Display total records
+    document.getElementById('totalRecords').textContent = totalCount;
     
     // Initialize date picker with today's date
     const datePicker = document.getElementById('attendanceDatePicker');
@@ -336,24 +417,20 @@ async function loadDashboardStats() {
     datePicker.value = today;
     
     // Update service attendance for today initially
-    updateServiceAttendance(docs, today);
-    
-    // Create residential areas chart
-    createResidentialChart(docs);
+    await updateServiceAttendanceCount(today);
     
     // Create attendance by date chart
-    createServiceDistributionChart(docs, today);
-    
-    // Add date picker event listener for service distribution chart
     const serviceDistributionPicker = document.getElementById('serviceDistributionDatePicker');
     serviceDistributionPicker.value = today;
-    serviceDistributionPicker.addEventListener('change', (e) => {
-      createServiceDistributionChart(docs, e.target.value);
+    await createServiceDistributionChart(today);
+    
+    // Add date picker event listeners
+    serviceDistributionPicker.addEventListener('change', async (e) => {
+      await createServiceDistributionChart(e.target.value);
     });
     
-    // Add date picker event listener
-    datePicker.addEventListener('change', (e) => {
-      updateServiceAttendance(docs, e.target.value);
+    datePicker.addEventListener('change', async (e) => {
+      await updateServiceAttendanceCount(e.target.value);
     });
     
   } catch (error) {
@@ -363,195 +440,146 @@ async function loadDashboardStats() {
   }
 }
 
-// Update service attendance based on selected date
-function updateServiceAttendance(docs, selectedDate) {
-  const [year, month, day] = selectedDate.split('-');
-  const dateKey = `${day}_${month}_${year}`;
-  
-  let attendanceCount = 0;
-  docs.forEach(doc => {
-    const data = doc.data();
-    if (data.attendance && data.attendance[dateKey]) {
-      attendanceCount++;
-    }
-  });
-  
-  document.getElementById('serviceAttendance').textContent = attendanceCount;
-}
-
-// Create residential areas pie chart
-function createResidentialChart(docs) {
-  const residentialAreas = {};
-  
-  docs.forEach(doc => {
-    const data = doc.data();
-    if (data.ResidentialArea) {
-      // Convert to lowercase and trim
-      const area = data.ResidentialArea.toLowerCase().trim();
-      residentialAreas[area] = (residentialAreas[area] || 0) + 1;
-    }
-  });
-  
-  const ctx = document.getElementById('residentialChart').getContext('2d');
-  
-  // Destroy existing chart if it exists
-  if (residentialChart) {
-    residentialChart.destroy();
-  }
-  
-  const labels = Object.keys(residentialAreas);
-  const data = Object.values(residentialAreas);
-  
-  residentialChart = new Chart(ctx, {
-    type: 'pie',
-    data: {
-      labels: labels,
-      datasets: [{
-        data: data,
-        backgroundColor: [
-          '#FF6384',
-          '#36A2EB',
-          '#FFCE56',
-          '#4BC0C0',
-          '#9966FF',
-          '#FF9F40',
-          '#FF6B9D',
-          '#45B7D1',
-          '#96CEB4',
-          '#FECA57',
-          '#FF6B6B',
-          '#4ECDC4',
-          '#45B7D1',
-          '#FFA07A',
-          '#98D8C8'
-        ],
-        borderWidth: 2,
-        borderColor: '#ffffff'
-      }]
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      plugins: {
-        legend: {
-          position: 'bottom',
-          labels: {
-            padding: 20,
-            usePointStyle: true,
-            font: {
-              size: 12
-            }
-          }
-        },
-        tooltip: {
-          callbacks: {
-            label: function(context) {
-              const label = context.label || '';
-              const value = context.parsed;
-              const total = context.dataset.data.reduce((a, b) => a + b, 0);
-              const percentage = ((value / total) * 100).toFixed(1);
-              return `${label}: ${value} (${percentage}%)`;
-            }
-          }
+// Update service attendance count based on selected date using efficient queries
+async function updateServiceAttendanceCount(selectedDate) {
+  try {
+    const [year, month, day] = selectedDate.split('-');
+    const dateKey = `${day}_${month}_${year}`;
+    
+    // Query only documents that have attendance for the specific date
+    const morphersCollection = collection(db, "morphers");
+    const attendanceQuery = query(morphersCollection, where(`attendance.${dateKey}`, '>', ''));
+    const snapshot = await getDocs(attendanceQuery);
+    
+    const attendanceCount = snapshot.size;
+    document.getElementById('serviceAttendance').textContent = attendanceCount;
+    
+  } catch (error) {
+    console.error('Error updating service attendance:', error);
+    // Fallback: get all docs and count manually if the query fails
+    try {
+      const morphersCollection = collection(db, "morphers");
+      const allSnapshot = await getDocs(morphersCollection);
+      const [year, month, day] = selectedDate.split('-');
+      const dateKey = `${day}_${month}_${year}`;
+      
+      let attendanceCount = 0;
+      allSnapshot.docs.forEach(doc => {
+        const data = doc.data();
+        if (data.attendance && data.attendance[dateKey]) {
+          attendanceCount++;
         }
-      }
+      });
+      
+      document.getElementById('serviceAttendance').textContent = attendanceCount;
+    } catch (fallbackError) {
+      console.error('Fallback query also failed:', fallbackError);
+      document.getElementById('serviceAttendance').textContent = 'Error';
     }
-  });
+  }
 }
 
 // Create service distribution chart for a specific date
-function createServiceDistributionChart(docs, selectedDate) {
-  const [year, month, day] = selectedDate.split('-');
-  const dateKey = `${day}_${month}_${year}`;
-  
-  const serviceDistribution = {};
-  
-  docs.forEach(doc => {
-    const data = doc.data();
-    if (data.attendance && data.attendance[dateKey]) {
-      const service = data.attendance[dateKey];
-      const serviceName = getServiceName(service);
-      serviceDistribution[serviceName] = (serviceDistribution[serviceName] || 0) + 1;
+async function createServiceDistributionChart(selectedDate) {
+  try {
+    const [year, month, day] = selectedDate.split('-');
+    const dateKey = `${day}_${month}_${year}`;
+    
+    // Get all records with attendance for the specific date
+    const morphersCollection = collection(db, "morphers");
+    const snapshot = await getDocs(morphersCollection);
+    const serviceDistribution = {};
+    
+    snapshot.docs.forEach(doc => {
+      const data = doc.data();
+      if (data.attendance && data.attendance[dateKey]) {
+        const service = data.attendance[dateKey];
+        const serviceName = getServiceName(service);
+        serviceDistribution[serviceName] = (serviceDistribution[serviceName] || 0) + 1;
+      }
+    });
+    
+    const ctx = document.getElementById('attendanceChart').getContext('2d');
+    
+    // Destroy existing chart if it exists
+    if (attendanceChart) {
+      attendanceChart.destroy();
     }
-  });
-  
-  const ctx = document.getElementById('attendanceChart').getContext('2d');
-  
-  // Destroy existing chart if it exists
-  if (attendanceChart) {
-    attendanceChart.destroy();
-  }
-  
-  const labels = Object.keys(serviceDistribution);
-  const data = Object.values(serviceDistribution);
-  
-  // If no data for the selected date, show empty chart
-  if (labels.length === 0) {
-    labels.push('No Attendance Data');
-    data.push(0);
-  }
-  
-  attendanceChart = new Chart(ctx, {
-    type: 'pie',
-    data: {
-      labels: labels,
-      datasets: [{
-        data: data,
-        backgroundColor: [
-          '#667eea',  // First Service
-          '#764ba2',  // Second Service  
-          '#f093fb',  // Third Service
-          '#f5576c',  // Fourth Service (if needed)
-          '#4facfe',  // Fifth Service (if needed)
-          '#00f2fe',  // Additional services
-          '#43e97b',
-          '#38f9d7'
-        ],
-        borderWidth: 2,
-        borderColor: '#ffffff'
-      }]
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      plugins: {
-        legend: {
-          position: 'bottom',
-          labels: {
-            padding: 20,
-            usePointStyle: true,
-            font: {
-              size: 12
-            }
-          }
-        },
-        tooltip: {
-          callbacks: {
-            label: function(context) {
-              const label = context.label || '';
-              const value = context.parsed;
-              if (value === 0) {
-                return 'No attendance recorded for this date';
+    
+    const labels = Object.keys(serviceDistribution);
+    const data = Object.values(serviceDistribution);
+    
+    // If no data for the selected date, show empty chart
+    if (labels.length === 0) {
+      labels.push('No Attendance Data');
+      data.push(0);
+    }
+    
+    attendanceChart = new Chart(ctx, {
+      type: 'pie',
+      data: {
+        labels: labels,
+        datasets: [{
+          data: data,
+          backgroundColor: [
+            '#667eea',  // First Service
+            '#764ba2',  // Second Service  
+            '#f093fb',  // Third Service
+            '#f5576c',  // Fourth Service (if needed)
+            '#4facfe',  // Fifth Service (if needed)
+            '#00f2fe',  // Additional services
+            '#43e97b',
+            '#38f9d7'
+          ],
+          borderWidth: 2,
+          borderColor: '#ffffff'
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: {
+            position: 'bottom',
+            labels: {
+              padding: 20,
+              usePointStyle: true,
+              font: {
+                size: 12
               }
-              const total = context.dataset.data.reduce((a, b) => a + b, 0);
-              const percentage = ((value / total) * 100).toFixed(1);
-              return `${label}: ${value} attendees (${percentage}%)`;
             }
-          }
-        },
-        title: {
-          display: true,
-          text: `Service Distribution - ${formatDate(selectedDate)}`,
-          font: {
-            size: 14
           },
-          padding: {
-            bottom: 20
+          tooltip: {
+            callbacks: {
+              label: function(context) {
+                const label = context.label || '';
+                const value = context.parsed;
+                if (value === 0) {
+                  return 'No attendance recorded for this date';
+                }
+                const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                const percentage = ((value / total) * 100).toFixed(1);
+                return `${label}: ${value} attendees (${percentage}%)`;
+              }
+            }
+          },
+          title: {
+            display: true,
+            text: `Service Distribution - ${formatDate(selectedDate)}`,
+            font: {
+              size: 14
+            },
+            padding: {
+              bottom: 20
+            }
           }
         }
       }
-    }
-  });
+    });
+    
+  } catch (error) {
+    console.error('Error creating service distribution chart:', error);
+  }
 }
 
 // Helper function to get service name from service number
@@ -587,7 +615,8 @@ async function downloadAll() {
   }
   
   try {
-    const snapshot = await db.collection("morphers").get();
+    const morphersCollection = collection(db, "morphers");
+    const snapshot = await getDocs(morphersCollection);
     if (snapshot.empty) {
       showToast("No records to download", "warning");
       return;
@@ -610,7 +639,7 @@ async function downloadAll() {
           // Handle Firestore Timestamps and other objects
           if (record[key].seconds !== undefined) {
             // Firestore Timestamp
-            const timestamp = new firebase.firestore.Timestamp(record[key].seconds, record[key].nanoseconds || 0);
+            const timestamp = new Timestamp(record[key].seconds, record[key].nanoseconds || 0);
             flatRecord[key] = timestamp.toDate().toISOString();
           } else {
             // Other objects - convert to string
@@ -706,11 +735,12 @@ async function clearAllData() {
   if (!doubleConfirmed) return;
   
   try {
-    const snapshot = await db.collection("morphers").get();
-    const batch = db.batch();
+    const morphersCollection = collection(db, "morphers");
+    const snapshot = await getDocs(morphersCollection);
+    const batch = writeBatch(db);
     
-    snapshot.docs.forEach((doc) => {
-      batch.delete(doc.ref);
+    snapshot.docs.forEach((docSnapshot) => {
+      batch.delete(docSnapshot.ref);
     });
     
     await batch.commit();
@@ -741,3 +771,21 @@ document.addEventListener('DOMContentLoaded', function() {
     emailInput.focus();
   }
 });
+
+// Make functions globally accessible
+window.signInWithPassword = signInWithPassword;
+window.resetPassword = resetPassword;
+window.signOutAdmin = signOutAdmin;
+window.downloadAll = downloadAll;
+window.handleCSVFileInput = handleCSVFileInput;
+window.loadSampleData = loadSampleData;
+window.clearAllData = clearAllData;
+
+} // End of initializeAdmin function
+
+// Initialize when DOM is ready
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initializeAdmin);
+} else {
+  initializeAdmin();
+}

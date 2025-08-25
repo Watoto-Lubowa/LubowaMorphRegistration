@@ -31,6 +31,12 @@ jobs:
         with:
           node-version: '18'
 
+      - name: Install minification tools
+        run: |
+          npm install -g terser
+          npm install -g clean-css-cli
+          npm install -g html-minifier-terser
+
       - name: Replace Firebase Configuration
         run: |
           # Replace Firebase config placeholders with secrets
@@ -45,6 +51,48 @@ jobs:
           # Replace authorized emails and phone numbers
           sed -i 's/AUTHORIZED_ADMIN_EMAILS_PLACEHOLDER/${{ secrets.AUTHORIZED_ADMIN_EMAILS }}/g' config.js
           sed -i 's/AUTHORIZED_PHONE_NUMBERS_PLACEHOLDER/${{ secrets.AUTHORIZED_PHONE_NUMBERS }}/g' config.js
+
+      - name: Minify JavaScript files
+        run: |
+          # Create minified directory
+          mkdir -p minified
+          
+          # Minify JavaScript files with obfuscation
+          terser scripts.js --compress --mangle --output minified/scripts.min.js
+          terser admin.js --compress --mangle --output minified/admin.min.js
+          terser config.js --compress --mangle --output minified/config.min.js
+          
+          # Replace original files with minified versions
+          mv minified/scripts.min.js scripts.js
+          mv minified/admin.min.js admin.js
+          mv minified/config.min.js config.js
+
+      - name: Minify CSS files
+        run: |
+          # Minify CSS files
+          cleancss styles.css --output styles.min.css
+          cleancss admin-styles.css --output admin-styles.min.css
+          
+          # Replace original files with minified versions
+          mv styles.min.css styles.css
+          mv admin-styles.min.css admin-styles.css
+
+      - name: Minify HTML files
+        run: |
+          # Minify HTML files
+          html-minifier-terser --input-dir . --output-dir . --file-ext html \
+            --remove-comments \
+            --remove-optional-tags \
+            --remove-redundant-attributes \
+            --remove-script-type-attributes \
+            --remove-tag-whitespace \
+            --use-short-doctype \
+            --collapse-whitespace \
+            --minify-css true \
+            --minify-js true \
+            --process-conditional-comments \
+            --sort-attributes \
+            --sort-class-name
 
       - name: Setup Pages
         uses: actions/configure-pages@v4

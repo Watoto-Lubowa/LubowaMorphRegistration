@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Lubowa Morph Registration</title>
 <link rel="stylesheet" href="styles.css">
 </head>
@@ -113,15 +114,15 @@
       </div>
       
       <div class="field">
-        <label for="editableParentsName">Parents Name</label>
+        <label for="editableParentsName">Parent's Name</label>
         <input type="text" id="editableParentsName">
-        <small class="field-help">Your parent's or guardian's name</small>
+        <small class="field-help">Your Parent's  or guardian's name</small>
       </div>
       
       <div class="field">
-        <label for="editableParentsPhone">Parents Phone</label>
+        <label for="editableParentsPhone">Parent's Phone</label>
         <input type="tel" id="editableParentsPhone">
-        <small class="field-help">Your parent's or guardian's phone number</small>
+        <small class="field-help">Your Parent's  or guardian's phone number</small>
       </div>
     </div>
     
@@ -194,14 +195,23 @@
       <input type="file" id="csvFileInput" accept=".csv" style="display: none;" onchange="handleCSVFileInput(event)">
     </label>
     <button onclick="loadSampleData()">Load Sample Data</button> -->
-    
-  </div>
-</div>
 
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<!-- Firebase Scripts - Modular SDK v9+ -->
+<script type="module">
+  // Import the functions you need from the SDKs you need
+  import { initializeApp } from 'https://www.gstatic.com/firebasejs/12.1.0/firebase-app.js';
+  import { getFirestore, collection, doc, getDocs, getDoc, setDoc, updateDoc, deleteDoc, query, where, getCountFromServer, Timestamp, writeBatch, limit } from 'https://www.gstatic.com/firebasejs/12.1.0/firebase-firestore.js';
+  
+  // Make Firebase available globally
+  window.firebaseApp = { initializeApp };
+  window.firebaseFirestore = { getFirestore, collection, doc, getDocs, getDoc, setDoc, updateDoc, deleteDoc, query, where, getCountFromServer, Timestamp, writeBatch, limit };
+  
+  // Signal that Firebase modules are ready
+  window.firebaseReady = true;
+  window.dispatchEvent(new CustomEvent('firebaseReady'));
+</script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/libphonenumber-js/1.10.44/libphonenumber-js.min.js"></script>
-<script src="config.js"></script>
+<script src="config.local.js"></script>
 <script src="scripts.js"></script>
 </body>
 </html>

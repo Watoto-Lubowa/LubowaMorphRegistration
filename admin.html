@@ -1,11 +1,34 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Admin Panel - Lubowa Morph Registration</title>
-<link rel="stylesheet" href="styles.css">
-<link rel="stylesheet" href="admin-styles.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin Panel - Lubowa Morph Registration</title>
+  <!-- Firebase Scripts - Modular SDK v9+ -->
+  <script type="module">
+    // Import the functions you need from the SDKs you need
+    import { initializeApp } from 'https://www.gstatic.com/firebasejs/12.1.0/firebase-app.js';
+    import { getFirestore, collection, doc, getDocs, getDoc, setDoc, updateDoc, deleteDoc, query, where, getCountFromServer, Timestamp, writeBatch, limit } from 'https://www.gstatic.com/firebasejs/12.1.0/firebase-firestore.js';
+    import { getAuth, signInWithEmailAndPassword, sendPasswordResetEmail, signOut, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/12.1.0/firebase-auth.js';
+    
+    // Make Firebase available globally
+    window.firebaseApp = { initializeApp };
+    window.firebaseFirestore = { getFirestore, collection, doc, getDocs, getDoc, setDoc, updateDoc, deleteDoc, query, where, getCountFromServer, Timestamp, writeBatch, limit };
+    window.firebaseAuth = { getAuth, signInWithEmailAndPassword, sendPasswordResetEmail, signOut, onAuthStateChanged };
+  </script>
+  <script type="module">
+    // Import the functions you need from the SDKs you need
+    import { initializeApp } from 'https://www.gstatic.com/firebasejs/12.1.0/firebase-app.js';
+    import { getFirestore, collection, doc, getDocs, getDoc, setDoc, updateDoc, deleteDoc, query, where, getCountFromServer, Timestamp, writeBatch } from 'https://www.gstatic.com/firebasejs/12.1.0/firebase-firestore.js';
+    import { getAuth, signInWithEmailAndPassword, sendPasswordResetEmail, signOut, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/12.1.0/firebase-auth.js';
+    
+    // Make Firebase available globally
+    window.firebaseApp = { initializeApp };
+    window.firebaseFirestore = { getFirestore, collection, doc, getDocs, getDoc, setDoc, updateDoc, deleteDoc, query, where, getCountFromServer, Timestamp, writeBatch };
+    window.firebaseAuth = { getAuth, signInWithEmailAndPassword, sendPasswordResetEmail, signOut, onAuthStateChanged };
+  </script>
+  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="admin-styles.css">
 </head>
 <body>
 
@@ -21,20 +44,31 @@
   <!-- Authentication Section -->
   <div id="authSection" class="auth-section">
     <div class="auth-card">
-      <div class="auth-icon">📧</div>
-      <h2>Email Authentication Required</h2>
-      <p class="auth-description">Enter your authorized admin email to receive a sign-in link</p>
+      <div class="auth-icon">🛡️</div>
+      <h2>Admin Sign In</h2>
+      <p class="auth-description">Secure access to your admin dashboard</p>
       
-      <div class="field">
-        <label for="adminEmail">Admin Email Address</label>
+      <div class="field email-field">
+        <label for="adminEmail">📧 Admin Email Address</label>
         <input type="email" id="adminEmail" placeholder="admin@example.com" required>
         <small class="field-help">Enter your authorized admin email address</small>
       </div>
       
+      <div class="field password-field">
+        <label for="adminPassword">🔐 Password</label>
+        <input type="password" id="adminPassword" placeholder="••••••••••" required>
+        <small class="field-help">Enter your secure admin password</small>
+      </div>
+      
       <div class="button-container">
-        <button id="sendLinkBtn" onclick="sendSignInLink()">
-          <span class="btn-text">📨 Send Sign-In Link</span>
-          <span class="btn-loading" style="display: none;">Sending...</span>
+        <button id="signInBtn" onclick="signInWithPassword()">
+          <span class="btn-text">🚀 Sign In</span>
+        </button>
+      </div>
+      
+      <div class="auth-options">
+        <button id="resetPasswordBtn" onclick="resetPassword()" class="link-btn">
+          Forgot Password?
         </button>
       </div>
       
@@ -82,13 +116,6 @@
       <!-- Charts Section -->
       <div class="charts-grid">
         <div class="chart-card">
-          <h3>Residential Areas Distribution</h3>
-          <div class="chart-container">
-            <canvas id="residentialChart"></canvas>
-          </div>
-        </div>
-        
-        <div class="chart-card">
           <h3>Service Distribution</h3>
           <div class="date-picker-container">
             <input type="date" id="serviceDistributionDatePicker" class="date-picker">
@@ -134,13 +161,44 @@
   </div>
 </div>
 
-<!-- Firebase Scripts -->
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script type="module">
+  // Import the functions you need from the SDKs you need
+  import { initializeApp } from 'https://www.gstatic.com/firebasejs/12.1.0/firebase-app.js';
+  import { getFirestore, collection, doc, getDocs, getDoc, setDoc, updateDoc, deleteDoc, query, where, getCountFromServer, Timestamp, writeBatch, limit } from 'https://www.gstatic.com/firebasejs/12.1.0/firebase-firestore.js';
+  import { getAuth, signInWithEmailAndPassword, sendPasswordResetEmail, signOut, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/12.1.0/firebase-auth.js';
+  
+  // Make Firebase available globally
+  window.firebaseApp = { initializeApp };
+  window.firebaseFirestore = { getFirestore, collection, doc, getDocs, getDoc, setDoc, updateDoc, deleteDoc, query, where, getCountFromServer, Timestamp, writeBatch, limit };
+  window.firebaseAuth = { getAuth, signInWithEmailAndPassword, sendPasswordResetEmail, signOut, onAuthStateChanged };
+  
+  // Signal that Firebase modules are ready
+  window.firebaseReady = true;
+  window.dispatchEvent(new CustomEvent('firebaseReady'));
+</script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/libphonenumber-js/1.10.44/libphonenumber-js.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script src="config.js"></script>
-<script src="admin.js"></script>
+<script>
+// Wait for Firebase modules to load before loading admin.js
+function loadAdminScript() {
+  if (window.firebaseReady) {
+    const script = document.createElement('script');
+    script.src = 'admin.js';
+    document.head.appendChild(script);
+  } else {
+    // Wait for the firebaseReady event
+    window.addEventListener('firebaseReady', () => {
+      const script = document.createElement('script');
+      script.src = 'admin.js';
+      document.head.appendChild(script);
+    });
+  }
+}
+
+// Load admin script
+loadAdminScript();
+</script>
+
 </body>
 </html>

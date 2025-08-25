@@ -1,10 +1,18 @@
 # Dependencies
 node_modules/
+package-lock.json
+yarn.lock
 
 # Build outputs
 dist/
 build/
 _site/
+*.min.js
+*.min.css
+*.temp
+
+# Minification tools
+minified/
 
 # Environment variables
 .env

@@ -5,10 +5,27 @@ A church registration system with Firebase authentication and data management ca
 ## Features
 
 - **Main Registration Form**: Allow morphers to register with identity verification
-- **Admin Panel**: Secure admin access with email link authentication
+- **Admin Panel**: Secure admin access with email/password authentication
 - **CSV Management**: Upload and download member data
 - **Firebase Integration**: Real-time database and authentication
 - **Responsive Design**: Works on desktop and mobile devices
+
+## Admin Authentication
+
+The admin panel uses Firebase email/password authentication for secure access:
+
+- **Password Authentication**: Secure login with email and password
+- **Password Reset**: Forgot password functionality via email
+- **Authorized Emails**: Only pre-authorized email addresses can access admin functions
+- **Session Management**: Automatic sign-out and session handling
+
+### Setting up Admin Users
+
+To create admin users, you need to:
+
+1. **Create Firebase Users**: Use Firebase Console or Firebase Admin SDK to create user accounts
+2. **Add to Authorized List**: Include their email addresses in the `AUTHORIZED_ADMIN_EMAILS` secret
+3. **Set Passwords**: Users can set their passwords during account creation or use password reset
 
 ## GitHub Pages Deployment
 
@@ -34,21 +51,6 @@ Before deploying, you need to configure the following secrets in your GitHub rep
 #### Authorization Configuration Secrets
 - `AUTHORIZED_ADMIN_EMAILS`: Comma-separated list of authorized admin emails (e.g., `admin@example.com,pastor@example.com`)
 - `AUTHORIZED_PHONE_NUMBERS`: Comma-separated list of authorized admin phone numbers (e.g., `+256700123456,+256701234567`)
-
-### Example Secret Values
-
-```
-FIREBASE_API_KEY=AIzaSyBB533JOkvbcF8zvyClb2noCZifQjUbJ2k
-FIREBASE_AUTH_DOMAIN=lubowamorphregistration.firebaseapp.com
-FIREBASE_PROJECT_ID=lubowamorphregistration
-FIREBASE_STORAGE_BUCKET=lubowamorphregistration.firebasestorage.app
-FIREBASE_MESSAGING_SENDER_ID=1011234595387
-FIREBASE_APP_ID=1:1011234595387:web:96c8b7e129f8cf2173321e
-FIREBASE_MEASUREMENT_ID=G-07PTV3DXG4
-
-AUTHORIZED_ADMIN_EMAILS=jeromessenyonjo@gmail.com,pastor@lubowamorphregistration.com
-AUTHORIZED_PHONE_NUMBERS=+256700123456,+256701234567
-```
 
 ### Deployment Process
 
@@ -77,8 +79,60 @@ For local development, the app will fall back to the hardcoded configuration val
 ├── config.js         # Configuration template (populated by CI)
 ├── styles.css        # Main styles
 ├── admin-styles.css  # Admin panel styles
-└── .github/workflows/deploy.yml  # GitHub Actions workflow
+├── minify.js         # Minification script
+├── minify.ps1        # PowerShell minification script
+├── package.json      # Node.js dependencies for minification
+└── .github/workflows/deploy.yml  # GitHub Actions workflow with minification
 ```
+
+## Code Minification & Obfuscation
+
+The application includes automated minification and obfuscation to protect your code:
+
+### Automatic Minification (GitHub Pages)
+- **JavaScript**: Compressed and obfuscated using Terser with variable mangling
+- **CSS**: Minified using clean-css-cli  
+- **HTML**: Compressed with html-minifier-terser
+- **Security**: Console logs and debugger statements removed
+- **Size Reduction**: Typically 60-80% smaller file sizes
+
+### Local Minification
+
+#### Option 1: PowerShell Script (Windows)
+```powershell
+.\minify.ps1
+```
+
+#### Option 2: Node.js Script (Cross-platform)
+```bash
+# Install Node.js dependencies
+npm install
+
+# Run minification
+npm run minify
+# or
+node minify.js
+```
+
+#### Option 3: Individual Commands
+```bash
+# Minify JavaScript
+npm run minify:js
+
+# Minify CSS  
+npm run minify:css
+
+# Minify HTML
+npm run minify:html
+```
+
+### Minification Features
+- **JavaScript Obfuscation**: Variable names mangled for security
+- **Dead Code Removal**: Unused code eliminated
+- **Comment Removal**: All comments stripped
+- **Whitespace Compression**: Minimal file sizes
+- **Console Log Removal**: Debug statements removed
+- **File Size Reporting**: Shows compression statistics
 
 ### Security Notes
 
@@ -86,6 +140,7 @@ For local development, the app will fall back to the hardcoded configuration val
 - Use GitHub secrets for all sensitive configuration
 - Ensure your Firebase security rules are properly configured
 - Regularly review and update authorized email/phone lists
+- Minified code makes reverse engineering much more difficult
 
 ### Troubleshooting
 

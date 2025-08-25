@@ -1,3 +1,6 @@
+// Debug: Check if script is loading
+console.log('🚀 scripts.js file loaded successfully');
+
 // Store found record data
 let existingDocId = null;
 let foundRecord = null;
@@ -5,9 +8,49 @@ let foundRecord = null;
 // Global variable to store current form attendance
 let currentAttendance = {};
 
+// Firebase variables (initialized once Firebase is loaded)
+let db = null;
+let firebaseApp = null;
+let firebaseInitialized = false;
+
+// Firebase functions
+let collection, doc, getDocs, getDoc, setDoc, updateDoc, deleteDoc, query, where, getCountFromServer, Timestamp, writeBatch, limit;
+
+// Constants
+const VALIDATION_CONSTANTS = {
+  MIN_NAME_LENGTH: 2,
+  MIN_PHONE_LENGTH: 7,
+  MAX_PHONE_LENGTH: 15,
+  TOAST_DURATION: 5000,
+  DEBOUNCE_DELAY: 300
+};
+
+const ERROR_MESSAGES = {
+  FIREBASE_NOT_INITIALIZED: 'Database connection not ready. Please refresh the page and try again.',
+  INVALID_NAME: 'Please enter a valid first name (at least 2 characters).',
+  INVALID_PHONE: 'Please enter a valid phone number.',
+  SEARCH_FAILED: 'Search failed. Please check your internet connection and try again.',
+  PERMISSION_DENIED: 'Access denied. Please contact support if this continues.',
+  SERVICE_UNAVAILABLE: 'Service temporarily unavailable. Please try again in a few moments.'
+};
+
 // Toast notification system
 function showToast(message, type = 'info', duration = 5000) {
+  // Input validation
+  if (!message || typeof message !== 'string') {
+    console.error('Invalid message provided to showToast');
+    return;
+  }
+  
+  if (!['success', 'error', 'warning', 'info'].includes(type)) {
+    type = 'info'; // Default to info for invalid types
+  }
+  
   const container = document.getElementById('toast-container');
+  if (!container) {
+    console.error('Toast container not found');
+    return;
+  }
   
   // Create toast element
   const toast = document.createElement('div');
@@ -72,8 +115,33 @@ function showToast(message, type = 'info', duration = 5000) {
 }
 
 function closeToast(button) {
+  if (!button) {
+    console.error('Button parameter is required for closeToast');
+    return;
+  }
   const toast = button.closest('.toast');
   removeToast(toast);
+}
+
+// Input validation utility functions
+function isValidString(value, minLength = VALIDATION_CONSTANTS.MIN_NAME_LENGTH) {
+  return typeof value === 'string' && value.trim().length >= minLength;
+}
+
+function isValidPhoneNumber(phoneNumber) {
+  if (!isValidString(phoneNumber, VALIDATION_CONSTANTS.MIN_PHONE_LENGTH)) {
+    return false;
+  }
+  // Basic phone number validation (allows international formats)
+  const phoneRegex = new RegExp(`^[\\+]?[0-9\\s\\-\\(\\)]{${VALIDATION_CONSTANTS.MIN_PHONE_LENGTH},${VALIDATION_CONSTANTS.MAX_PHONE_LENGTH}}$`);
+  return phoneRegex.test(phoneNumber.trim());
+}
+
+function sanitizeInput(input) {
+  if (typeof input !== 'string') {
+    return '';
+  }
+  return input.trim().replace(/[<>]/g, ''); // Basic XSS prevention
 }
 
 function removeToast(toast) {
@@ -93,365 +161,453 @@ function removeToast(toast) {
   }
 }
 
-// 1️⃣ Initialize Firebase
-const firebaseConfig = window.APP_CONFIG ? window.APP_CONFIG.firebase : {
-  apiKey: "AIzaSyBB533JOkvbcF8zvyClb2noCZifQjUbJ2k",
-  authDomain: "lubowamorphregistration.firebaseapp.com",
-  projectId: "lubowamorphregistration",
-  storageBucket: "lubowamorphregistration.firebasestorage.app",
-  messagingSenderId: "1011234595387",
-  appId: "1:1011234595387:web:96c8b7e129f8cf2173321e",
-  measurementId: "G-07PTV3DXG4"
-};
-firebase.initializeApp(firebaseConfig);
-const db = firebase.firestore();
-const auth = firebase.auth();
-
-// Configure reCAPTCHA for phone authentication
-window.recaptchaVerifier = new firebase.auth.RecaptchaVerifier('recaptcha-container', {
-  'size': 'invisible',
-  'callback': function(response) {
-    // reCAPTCHA solved
-  }
-});
-
-// Authorized admin phone numbers (add your admin phone numbers here)
-const AUTHORIZED_ADMIN_PHONES = window.APP_CONFIG ? window.APP_CONFIG.authorizedPhoneNumbers : [
-  '+256700123456',  // Replace with actual admin phone numbers
-  '+256701234567',  // Add more admin numbers as needed
-];
-
-// Authentication state
-let currentUser = null;
-let confirmationResult = null;
-let pendingAdminAction = null;
-
-// Check authentication state
-auth.onAuthStateChanged((user) => {
-  if (user) {
-    currentUser = user;
-    updateAdminUI(true);
-    showToast(`Signed in as ${user.phoneNumber}`, 'success');
-  } else {
-    currentUser = null;
-    updateAdminUI(false);
-  }
-});
-
-// Phone Authentication Functions
-async function requestAdminAccess(action) {
-  if (currentUser && AUTHORIZED_ADMIN_PHONES.includes(currentUser.phoneNumber)) {
-    // User is already authenticated, execute action directly
-    executeAdminAction(action);
-    return;
-  }
-  
-  // Store the action to execute after authentication
-  pendingAdminAction = action;
-  
-  // Show authentication modal
-  document.getElementById('authModal').classList.remove('hidden');
-  document.getElementById('phoneAuthSection').classList.remove('hidden');
-  document.getElementById('verificationSection').classList.add('hidden');
-}
-
-async function sendVerificationCode() {
-  const phoneInput = document.getElementById('adminPhone');
-  const phoneNumber = phoneInput.value.trim();
-  const sendBtn = phoneInput.closest('.button-container').querySelector('button');
-  
-  if (!phoneNumber) {
-    showToast('Please enter a phone number', 'warning');
-    return;
-  }
-  
-  // Check if phone number is authorized
-  if (!AUTHORIZED_ADMIN_PHONES.includes(phoneNumber)) {
-    showToast('This phone number is not authorized for admin access', 'error');
-    return;
-  }
-  
-  // Show loading state
-  sendBtn.classList.add('loading');
-  sendBtn.disabled = true;
-  
+// Wait for Firebase to be ready before initializing
+function initializeApp() {
   try {
-    // Create reCAPTCHA verifier if it doesn't exist
-    if (!window.recaptchaVerifier) {
-      window.recaptchaVerifier = new firebase.auth.RecaptchaVerifier('recaptcha-container', {
-        'size': 'invisible',
-        'callback': function(response) {
-          // reCAPTCHA solved
-        }
-      });
+    // 1️⃣ Initialize Firebase v9+ Modular SDK
+    const firebaseConfig = window.APP_CONFIG ? window.APP_CONFIG.firebase : {};
+
+    // Check if we're using placeholder config
+    const usingPlaceholders = firebaseConfig.apiKey === "FIREBASE_API_KEY_PLACEHOLDER";
+    console.log('🔧 Firebase config source:', usingPlaceholders ? 'fallback (hardcoded)' : 'environment');
+    console.log('🔧 Firebase project:', firebaseConfig.projectId);
+    
+    if (usingPlaceholders) {
+      console.warn('⚠️ Using fallback Firebase configuration. Some features may not work in production.');
     }
+
+    // Initialize Firebase app
+    firebaseApp = window.firebaseApp.initializeApp(firebaseConfig);
+    db = window.firebaseFirestore.getFirestore(firebaseApp);
+
+    // Firebase functions for easy access
+    ({ collection, doc, getDocs, getDoc, setDoc, updateDoc, deleteDoc, query, where, getCountFromServer, Timestamp, writeBatch, limit } = window.firebaseFirestore);
     
-    // Send verification code
-    confirmationResult = await auth.signInWithPhoneNumber(phoneNumber, window.recaptchaVerifier);
+    // Mark Firebase as initialized
+    firebaseInitialized = true;
     
-    showToast('Verification code sent to your phone', 'success');
+    console.log('✅ Firebase initialized successfully');
     
-    // Show verification section
-    document.getElementById('phoneAuthSection').classList.add('hidden');
-    document.getElementById('verificationSection').classList.remove('hidden');
+    // 2️⃣ Set up DOM event listeners after Firebase is ready
+    setupEventListeners();
     
   } catch (error) {
-    console.error('Error sending verification code:', error);
-    let errorMessage = 'Failed to send verification code. ';
+    console.error('❌ Failed to initialize Firebase:', error);
+    firebaseInitialized = false;
     
-    switch(error.code) {
-      case 'auth/too-many-requests':
-        errorMessage += 'Too many requests. Please try again later.';
-        break;
-      case 'auth/invalid-phone-number':
-        errorMessage += 'Invalid phone number format.';
-        break;
-      default:
-        errorMessage += 'Please check your phone number and try again.';
-    }
-    
-    showToast(errorMessage, 'error');
-  } finally {
-    sendBtn.classList.remove('loading');
-    sendBtn.disabled = false;
-  }
-}
-
-async function verifyCode() {
-  const codeInput = document.getElementById('verificationCode');
-  const code = codeInput.value.trim();
-  const verifyBtn = codeInput.closest('.button-container').querySelector('button');
-  
-  if (!code || code.length !== 6) {
-    showToast('Please enter the 6-digit verification code', 'warning');
-    return;
-  }
-  
-  if (!confirmationResult) {
-    showToast('Please request a new verification code', 'error');
-    return;
-  }
-  
-  // Show loading state
-  verifyBtn.classList.add('loading');
-  verifyBtn.disabled = true;
-  
-  try {
-    // Verify the code
-    const result = await confirmationResult.confirm(code);
-    
-    // Check if the verified phone number is authorized
-    if (AUTHORIZED_ADMIN_PHONES.includes(result.user.phoneNumber)) {
-      showToast('Authentication successful!', 'success');
-      closeAuthModal();
-      
-      // Execute the pending admin action
-      if (pendingAdminAction) {
-        executeAdminAction(pendingAdminAction);
-        pendingAdminAction = null;
-      }
+    // Show user-friendly error
+    if (error.code === 'app/invalid-api-key') {
+      showToast('Invalid Firebase configuration. Please contact support.', 'error');
+    } else if (error.code === 'app/app-deleted') {
+      showToast('Firebase project not found. Please contact support.', 'error');
     } else {
-      // Sign out unauthorized user
-      await auth.signOut();
-      showToast('This phone number is not authorized for admin access', 'error');
+      showToast('Failed to initialize database connection. Please refresh the page.', 'error');
     }
-    
-  } catch (error) {
-    console.error('Error verifying code:', error);
-    let errorMessage = 'Verification failed. ';
-    
-    switch(error.code) {
-      case 'auth/invalid-verification-code':
-        errorMessage += 'Invalid verification code.';
-        break;
-      case 'auth/code-expired':
-        errorMessage += 'Verification code has expired.';
-        break;
-      default:
-        errorMessage += 'Please try again.';
-    }
-    
-    showToast(errorMessage, 'error');
-  } finally {
-    verifyBtn.classList.remove('loading');
-    verifyBtn.disabled = false;
   }
 }
 
-async function resendCode() {
-  document.getElementById('verificationSection').classList.add('hidden');
-  document.getElementById('phoneAuthSection').classList.remove('hidden');
-  document.getElementById('adminPhone').focus();
-}
-
-function closeAuthModal() {
-  document.getElementById('authModal').classList.add('hidden');
-  document.getElementById('adminPhone').value = '';
-  document.getElementById('verificationCode').value = '';
-  pendingAdminAction = null;
-}
-
-async function signOutAdmin() {
-  try {
-    await auth.signOut();
-    showToast('Signed out successfully', 'info');
-  } catch (error) {
-    console.error('Error signing out:', error);
-    showToast('Error signing out', 'error');
-  }
-}
-
-function updateAdminUI(isAuthenticated) {
-  const adminActions = document.getElementById('adminActions');
-  const authenticatedActions = document.getElementById('authenticatedAdminActions');
-  const adminPhoneDisplay = document.getElementById('adminPhoneDisplay');
+// Function to set up all DOM event listeners
+function setupEventListeners() {
+  console.log('Setting up DOM event listeners');
   
-  if (isAuthenticated && currentUser && AUTHORIZED_ADMIN_PHONES.includes(currentUser.phoneNumber)) {
-    adminActions.classList.add('hidden');
-    authenticatedActions.classList.remove('hidden');
-    adminPhoneDisplay.textContent = `Signed in as ${currentUser.phoneNumber}`;
-  } else {
-    adminActions.classList.remove('hidden');
-    authenticatedActions.classList.add('hidden');
-  }
-}
+  const nameInput = document.getElementById("name");
+  const phoneInput = document.getElementById("morphersNumber");
+  const searchBtn = document.getElementById('searchBtn');
+  const confirmBtn = document.getElementById("confirmBtn");
+  const denyBtn = document.getElementById("denyBtn");
+  const searchAgainBtn = document.getElementById("searchAgainBtn");
+  const createNewBtn = document.getElementById("createNewBtn");
+  const saveBtn = document.getElementById("saveBtn");
 
-function executeAdminAction(action) {
-  switch(action) {
-    case 'download':
-      downloadAll();
-      break;
-    case 'upload':
-      // Trigger the file input
-      document.getElementById('csvFileInput').click();
-      break;
-    case 'sample':
-      loadSampleData();
-      break;
+  // Search Button Event Handler
+  if (searchBtn) {
+    console.log("Search button found - adding event listener");
+    searchBtn.addEventListener('click', function(event) {
+      console.log('Search button clicked!');
+      event.preventDefault();
+      event.stopPropagation();
+      
+      // Call the global searchForRecord function
+      if (window.searchForRecord) {
+        window.searchForRecord();
+      } else {
+        console.error('searchForRecord function not available');
+        showToast('Search function not ready. Please refresh the page.', 'error');
+      }
+      return false;
+    });
+  } else {
+    console.error("Search button not found!");
   }
+  
+  // Add phone validation on input
+  if (phoneInput) {
+    phoneInput.addEventListener("input", function() {
+      const isValid = validatePhoneNumber(this.value);
+      if (this.value.length > 5) {
+        if (isValid) {
+          this.style.borderColor = "#27ae60";
+          this.setCustomValidity("");
+        } else {
+          this.style.borderColor = "#e74c3c";
+          this.setCustomValidity("Please enter a valid phone number");
+        }
+      } else {
+        this.style.borderColor = "#e1e5e9";
+        this.setCustomValidity("");
+      }
+    });
+  }
+  
+  // Confirmation button handlers
+  if (confirmBtn) confirmBtn.addEventListener("click", () => window.confirmIdentity && window.confirmIdentity());
+  if (denyBtn) denyBtn.addEventListener("click", () => window.denyIdentity && window.denyIdentity());
+  
+  // No record section button handlers
+  if (searchAgainBtn) {
+    searchAgainBtn.addEventListener("click", function() {
+      if (window.enableIdentitySection) window.enableIdentitySection();
+      document.getElementById("noRecordSection").classList.add("hidden");
+      document.getElementById("identitySection").classList.remove("disabled");
+      document.getElementById("recordMessage").innerText = "";
+      document.getElementById("recordMessage").className = "";
+      document.getElementById("searchBtn").style.display = "block";
+      if (window.updateStepIndicator) window.updateStepIndicator(1);
+      document.getElementById("instructions").innerText = "Enter your first name and phone number to check for existing records.";
+    });
+  }
+  
+  if (createNewBtn) {
+    createNewBtn.addEventListener("click", function() {
+      if (window.showNewRecordSection) window.showNewRecordSection();
+    });
+  }
+  
+  // Save button handler
+  if (saveBtn) {
+    saveBtn.addEventListener("click", () => window.saveRecord && window.saveRecord());
+  }
+  
+  // Set initial placeholders and state
+  if (nameInput) nameInput.placeholder = "Enter your first name only";
+  if (phoneInput) phoneInput.placeholder = "Enter your phone number (e.g., 0700123456)";
+  if (saveBtn) saveBtn.disabled = true;
+  
+  // Initialize global attendance variable
+  window.currentAttendance = {};
+  
+  // Set attendance date to today
+  const attendanceDateInput = document.getElementById("attendanceDate");
+  if (attendanceDateInput) {
+    const today = new Date();
+    const todayStr = today.getFullYear() + '-' + 
+                     String(today.getMonth() + 1).padStart(2, '0') + '-' + 
+                     String(today.getDate()).padStart(2, '0');
+    attendanceDateInput.value = todayStr;
+  }
+  
+  // Add escape key handler for auth modal
+  document.addEventListener('keydown', function(event) {
+    if (event.key === 'Escape') {
+      const authModal = document.getElementById('authModal');
+      if (authModal && !authModal.classList.contains('hidden')) {
+        if (window.closeAuthModal) window.closeAuthModal();
+      }
+    }
+  });
+  
+  // Update current service display on load
+  updateCurrentServiceDisplay();
+  
+  // Set up interval to update service display every minute
+  setInterval(updateCurrentServiceDisplay, 60000); // Update every 60 seconds
+  
+  console.log('DOM event listeners setup complete');
 }
 
 // 2️⃣ Search for existing record (triggered by button click)
 async function searchForRecord() {
-  const firstName = document.getElementById("name").value.trim();
-  const phoneNumber = document.getElementById("morphersNumber").value.trim();
-  const searchBtn = document.getElementById("searchBtn");
+  console.log('🔍 searchForRecord function called!');
   
-  if (!firstName || !phoneNumber) {
-    showToast("Please enter both your first name and phone number before searching.", "warning");
-    return;
-  }
-
-  // Show loading state
-  searchBtn.classList.add("loading");
-  searchBtn.disabled = true;
-  
-  // Show searching message
-  document.getElementById("recordMessage").innerText = "🔍 Searching for existing record...";
-  document.getElementById("recordMessage").className = "searching";
-
-  // Normalize phone number for consistent searching
-  const normalizedPhone = normalizePhoneNumber(phoneNumber);
-  
-  let found = null;
-  let foundDoc = null;
-
   try {
+    // Check if Firebase is initialized
+    if (!firebaseInitialized || !db) {
+      console.error('Firebase not initialized');
+      showToast(ERROR_MESSAGES.FIREBASE_NOT_INITIALIZED, 'error');
+      return;
+    }
+
+    const firstNameInput = document.getElementById("name");
+    const phoneNumberInput = document.getElementById("morphersNumber");
+    const searchBtn = document.getElementById("searchBtn");
+    
+    // Check for required DOM elements
+    if (!firstNameInput || !phoneNumberInput || !searchBtn) {
+      console.error('Required DOM elements not found');
+      showToast('Page elements not loaded properly. Please refresh the page.', 'error');
+      return;
+    }
+
+    const firstName = sanitizeInput(firstNameInput.value);
+    const phoneNumber = sanitizeInput(phoneNumberInput.value);
+    
+    console.log('🔎 Search inputs:', { firstName, phoneNumber });
+    
+    // Enhanced input validation
+    if (!isValidString(firstName, VALIDATION_CONSTANTS.MIN_NAME_LENGTH)) {
+      console.log('❌ Invalid first name');
+      showToast(ERROR_MESSAGES.INVALID_NAME, "warning");
+      return;
+    }
+    
+    if (!isValidPhoneNumber(phoneNumber)) {
+      console.log('❌ Invalid phone number');
+      showToast(ERROR_MESSAGES.INVALID_PHONE, "warning");
+      return;
+    }
+
+    console.log('🚀 Starting search process...');
+    console.log('🔥 Firebase initialized:', firebaseInitialized);
+    console.log('💾 Database initialized:', !!db);
+
+    // Show loading state
+    try {
+      searchBtn.classList.add("loading");
+      searchBtn.disabled = true;
+      
+      // Show searching message
+      const recordMessage = document.getElementById("recordMessage");
+      if (recordMessage) {
+        recordMessage.innerText = "🔍 Searching for existing record...";
+        recordMessage.className = "searching";
+      }
+    } catch (domError) {
+      console.error('DOM manipulation error:', domError);
+    }
+
+    // Test Firebase connection before searching
+    console.log('🔌 Testing Firebase connection...');
+    
+    // Try a simple connection test first
+    try {
+      const morphersCollection = collection(db, "morphers");
+      const testQuery = query(morphersCollection, limit(1));
+      await getDocs(testQuery);
+      console.log('✅ Firebase connection successful');
+    } catch (connectionError) {
+      console.error('❌ Firebase connection failed:', connectionError);
+      
+      // Check if it's a specific Firebase error
+      if (connectionError.code === 'unavailable') {
+        showToast('Firebase service is currently unavailable. Please try again later.', 'error');
+      } else if (connectionError.code === 'permission-denied') {
+        showToast('Access denied to database. Please contact support.', 'error');
+      } else {
+        showToast('Unable to connect to database. Please check your internet connection.', 'error');
+      }
+      return;
+    }
+
+    // Normalize phone number for consistent searching
+    const normalizedPhone = normalizePhoneNumber(phoneNumber);
+    console.log('📞 Normalized phone:', normalizedPhone);
+    
+    let found = null;
+    let foundDoc = null;
+
     // Progressive search: start with full first name, then chop off characters
+    console.log('🔍 Starting progressive search...');
+    
     for (let i = firstName.length; i >= 3; i--) {
       const searchName = firstName.substring(0, i);
+      console.log(`🔎 Searching with name: "${searchName}"`);
       
       try {
-        // Search for records where phone number matches AND name starts with searchName
-        const snapshot = await db.collection("morphers")
-          .where("MorphersNumber", "==", normalizedPhone)
-          .where("Name", ">=", searchName)
-          .where("Name", "<=", searchName + '\uf8ff')
-          .get();
+        // Add timeout to prevent hanging
+        const searchPromise = async () => {
+          // Search for records where phone number matches AND name starts with searchName
+          const morphersCollection = collection(db, "morphers");
+          const searchQuery = query(
+            morphersCollection,
+            where("MorphersNumber", "==", normalizedPhone),
+            where("Name", ">=", searchName),
+            where("Name", "<=", searchName + '\uf8ff')
+          );
+          const snapshot = await getDocs(searchQuery);
+          return snapshot;
+        };
 
-        snapshot.forEach(doc => {
-          const data = doc.data();
+        // Create a timeout promise
+        const timeoutPromise = new Promise((_, reject) => {
+          setTimeout(() => reject(new Error('Search timeout')), 10000); // 10 second timeout
+        });
+
+        // Race between search and timeout
+        const snapshot = await Promise.race([searchPromise(), timeoutPromise]);
+
+        console.log(`📊 Query returned ${snapshot.size} results`);
+
+        snapshot.forEach(docSnapshot => {
+          const data = docSnapshot.data();
+          console.log('📄 Found document:', data.Name);
           // Double-check that the name actually starts with our search term (case-insensitive)
           if (data.Name && data.Name.toLowerCase().startsWith(searchName.toLowerCase())) {
             found = data;
-            foundDoc = doc;
-            existingDocId = doc.id;
+            foundDoc = docSnapshot;
+            existingDocId = docSnapshot.id;
+            console.log('✅ Match found:', data.Name);
           }
         });
 
         if (found) {
+          console.log('🎯 Record found, breaking search loop');
           break; // Stop searching once we find a match
         }
       } catch (error) {
-        console.error("Search error:", error);
+        console.error("🔴 Search error:", error);
+        
+        // If it's a timeout, break the loop
+        if (error.message === 'Search timeout') {
+          console.error('🕒 Search timed out');
+          showToast('Search is taking too long. Please try again.', 'warning');
+          break;
+        }
+        
         // If compound query fails, fallback to phone number only search
+        console.log('🔄 Trying fallback search...');
         try {
-          const fallbackSnapshot = await db.collection("morphers")
-            .where("MorphersNumber", "==", normalizedPhone)
-            .get();
+          const morphersCollection = collection(db, "morphers");
+          const fallbackQuery = query(morphersCollection, where("MorphersNumber", "==", normalizedPhone));
+          const fallbackSnapshot = await getDocs(fallbackQuery);
+          
+          console.log(`📊 Fallback query returned ${fallbackSnapshot.size} results`);
             
-          fallbackSnapshot.forEach(doc => {
-            const data = doc.data();
+          fallbackSnapshot.forEach(docSnapshot => {
+            const data = docSnapshot.data();
+            console.log('📄 Fallback found document:', data.Name);
             if (data.Name && data.Name.toLowerCase().startsWith(searchName.toLowerCase())) {
               found = data;
-              foundDoc = doc;
-              existingDocId = doc.id;
+              foundDoc = docSnapshot;
+              existingDocId = docSnapshot.id;
+              console.log('✅ Fallback match found:', data.Name);
             }
           });
           
           if (found) {
+            console.log('🎯 Fallback record found, breaking search loop');
             break;
           }
         } catch (fallbackError) {
-          console.error("Fallback search error:", fallbackError);
+          console.error("🔴 Fallback search error:", fallbackError);
         }
       }
     }
 
+    // Handle search results
+    console.log('📋 Search completed. Found record:', !!found);
+    
     if (found) {
+      console.log('✅ Showing confirmation section for:', found.Name);
       showConfirmationSection(found);
       // Hide search button after record is found
-      searchBtn.style.display = "none";
+      if (searchBtn) {
+        searchBtn.style.display = "none";
+      }
     } else {
+      console.log('❌ No record found, showing no record section');
       showNoRecordSection();
       // Hide search button for no record case too
-      searchBtn.style.display = "none";
+      if (searchBtn) {
+        searchBtn.style.display = "none";
+      }
     }
   } catch (error) {
-    console.error("Search failed:", error);
-    showToast("Search failed. Please check your internet connection and try again.", "error");
-    document.getElementById("recordMessage").innerText = "";
-    document.getElementById("recordMessage").className = "";
+    console.error("🔴 Search failed:", error);
+    
+    // Determine error type for better user messaging
+    let errorMessage = ERROR_MESSAGES.SEARCH_FAILED;
+    if (error.code === 'permission-denied') {
+      errorMessage = ERROR_MESSAGES.PERMISSION_DENIED;
+    } else if (error.code === 'unavailable') {
+      errorMessage = ERROR_MESSAGES.SERVICE_UNAVAILABLE;
+    } else if (error.message === 'Search timeout') {
+      errorMessage = 'Search timed out. Please try again with a different search term.';
+    }
+    
+    showToast(errorMessage, "error");
+    
+    // Clear search results display
+    const recordMessage = document.getElementById("recordMessage");
+    if (recordMessage) {
+      recordMessage.innerText = "";
+      recordMessage.className = "";
+    }
   } finally {
-    // Remove loading state
-    searchBtn.classList.remove("loading");
-    searchBtn.disabled = false;
+    // Always remove loading state
+    console.log('🧹 Cleaning up search state...');
+    const searchBtn = document.getElementById("searchBtn");
+    if (searchBtn) {
+      searchBtn.classList.remove("loading");
+      searchBtn.disabled = false;
+      console.log('✅ Search button restored');
+    }
   }
 }
 
-// Add event listener for search button
-document.addEventListener('DOMContentLoaded', function() {
-  const searchBtn = document.getElementById('searchBtn');
-  if (searchBtn) {
-    searchBtn.addEventListener('click', searchForRecord);
+// Simple search button click handler
+function handleSearchButtonClick(event) {
+  if (event) {
+    event.preventDefault();
+    event.stopPropagation();
   }
-});
+  
+  searchForRecord();
+  return false;
+}
 
 function showConfirmationSection(found) {
+  if (!found) {
+    console.error('No record data provided to showConfirmationSection');
+    return;
+  }
+  
   foundRecord = found;
   
-  // Update message
-  document.getElementById("recordMessage").innerText = "✅ Existing record found! Please confirm your identity.";
-  document.getElementById("recordMessage").className = "found";
-  
-  // Show confirmation section
-  document.getElementById("confirmationSection").classList.remove("hidden");
-  document.getElementById("displayName").innerText = found.Name;
-  // Display phone number with leading 0 for user readability
-  document.getElementById("displayPhone").innerText = "0" + found.MorphersNumber;
-  
-  // Update instructions
-  document.getElementById("instructions").innerText = "We found a matching record. Please confirm this is you.";
+  try {
+    // Update message
+    const recordMessage = document.getElementById("recordMessage");
+    if (recordMessage) {
+      recordMessage.innerText = "✅ Existing record found! Please confirm your identity.";
+      recordMessage.className = "found";
+    }
+    
+    // Show confirmation section
+    const confirmationSection = document.getElementById("confirmationSection");
+    if (confirmationSection) {
+      confirmationSection.classList.remove("hidden");
+    }
+    
+    // Update display elements safely
+    const displayName = document.getElementById("displayName");
+    if (displayName && found.Name) {
+      displayName.innerText = found.Name;
+    }
+    
+    // Display phone number with leading 0 for user readability
+    const displayPhone = document.getElementById("displayPhone");
+    if (displayPhone && found.MorphersNumber) {
+      displayPhone.innerText = "0" + found.MorphersNumber;
+    }
+    
+    // Update instructions
+    const instructions = document.getElementById("instructions");
+    if (instructions) {
+      instructions.innerText = "We found a matching record. Please confirm this is you.";
+    }
+  } catch (error) {
+    console.error('Error in showConfirmationSection:', error);
+    showToast('Error displaying confirmation section. Please try again.', 'error');
+  }
   
   // Disable identity section inputs to prevent further searches
   disableIdentitySection();
@@ -570,6 +726,8 @@ function getCurrentService() {
   const currentMinutes = now.getMinutes();
   const currentTimeMinutes = currentHour * 60 + currentMinutes;
   
+  console.log(`🕐 Current time: ${currentHour}:${currentMinutes.toString().padStart(2, '0')} (${currentTimeMinutes} minutes)`);
+  
 // Service times in minutes from midnight
 const service1Start = 8 * 60; // 8:00 AM = 480 minutes
 const service1End = 10 * 60; // 10:00 AM = 600 minutes
@@ -582,18 +740,25 @@ let service;
 
   if (currentTimeMinutes >= service1Start && currentTimeMinutes <= service1End) {
     service = "1";
+    console.log('🔵 In Service 1 time range');
   } else if (currentTimeMinutes >= service2Start && currentTimeMinutes <= service2End) {
     service = "2";
+    console.log('🟢 In Service 2 time range');
   } else if (currentTimeMinutes >= service3Start && currentTimeMinutes <= dayEnd) {
     service = "3";
+    console.log('🟡 In Service 3 time range');
   } else {
     service = null; // Outside service hours
+    console.log('⚪ Outside service hours');
   }
+
+  console.log('🎯 Detected service:', service || 'None');
 
   // If we have a valid service, auto-populate today's attendance
   if (service) {
     const dateStr = `${now.getDate().toString().padStart(2, '0')}_${(now.getMonth() + 1).toString().padStart(2, '0')}_${now.getFullYear()}`;
     currentAttendance[dateStr] = service;
+    console.log('📅 Auto-populated attendance for:', dateStr, 'service:', service);
   }
 
   return service;
@@ -602,16 +767,29 @@ let service;
 
 // Function to update current service display
 function updateCurrentServiceDisplay() {
+  console.log('🔄 Updating current service display...');
   const currentService = getCurrentService();
   const serviceDisplay = document.getElementById("currentService");
   
+  if (!serviceDisplay) {
+    console.error('❌ currentService element not found!');
+    return;
+  }
+  
+  console.log('🎯 Current service result:', currentService);
+  
   if (currentService) {
-    serviceDisplay.textContent = getServiceText(currentService);
+    const serviceText = getServiceText(currentService);
+    console.log('📋 Setting service text to:', serviceText);
+    serviceDisplay.textContent = serviceText;
     serviceDisplay.className = "current-service active";
   } else {
+    console.log('📋 Setting to "No service currently"');
     serviceDisplay.textContent = "No service currently";
     serviceDisplay.className = "current-service inactive";
   }
+  
+  console.log('✅ Service display updated');
 }
 
 function addAttendance() {
@@ -897,13 +1075,13 @@ function suggestFullName(name) {
   
   const nameParts = name.trim().split(/\s+/);
   if (nameParts.length === 1) {
-    return `Please enter your full name (e.g., "${name} [LastName]")`;
+    return `Please enter your full name (e.g., "${name} LastName")`;
   }
   
   // Check if any name part is too short
   const shortParts = nameParts.filter(part => part.length < 2);
   if (shortParts.length > 0) {
-    return `Please enter your full name (e.g., "${name} [LastName]")`;
+    return `Please enter your full name (e.g., "${name} LastName")`;
   }
   
   return '';
@@ -974,8 +1152,9 @@ async function validateIdentity() {
   if (!fullName) return;
   
   try {
-    const docSnap = await db.collection("morphers").doc(existingDocId).get();
-    if (docSnap.exists) {
+    const docRef = doc(db, "morphers", existingDocId);
+    const docSnap = await getDoc(docRef);
+    if (docSnap.exists()) {
       const data = docSnap.data();
       if (data.Name.toLowerCase() === fullName.toLowerCase()) {
         document.getElementById("recordMessage").innerText = "✅ Identity confirmed! Fill only the missing fields below.";
@@ -995,7 +1174,6 @@ async function saveRecord() {
   const saveBtn = document.getElementById("saveBtn");
   
   // Show loading state
-  saveBtn.classList.add("loading");
   saveBtn.disabled = true;
 
   try {
@@ -1019,6 +1197,7 @@ async function saveRecord() {
       const suggestion = suggestFullName(name);
       const message = suggestion || "Please enter your full name (first and last name)";
       showToast(message, "warning");
+      return;
     }
 
 
@@ -1053,8 +1232,9 @@ async function saveRecord() {
 
     let existingData = {};
     if (existingDocId) {
-      const docSnap = await db.collection("morphers").doc(existingDocId).get();
-      if (docSnap.exists) existingData = docSnap.data();
+      const docRef = doc(db, "morphers", existingDocId);
+      const docSnap = await getDoc(docRef);
+      if (docSnap.exists()) existingData = docSnap.data();
     }
 
     // Build payload: use input value if not empty, otherwise keep existing data
@@ -1068,17 +1248,19 @@ async function saveRecord() {
       Residence: residence || existingData.Residence || "",
       Cell: cell || existingData.Cell || "",
       attendance: attendance || existingData.attendance || {},
-      lastUpdated: firebase.firestore.Timestamp.now()
+      lastUpdated: Timestamp.now()
     };
 
     console.log("Payload:", payload);
 
     if (existingDocId) {
-      await db.collection("morphers").doc(existingDocId).update(payload);
+      const docRef = doc(db, "morphers", existingDocId);
+      await updateDoc(docRef, payload);
     } else {
       // Add creation timestamp for new records
-      payload.createdAt = firebase.firestore.Timestamp.now();
-      await db.collection("morphers").add(payload);
+      payload.createdAt = Timestamp.now();
+      const morphersCollection = collection(db, "morphers");
+      await setDoc(doc(morphersCollection), payload);
     }
 
     // Show success message
@@ -1099,7 +1281,6 @@ async function saveRecord() {
     // Remove loading state
     saveBtn.classList.remove("loading");
     saveBtn.disabled = false;
-    updateSaveButton(); // Re-enable if conditions are met
   }
 }
 
@@ -1137,14 +1318,8 @@ function resetForm() {
 
 // 4️⃣ Download CSV
 async function downloadAll() {
-  // Check authentication
-  if (!currentUser || !AUTHORIZED_ADMIN_PHONES.includes(currentUser.phoneNumber)) {
-    showToast("Admin authentication required to download CSV", "error");
-    requestAdminAccess('download');
-    return;
-  }
-  
-  const snapshot = await db.collection("morphers").get();
+  const morphersCollection = collection(db, "morphers");
+  const snapshot = await getDocs(morphersCollection);
   if (snapshot.empty) return showToast("No records to download", "warning");
   
   const data = snapshot.docs.map(doc => {
@@ -1164,7 +1339,7 @@ async function downloadAll() {
         // Handle Firestore Timestamps and other objects
         if (record[key].seconds !== undefined) {
           // Firestore Timestamp
-          const timestamp = new firebase.firestore.Timestamp(record[key].seconds, record[key].nanoseconds || 0);
+          const timestamp = new Timestamp(record[key].seconds, record[key].nanoseconds || 0);
           flatRecord[key] = timestamp.toDate().toISOString();
         } else {
           // Other objects - convert to string
@@ -1276,12 +1451,12 @@ async function uploadCSV(file) {
               break;
             case 'createdAt':
               if (value && value !== '') {
-                record.createdAt = firebase.firestore.Timestamp.fromDate(new Date(value));
+                record.createdAt = Timestamp.fromDate(new Date(value));
               }
               break;
             case 'lastUpdated':
               if (value && value !== '') {
-                record.lastUpdated = firebase.firestore.Timestamp.fromDate(new Date(value));
+                record.lastUpdated = Timestamp.fromDate(new Date(value));
               }
               break;
             default:
@@ -1294,10 +1469,10 @@ async function uploadCSV(file) {
       
       // Ensure required timestamps exist
       if (!record.lastUpdated) {
-        record.lastUpdated = firebase.firestore.Timestamp.now();
+        record.lastUpdated = Timestamp.now();
       }
       if (!record.createdAt) {
-        record.createdAt = firebase.firestore.Timestamp.now();
+        record.createdAt = Timestamp.now();
       }
       
       // Ensure attendance object exists
@@ -1370,7 +1545,8 @@ function parseCSVRow(row) {
 // Helper function to get current record count
 async function getRecordCount() {
   try {
-    const snapshot = await db.collection("morphers").get();
+    const morphersCollection = collection(db, "morphers");
+    const snapshot = await getDocs(morphersCollection);
     return snapshot.size;
   } catch (error) {
     console.error("Error getting record count:", error);
@@ -1384,15 +1560,17 @@ async function deleteAllRecords() {
   let deletedCount = 0;
   
   while (true) {
-    const snapshot = await db.collection("morphers").limit(batchSize).get();
+    const morphersCollection = collection(db, "morphers");
+    const limitedQuery = query(morphersCollection, limit(batchSize));
+    const snapshot = await getDocs(limitedQuery);
     
     if (snapshot.empty) {
       break;
     }
     
-    const batch = db.batch();
-    snapshot.docs.forEach(doc => {
-      batch.delete(doc.ref);
+    const batch = writeBatch(db);
+    snapshot.docs.forEach(docSnapshot => {
+      batch.delete(docSnapshot.ref);
     });
     
     await batch.commit();
@@ -1410,11 +1588,12 @@ async function uploadRecordsInBatches(records) {
   let uploadedCount = 0;
   
   for (let i = 0; i < records.length; i += batchSize) {
-    const batch = db.batch();
+    const batch = writeBatch(db);
     const batchRecords = records.slice(i, i + batchSize);
     
     batchRecords.forEach(record => {
-      const docRef = db.collection("morphers").doc();
+      const morphersCollection = collection(db, "morphers");
+      const docRef = doc(morphersCollection);
       batch.set(docRef, record);
     });
     
@@ -1512,11 +1691,11 @@ async function loadSampleData() {
   
   if (!confirm("This will upload sample morphers to Firestore. Continue?")) return;
 
-  const batch = db.batch(); // Use batch to speed up multiple writes
-  const collectionRef = db.collection("morphers");
+  const batch = writeBatch(db); // Use batch to speed up multiple writes
+  const collectionRef = collection(db, "morphers");
 
   sampleData.forEach(item => {
-    const docRef = collectionRef.doc(); // auto-generated ID
+    const docRef = doc(collectionRef); // auto-generated ID
     batch.set(docRef, item);
   });
 
@@ -1524,165 +1703,63 @@ async function loadSampleData() {
   showToast("Sample data loaded into Firestore!", "success");
 }
 
-// Auto-check for existing records
+// Make functions globally accessible
+window.searchForRecord = searchForRecord;
+window.saveRecord = saveRecord;
+window.downloadAll = downloadAll;
+window.handleCSVFileInput = handleCSVFileInput;
+window.loadSampleData = loadSampleData;
+window.confirmIdentity = confirmIdentity;
+window.denyIdentity = denyIdentity;
+window.showNewRecordSection = showNewRecordSection;
+window.enableIdentitySection = enableIdentitySection;
+window.updateStepIndicator = updateStepIndicator;
+window.updateCurrentServiceDisplay = updateCurrentServiceDisplay;
+window.validatePhoneNumber = validatePhoneNumber;
+window.validateFullName = validateFullName;
+window.validateAndNormalizeSchoolName = validateAndNormalizeSchoolName;
+
+// Debug: End of script file
+console.log('📝 End of scripts.js reached - ready for initialization');
+
+// Main DOM Content Loaded Event Handler - Ensure Firebase modules are loaded first
 document.addEventListener('DOMContentLoaded', function() {
-  const nameInput = document.getElementById("name");
-  const phoneInput = document.getElementById("morphersNumber");
-  const confirmBtn = document.getElementById("confirmBtn");
-  const denyBtn = document.getElementById("denyBtn");
-  const searchAgainBtn = document.getElementById("searchAgainBtn");
-  const createNewBtn = document.getElementById("createNewBtn");
+  console.log('🎯 DOM Content Loaded event fired - Checking for Firebase modules');
   
-  // Add phone validation on input
-  phoneInput.addEventListener("input", function() {
-    const isValid = validatePhoneNumber(this.value);
-    if (this.value.length > 5) {
-      if (isValid) {
-        this.style.borderColor = "#27ae60";
-        this.setCustomValidity("");
-      } else {
-        this.style.borderColor = "#e74c3c";
-        this.setCustomValidity("Please enter a valid phone number");
-      }
-    } else {
-      this.style.borderColor = "#e1e5e9";
-      this.setCustomValidity("");
-    }
-  });
-  
-  // Add phone validation to editable phone fields
-  const editablePhoneValidation = function() {
-    const isValid = validatePhoneNumber(this.value);
-    if (this.value.length > 5) {
-      if (isValid) {
-        this.style.borderColor = "#27ae60";
-        this.setCustomValidity("");
-      } else {
-        this.style.borderColor = "#e74c3c";
-        this.setCustomValidity("Please enter a valid phone number");
-      }
-    } else {
-      this.style.borderColor = "#e1e5e9";
-      this.setCustomValidity("");
-    }
-  };
-  
-  // Wait for completion section to be shown before adding event listeners
-  setTimeout(() => {
-    const editablePhone = document.getElementById("editablePhone");
-    const editableParentsPhone = document.getElementById("editableParentsPhone");
-    const editableName = document.getElementById("editableName");
-    const schoolInput = document.getElementById("school");
-    
-    if (editablePhone) {
-      editablePhone.addEventListener("input", editablePhoneValidation);
-    }
-    if (editableParentsPhone) {
-      editableParentsPhone.addEventListener("input", editablePhoneValidation);
-    }
-    
-    // Add name validation
-    if (editableName) {
-      editableName.addEventListener("input", function() {
-        const name = this.value.trim();
-        if (name.length > 3) {
-          if (validateFullName(name)) {
-            this.style.borderColor = "#28a745";
-            this.setCustomValidity("");
-          } else {
-            this.style.borderColor = "#ffc107";
-            const suggestion = suggestFullName(name);
-            this.setCustomValidity(suggestion || "Please enter your full name (first and last name)");
-          }
-        } else {
-          this.style.borderColor = "#e1e5e9";
-          this.setCustomValidity("");
-        }
-      });
-    }
-    
-    // Add school validation  
-    if (schoolInput) {
-      schoolInput.addEventListener("input", function() {
-        const school = this.value.trim();
-        if (school.length > 2) {
-          const validation = validateAndNormalizeSchoolName(school);
-          if (validation.isValid) {
-            this.style.borderColor = "#28a745";
-            this.setCustomValidity("");
-            this.title = "";
-          } else {
-            this.style.borderColor = "#ffc107";
-            this.setCustomValidity(validation.suggestion);
-            this.title = validation.suggestion;
-          }
-        } else {
-          this.style.borderColor = "#e1e5e9";
-          this.setCustomValidity("");
-          this.title = "";
-        }
-      });
-    }
-  }, 1000);
-  
-  // Confirmation button handlers
-  confirmBtn.addEventListener("click", confirmIdentity);
-  denyBtn.addEventListener("click", denyIdentity);
-  
-  // No record section button handlers
-  searchAgainBtn.addEventListener("click", function() {
-
-    // Enable identity section for new search
-    enableIdentitySection();
-
-    // Reset to identity section for new search
-    document.getElementById("noRecordSection").classList.add("hidden");
-    document.getElementById("identitySection").classList.remove("disabled");
-    document.getElementById("recordMessage").innerText = "";
-    document.getElementById("recordMessage").className = "";
-    document.getElementById("searchBtn").style.display = "block";
-    updateStepIndicator(1);
-    document.getElementById("instructions").innerText = "Enter your first name and phone number to check for existing records.";
-  });
-  
-  createNewBtn.addEventListener("click", function() {
-    showNewRecordSection();
-  });
-  
-  // Save button handler
-  document.getElementById("saveBtn").addEventListener("click", saveRecord);
-  
-  // Set initial placeholders and state
-  nameInput.placeholder = "Enter your first name only";
-  phoneInput.placeholder = "Enter your phone number (e.g., 0700123456)";
-  document.getElementById("saveBtn").disabled = true;
-  
-  // Initialize step indicator
-  updateStepIndicator(1);
-  
-  // Initialize service detection
-  updateCurrentServiceDisplay();
-  
-  // Update service display every minute
-  setInterval(updateCurrentServiceDisplay, 60000);
-  
-  // Initialize global attendance variable
-  currentAttendance = {};
-  
-  // Set attendance date to today
-  const today = new Date();
-  const todayStr = today.getFullYear() + '-' + 
-                   String(today.getMonth() + 1).padStart(2, '0') + '-' + 
-                   String(today.getDate()).padStart(2, '0');
-  document.getElementById("attendanceDate").value = todayStr;
-  
-  // Add escape key handler for auth modal
-  document.addEventListener('keydown', function(event) {
-    if (event.key === 'Escape') {
-      const authModal = document.getElementById('authModal');
-      if (!authModal.classList.contains('hidden')) {
-        closeAuthModal();
-      }
-    }
-  });
+  // Check if Firebase modules are available
+  if (window.firebaseApp && window.firebaseFirestore) {
+    console.log('✅ Firebase modules ready, initializing app');
+    initializeApp();
+  } else {
+    console.log('⏳ Firebase modules not ready, waiting for firebaseReady event');
+    // Wait for Firebase modules to load
+    window.addEventListener('firebaseReady', () => {
+      console.log('✅ Firebase modules loaded via event, initializing app');
+      initializeApp();
+    });
+  }
 });
+
+// Fallback initialization if DOM is already loaded
+console.log('🔍 Checking document ready state:', document.readyState);
+
+if (document.readyState === 'loading') {
+  // Document is still loading, DOMContentLoaded will handle it
+  console.log('⏳ Document still loading, waiting for DOMContentLoaded');
+} else {
+  // Document already loaded
+  console.log('📋 Document already loaded, checking Firebase modules');
+  if (window.firebaseApp && window.firebaseFirestore) {
+    console.log('✅ Firebase modules ready, initializing app immediately');
+    initializeApp();
+  } else {
+    console.log('⏳ Firebase modules not ready, waiting for firebaseReady event');
+    window.addEventListener('firebaseReady', () => {
+      console.log('✅ Firebase modules loaded via event, initializing app');
+      initializeApp();
+    });
+  }
+}
+
+// Debug: End of script file
+console.log('📝 End of scripts.js reached - initialization logic set up');

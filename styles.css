@@ -3,6 +3,8 @@
   margin: 0;
   padding: 0;
   box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
 }
 
 body {
@@ -12,6 +14,9 @@ body {
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   min-height: 100vh;
   padding: 20px;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  -webkit-overflow-scrolling: touch;
 }
 
 /* Container */
@@ -24,6 +29,8 @@ body {
   box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
   padding: 40px;
   animation: fadeInUp 0.6s ease-out;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 @keyframes fadeInUp {
@@ -727,6 +734,8 @@ h2 {
   margin: 20px auto !important;
   display: flex !important;
   width: 100%;
+  z-index: 1000;
+  position: relative;
 }
 
 .search-btn {
@@ -741,6 +750,9 @@ h2 {
   transition: all 0.3s ease;
   box-shadow: 0 4px 15px rgba(25, 118, 210, 0.3);
   min-width: 250px;
+  position: relative;
+  z-index: 1001;
+  pointer-events: auto;
 }
 
 .search-btn:hover {
@@ -918,7 +930,7 @@ button:not(:first-of-type):active:not(:disabled) {
 /* Responsive design */
 @media (max-width: 768px) {
   body {
-    padding: 15px;
+    padding: 8px;
     display: flex;
     justify-content: center;
     align-items: flex-start;
@@ -926,49 +938,340 @@ button:not(:first-of-type):active:not(:disabled) {
   }
   
   .container {
-    padding: 30px 20px;
+    padding: 20px 16px;
     width: 100%;
-    max-width: calc(100vw - 30px);
-    margin: 0 auto;
-    border-radius: 10px;
+    max-width: calc(100vw - 16px);
+    margin: 0;
+    border-radius: 12px;
+    min-height: auto;
+  }
+  
+  h1 {
+    font-size: 1.9em;
+    margin-bottom: 18px;
+    text-align: center;
   }
   
   h2 {
-    font-size: 2em;
-    margin-bottom: 25px;
+    font-size: 1.7em;
+    margin-bottom: 18px;
+    line-height: 1.2;
+    text-align: center;
   }
   
+  /* Instructions and messages */
+  .instructions {
+    font-size: 0.95em;
+    margin-bottom: 20px;
+    text-align: center;
+    line-height: 1.5;
+  }
+  
+  #recordMessage {
+    margin-bottom: 20px;
+    font-size: 0.9em;
+  }
+  
+  /* Form improvements */
+  .form-section {
+    margin-bottom: 20px;
+  }
+  
+  .form-group {
+    margin-bottom: 18px;
+  }
+  
+  .field {
+    margin-bottom: 18px;
+  }
+  
+  .field label {
+    font-size: 0.9em;
+    margin-bottom: 6px;
+    display: block;
+  }
+  
+  .field-help {
+    font-size: 0.8em;
+    margin-top: 4px;
+  }
+  
+  input, select, textarea {
+    font-size: 16px; /* Prevents zoom on iOS */
+    padding: 12px 14px;
+    border-radius: 8px;
+    width: 100%;
+    border: 2px solid #e1e5e9;
+    transition: all 0.3s ease;
+  }
+  
+  input:focus, select:focus, textarea:focus {
+    border-color: #667eea;
+    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+    outline: none;
+  }
+  
+  /* Button improvements */
   .button-container {
     flex-direction: column;
     align-items: center;
+    gap: 12px;
+    margin-top: 25px;
   }
   
   button {
     width: 100%;
-    max-width: 300px;
+    max-width: 320px;
+    padding: 14px 20px;
+    font-size: 1em;
+    min-height: 48px; /* Touch target size */
+    border-radius: 10px;
   }
   
   /* Mobile-specific styles for new elements */
   .no-record-options {
     flex-direction: column;
-    gap: 10px;
+    gap: 12px;
+    align-items: center;
+    margin-top: 20px;
   }
   
   .search-again-btn, .create-new-btn {
     width: 100%;
-    max-width: 250px;
+    max-width: 280px;
+    min-height: 48px;
   }
   
+  /* Step indicator mobile optimization */
+  .step-indicator {
+    flex-direction: row;
+    justify-content: center;
+    gap: 20px;
+    margin: 15px 0 25px 0;
+    flex-wrap: wrap;
+  }
+  
+  .step-indicator::before {
+    display: none;
+  }
+  
+  .step {
+    flex-direction: column;
+    margin: 0;
+    gap: 8px;
+    align-items: center;
+  }
+  
+  .step-number {
+    width: 36px;
+    height: 36px;
+    font-size: 0.9em;
+  }
+  
+  .step-text {
+    margin-top: 0;
+    font-size: 0.85em;
+    text-align: center;
+  }
+  
+  /* Radio buttons mobile optimization */
   .radio-group {
     flex-direction: column;
-    gap: 10px;
-    align-items: flex-start;
+    gap: 12px;
+    align-items: stretch;
   }
   
   .radio-option {
     width: 100%;
-    max-width: 200px;
+    max-width: none;
     justify-content: flex-start;
+    padding: 12px 16px;
+    min-height: 48px;
+  }
+}
+
+@media (max-width: 480px) {
+  body {
+    padding: 4px;
+  }
+  
+  .container {
+    padding: 16px 12px;
+    max-width: calc(100vw - 8px);
+    border-radius: 8px;
+  }
+  
+  h1 {
+    font-size: 1.7em;
+    margin-bottom: 16px;
+  }
+  
+  h2 {
+    font-size: 1.5em;
+    margin-bottom: 16px;
+    line-height: 1.1;
+  }
+  
+  .instructions {
+    font-size: 0.9em;
+    margin-bottom: 18px;
+  }
+  
+  .field {
+    margin-bottom: 16px;
+  }
+  
+  .field label {
+    font-size: 0.85em;
+    margin-bottom: 5px;
+  }
+  
+  .field-help {
+    font-size: 0.75em;
+    margin-top: 3px;
+  }
+  
+  input, select, textarea {
+    padding: 10px 12px;
+    font-size: 16px;
+    border-radius: 6px;
+  }
+  
+  button {
+    padding: 12px 16px;
+    font-size: 0.95em;
+    max-width: none;
+    min-height: 44px;
+    border-radius: 8px;
+  }
+  
+  .button-container {
+    gap: 10px;
+    margin-top: 20px;
+  }
+  
+  .step-indicator {
+    gap: 15px;
+    margin: 12px 0 20px 0;
+  }
+  
+  .step-number {
+    width: 32px;
+    height: 32px;
+    font-size: 0.85em;
+  }
+  
+  .step-text {
+    font-size: 0.8em;
+  }
+  
+  .radio-group {
+    gap: 8px;
+  }
+  
+  .radio-option {
+    padding: 10px 12px;
+    min-height: 44px;
+    border-radius: 6px;
+  }
+  
+  .no-record-options {
+    gap: 10px;
+    margin-top: 16px;
+  }
+  
+  /* Additional mobile optimizations */
+  .form-section {
+    margin-bottom: 18px;
+  }
+  
+  .form-group {
+    margin-bottom: 16px;
+  }
+  
+  /* Phone number input specific */
+  input[type="tel"] {
+    font-family: monospace;
+    letter-spacing: 1px;
+  }
+  
+  /* Success/error messages */
+  .success-message, .error-message {
+    font-size: 0.9em;
+    padding: 10px 12px;
+    border-radius: 6px;
+    margin-bottom: 16px;
+  }
+}
+
+/* Ultra-small devices (phones, 360px and down) */
+@media (max-width: 360px) {
+  body {
+    padding: 2px;
+  }
+  
+  .container {
+    padding: 12px 8px;
+    max-width: calc(100vw - 4px);
+    border-radius: 6px;
+  }
+  
+  h2 {
+    font-size: 1.3em;
+    margin-bottom: 14px;
+  }
+  
+  .instructions {
+    font-size: 0.85em;
+    margin-bottom: 16px;
+  }
+  
+  .field {
+    margin-bottom: 14px;
+  }
+  
+  .field label {
+    font-size: 0.8em;
+    margin-bottom: 4px;
+  }
+  
+  .field-help {
+    font-size: 0.7em;
+    margin-top: 2px;
+  }
+  
+  input, select, textarea {
+    padding: 8px 10px;
+    font-size: 16px;
+    border-radius: 4px;
+  }
+  
+  button {
+    padding: 10px 14px;
+    font-size: 0.9em;
+    min-height: 42px;
+    border-radius: 6px;
+  }
+  
+  .step-number {
+    width: 28px;
+    height: 28px;
+    font-size: 0.8em;
+  }
+  
+  .step-text {
+    font-size: 0.75em;
+  }
+  
+  .step-indicator {
+    gap: 12px;
+    margin: 10px 0 16px 0;
+  }
+  
+  .radio-option {
+    padding: 8px 10px;
+    min-height: 42px;
+    font-size: 0.9em;
   }
 }
 
