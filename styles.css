@@ -283,7 +283,8 @@ body {
 }
 
 .radio-option {
-  display: flex;
+  display: inline-grid;
+  flex-direction: row;
   align-items: center;
   justify-content: center;
   width: fit-content;
@@ -307,6 +308,7 @@ body {
 
 .radio-label {
   text-align: center;
+  justify-content: center;
 }
 
 .radio-option input[type="radio"]:checked + .radio-label {
@@ -1094,6 +1096,8 @@ button:not(:first-of-type):active:not(:disabled) {
     flex: 0 0 auto;
     width: auto;
     justify-content: center;
+    align-items: center;
+    flex-direction: row;
     padding: 12px 16px;
     min-height: 48px;
   }
@@ -1186,6 +1190,9 @@ button:not(:first-of-type):active:not(:disabled) {
     border-radius: 6px;
     flex: 0 0 auto;
     justify-content: center;
+    align-items: center;
+    flex-direction: row;
+    width: 30%;
   }
   
   .no-record-options {
@@ -1286,6 +1293,9 @@ button:not(:first-of-type):active:not(:disabled) {
     min-height: 42px;
     font-size: 0.9em;
     flex: 0 0 auto;
+    align-items: center;
+    flex-direction: row;
+    justify-content: center;
   }
 }
 
