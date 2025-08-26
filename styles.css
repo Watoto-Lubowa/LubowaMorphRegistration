@@ -665,7 +665,8 @@ h2 {
 }
 
 .field input[type="text"], 
-.field input[type="tel"] {
+.field input[type="tel"],
+.field input[type="date"] {
   width: 100%;
   padding: 15px 20px;
   border: 2px solid #e1e5e9;
@@ -677,7 +678,8 @@ h2 {
 }
 
 .field input[type="text"]:focus, 
-.field input[type="tel"]:focus {
+.field input[type="tel"]:focus,
+.field input[type="date"]:focus {
   border-color: #667eea;
   background: white;
   box-shadow: 0 0 20px rgba(102, 126, 234, 0.15);
@@ -685,7 +687,8 @@ h2 {
 }
 
 .field input[type="text"]:hover, 
-.field input[type="tel"]:hover {
+.field input[type="tel"]:hover,
+.field input[type="date"]:hover {
   border-color: #c8d0f0;
   background: white;
 }
@@ -733,7 +736,7 @@ h2 {
 
 .field:not(.hidden) {
   opacity: 1;
-  max-height: 120px;
+  max-height: none;
   transform: translateX(0);
 }
 
@@ -1006,6 +1009,9 @@ button:not(:first-of-type):active:not(:disabled) {
     margin-top: 4px;
   }
   
+  .field input[type="text"], 
+  .field input[type="tel"],
+  .field input[type="date"],
   input, select, textarea {
     font-size: 16px; /* Prevents zoom on iOS */
     padding: 12px 14px;
@@ -1015,6 +1021,9 @@ button:not(:first-of-type):active:not(:disabled) {
     transition: all 0.3s ease;
   }
   
+  .field input[type="text"]:focus, 
+  .field input[type="tel"]:focus,
+  .field input[type="date"]:focus,
   input:focus, select:focus, textarea:focus {
     border-color: #667eea;
     box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
@@ -1144,6 +1153,9 @@ button:not(:first-of-type):active:not(:disabled) {
     margin-top: 3px;
   }
   
+  .field input[type="text"], 
+  .field input[type="tel"],
+  .field input[type="date"],
   input, select, textarea {
     padding: 10px 12px;
     font-size: 16px;
@@ -1260,6 +1272,9 @@ button:not(:first-of-type):active:not(:disabled) {
     margin-top: 2px;
   }
   
+  .field input[type="text"], 
+  .field input[type="tel"],
+  .field input[type="date"],
   input, select, textarea {
     padding: 8px 10px;
     font-size: 16px;
