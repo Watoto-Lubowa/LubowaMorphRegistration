@@ -9,23 +9,23 @@
     // Import the functions you need from the SDKs you need
     import { initializeApp } from 'https://www.gstatic.com/firebasejs/12.1.0/firebase-app.js';
     import { getFirestore, collection, doc, getDocs, getDoc, setDoc, updateDoc, deleteDoc, query, where, getCountFromServer, Timestamp, writeBatch, limit } from 'https://www.gstatic.com/firebasejs/12.1.0/firebase-firestore.js';
-    import { getAuth, signInWithEmailAndPassword, sendPasswordResetEmail, signOut, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/12.1.0/firebase-auth.js';
+    import { getAuth, signInWithEmailAndPassword, sendPasswordResetEmail, signOut, onAuthStateChanged, setPersistence, browserSessionPersistence } from 'https://www.gstatic.com/firebasejs/12.1.0/firebase-auth.js';
     
     // Make Firebase available globally
     window.firebaseApp = { initializeApp };
     window.firebaseFirestore = { getFirestore, collection, doc, getDocs, getDoc, setDoc, updateDoc, deleteDoc, query, where, getCountFromServer, Timestamp, writeBatch, limit };
-    window.firebaseAuth = { getAuth, signInWithEmailAndPassword, sendPasswordResetEmail, signOut, onAuthStateChanged };
+    window.firebaseAuth = { getAuth, signInWithEmailAndPassword, sendPasswordResetEmail, signOut, onAuthStateChanged, setPersistence, browserSessionPersistence };
   </script>
   <script type="module">
     // Import the functions you need from the SDKs you need
     import { initializeApp } from 'https://www.gstatic.com/firebasejs/12.1.0/firebase-app.js';
     import { getFirestore, collection, doc, getDocs, getDoc, setDoc, updateDoc, deleteDoc, query, where, getCountFromServer, Timestamp, writeBatch } from 'https://www.gstatic.com/firebasejs/12.1.0/firebase-firestore.js';
-    import { getAuth, signInWithEmailAndPassword, sendPasswordResetEmail, signOut, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/12.1.0/firebase-auth.js';
+    import { getAuth, signInWithEmailAndPassword, sendPasswordResetEmail, signOut, onAuthStateChanged, setPersistence, browserSessionPersistence } from 'https://www.gstatic.com/firebasejs/12.1.0/firebase-auth.js';
     
     // Make Firebase available globally
     window.firebaseApp = { initializeApp };
     window.firebaseFirestore = { getFirestore, collection, doc, getDocs, getDoc, setDoc, updateDoc, deleteDoc, query, where, getCountFromServer, Timestamp, writeBatch };
-    window.firebaseAuth = { getAuth, signInWithEmailAndPassword, sendPasswordResetEmail, signOut, onAuthStateChanged };
+    window.firebaseAuth = { getAuth, signInWithEmailAndPassword, sendPasswordResetEmail, signOut, onAuthStateChanged, setPersistence, browserSessionPersistence };
   </script>
   <link rel="stylesheet" href="styles.css">
   <link rel="stylesheet" href="admin-styles.css">
@@ -70,6 +70,10 @@
         <button id="resetPasswordBtn" onclick="resetPassword()" class="link-btn">
           Forgot Password?
         </button>
+      </div>
+      
+      <div class="security-notice">
+        <small>🔒 For security: You'll be automatically logged out when you close your browser tab/window.</small>
       </div>
       
       <div class="auth-status" id="authStatus"></div>
@@ -165,12 +169,12 @@
   // Import the functions you need from the SDKs you need
   import { initializeApp } from 'https://www.gstatic.com/firebasejs/12.1.0/firebase-app.js';
   import { getFirestore, collection, doc, getDocs, getDoc, setDoc, updateDoc, deleteDoc, query, where, getCountFromServer, Timestamp, writeBatch, limit } from 'https://www.gstatic.com/firebasejs/12.1.0/firebase-firestore.js';
-  import { getAuth, signInWithEmailAndPassword, sendPasswordResetEmail, signOut, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/12.1.0/firebase-auth.js';
+  import { getAuth, signInWithEmailAndPassword, sendPasswordResetEmail, signOut, onAuthStateChanged, setPersistence, browserSessionPersistence } from 'https://www.gstatic.com/firebasejs/12.1.0/firebase-auth.js';
   
   // Make Firebase available globally
   window.firebaseApp = { initializeApp };
   window.firebaseFirestore = { getFirestore, collection, doc, getDocs, getDoc, setDoc, updateDoc, deleteDoc, query, where, getCountFromServer, Timestamp, writeBatch, limit };
-  window.firebaseAuth = { getAuth, signInWithEmailAndPassword, sendPasswordResetEmail, signOut, onAuthStateChanged };
+  window.firebaseAuth = { getAuth, signInWithEmailAndPassword, sendPasswordResetEmail, signOut, onAuthStateChanged, setPersistence, browserSessionPersistence };
   
   // Signal that Firebase modules are ready
   window.firebaseReady = true;

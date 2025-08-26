@@ -32,7 +32,7 @@ jobs:
           npm install -g terser
           npm install -g clean-css-cli
           npm install -g html-minifier-terser
-
+          
       - name: Replace Firebase Configuration
         run: |
           sed -i "s/FIREBASE_API_KEY_PLACEHOLDER/${{ secrets.FIREBASE_API_KEY }}/g" config.js
@@ -42,26 +42,19 @@ jobs:
           sed -i "s/FIREBASE_MESSAGING_SENDER_ID_PLACEHOLDER/${{ secrets.FIREBASE_MESSAGING_SENDER_ID }}/g" config.js
           sed -i "s/FIREBASE_APP_ID_PLACEHOLDER/${{ secrets.FIREBASE_APP_ID }}/g" config.js
           sed -i "s/FIREBASE_MEASUREMENT_ID_PLACEHOLDER/${{ secrets.FIREBASE_MEASUREMENT_ID }}/g" config.js
-
           sed -i "s/AUTHORIZED_ADMIN_EMAILS_PLACEHOLDER/${{ secrets.AUTHORIZED_ADMIN_EMAILS }}/g" config.js
           sed -i "s/AUTHORIZED_PHONE_NUMBERS_PLACEHOLDER/${{ secrets.AUTHORIZED_PHONE_NUMBERS }}/g" config.js
 
-      - name: Minify JavaScript files
+      - name: Minify JavaScript and CSS files
         run: |
-          mkdir -p minified
-          terser scripts.js --compress --mangle --output minified/scripts.min.js
-          terser admin.js --compress --mangle --output minified/admin.min.js
-          terser config.js --compress --mangle --output minified/config.min.js
-          mv minified/scripts.min.js scripts.js
-          mv minified/admin.min.js admin.js
-          mv minified/config.min.js config.js
-
-      - name: Minify CSS files
-        run: |
-          cleancss styles.css --output styles.min.css
-          cleancss admin-styles.css --output admin-styles.min.css
-          mv styles.min.css styles.css
-          mv admin-styles.min.css admin-styles.css
+          # Minify and overwrite JS files in place
+          terser scripts.js --compress --mangle --output scripts.js
+          terser admin.js --compress --mangle --output admin.js
+          terser config.js --compress --mangle --output config.js
+          
+          # Minify and overwrite CSS files in place
+          cleancss styles.css --output styles.css
+          cleancss admin-styles.css --output admin-styles.css
 
       - name: Minify HTML files
         run: |
@@ -73,36 +66,24 @@ jobs:
             --remove-tag-whitespace \
             --use-short-doctype \
             --collapse-whitespace \
-            --minify-css true \
-            --minify-js true \
+            --minify-css false \
+            --minify-js false \
             --process-conditional-comments \
             --sort-attributes \
             --sort-class-name
-
-      - name: Generate file hashes for cache-busting
-        run: |
-          CSS_HASH=$(md5sum styles.css | cut -d ' ' -f1)
-          JS_HASH=$(md5sum scripts.js | cut -d ' ' -f1)
-          echo "CSS_HASH=$CSS_HASH" >> $GITHUB_ENV
-          echo "JS_HASH=$JS_HASH" >> $GITHUB_ENV
-
-      - name: Update HTML with cache-busted URLs
-        run: |
-          sed -i "s/styles.css/styles.css?v=$CSS_HASH/g" index.html
-          sed -i "s/scripts.js/scripts.js?v=$JS_HASH/g" index.html
-
+      
       - name: Setup Pages
         uses: actions/configure-pages@v4
-
+      
       - name: Build with Jekyll
         uses: actions/jekyll-build-pages@v1
         with:
           source: ./
           destination: ./_site
-
+      
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
-
+        
   deploy:
     environment:
       name: github-pages

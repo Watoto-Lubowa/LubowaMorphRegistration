@@ -13,7 +13,7 @@ window.APP_CONFIG = {
     appId: "1:1011234595387:web:96c8b7e129f8cf2173321e",
     measurementId: "G-07PTV3DXG4"
   },
-  authorizedAdminEmails: ["admin@example.com"],
+  authorizedAdminEmails: ["jeromessenyonjo@gmail.com"],
   authorizedPhoneNumbers: ["0700000000"]
 };
 

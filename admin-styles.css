@@ -177,6 +177,23 @@ html {
   transform: translateY(0);
 }
 
+/* Security Notice */
+.security-notice {
+  margin: 15px 0 10px 0;
+  text-align: center;
+  padding: 12px 15px;
+  background: rgba(255, 193, 7, 0.1);
+  border: 1px solid rgba(255, 193, 7, 0.3);
+  border-radius: 8px;
+}
+
+.security-notice small {
+  color: #856404;
+  font-size: 0.85em;
+  font-weight: 500;
+  line-height: 1.4;
+}
+
 /* Dashboard Styles */
 .admin-dashboard {
   transition: all 0.3s ease;

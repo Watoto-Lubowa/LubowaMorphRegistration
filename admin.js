@@ -107,13 +107,26 @@ const firebaseConfig = window.APP_CONFIG ? window.APP_CONFIG.firebase : {};
 
   // Firebase functions for easy access
   const { collection, getDocs, query, where, getCountFromServer, Timestamp, writeBatch, limit } = window.firebaseFirestore;
-  const { signInWithEmailAndPassword, sendPasswordResetEmail, signOut, onAuthStateChanged } = window.firebaseAuth;
+  const { signInWithEmailAndPassword, sendPasswordResetEmail, signOut, onAuthStateChanged, setPersistence, browserSessionPersistence } = window.firebaseAuth;
 
   // Authorized admin email addresses
   const AUTHORIZED_ADMIN_EMAILS = window.APP_CONFIG ? window.APP_CONFIG.authorizedAdminEmails : [];
 
   // Authentication state
   let currentUser = null;
+
+  // Set authentication persistence to browser session only
+  // This ensures users are logged out when they close their browser
+  if (setPersistence && browserSessionPersistence) {
+    setPersistence(auth, browserSessionPersistence).then(() => {
+      console.log('🔐 Authentication persistence set to browser session only');
+    }).catch((error) => {
+      console.error('Error setting persistence:', error);
+      showToast('Error configuring session persistence', 'warning');
+    });
+  } else {
+    console.warn('setPersistence or browserSessionPersistence not available');
+  }
 
   console.log('🔐 Admin panel initialized for project:', firebaseConfig.projectId);
 
@@ -124,7 +137,7 @@ onAuthStateChanged(auth, async (user) => {
     if (AUTHORIZED_ADMIN_EMAILS.includes(user.email)) {
       showAdminDashboard();
       await loadDashboardStats();
-      showToast(`Welcome back, ${user.email}`, 'success');
+      showToast(`Welcome back, ${user.email}. You'll be automatically logged out when you close your browser.`, 'success');
     } else {
       // Unauthorized user
       await signOut(auth);
@@ -176,15 +189,20 @@ async function signInWithPassword() {
   authStatus.innerHTML = '';
   
   try {
+    // Ensure browser session persistence is set before signing in (if available)
+    if (setPersistence && browserSessionPersistence) {
+      await setPersistence(auth, browserSessionPersistence);
+    }
+    
     await signInWithEmailAndPassword(auth, email, password);
     
     authStatus.className = 'auth-status success';
     authStatus.innerHTML = `
       <strong>✅ Sign-in successful!</strong><br>
-      Welcome to the admin dashboard.
+      Welcome to the admin dashboard. You'll be automatically logged out when you close your browser.
     `;
     
-    showToast('Sign-in successful!', 'success');
+    showToast('Sign-in successful! Session will end when browser is closed.', 'success');
     
   } catch (error) {
     console.error('Error signing in:', error);

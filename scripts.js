@@ -14,7 +14,7 @@ let firebaseApp = null;
 let firebaseInitialized = false;
 
 // Firebase functions
-let collection, doc, getDocs, getDoc, setDoc, updateDoc, deleteDoc, query, where, getCountFromServer, Timestamp, writeBatch, limit;
+let collection, doc, getDocs, getDoc, setDoc, updateDoc, deleteDoc, query, where, getCountFromServer, Timestamp, writeBatch, limit, or, and;
 
 // Constants
 const VALIDATION_CONSTANTS = {
@@ -181,7 +181,7 @@ function initializeApp() {
     db = window.firebaseFirestore.getFirestore(firebaseApp);
 
     // Firebase functions for easy access
-    ({ collection, doc, getDocs, getDoc, setDoc, updateDoc, deleteDoc, query, where, getCountFromServer, Timestamp, writeBatch, limit } = window.firebaseFirestore);
+    ({ collection, doc, getDocs, getDoc, setDoc, updateDoc, deleteDoc, query, where, getCountFromServer, Timestamp, writeBatch, limit, or, and } = window.firebaseFirestore);
     
     // Mark Firebase as initialized
     firebaseInitialized = true;
@@ -423,62 +423,22 @@ async function searchForRecord() {
       console.log(`🔎 Searching with name: "${searchName}"`);
       
       try {
-        // Add timeout to prevent hanging
-        const searchPromise = async () => {
-          // Search for records where phone number matches AND name starts with searchName
-          const morphersCollection = collection(db, "morphers");
-          
-          // Search in MorphersNumber field with name filter
-          const query1 = query(
-            morphersCollection,
+        // Search for records where phone number matches AND name starts with searchName
+        const morphersCollection = collection(db, "morphers");
+        
+        // First try: Search using or operator for both phone fields with name filter (starts with)
+        const query1 = query(
+          morphersCollection,
+          and(
+          or(
             where("MorphersNumber", "==", normalizedPhone),
-            where("Name", ">=", searchName),
-            where("Name", "<=", searchName + '\uf8ff')
-          );
-          
-          // Search in ParentsNumber field with name filter
-          const query2 = query(
-            morphersCollection,
-            where("ParentsNumber", "==", normalizedPhone),
-            where("Name", ">=", searchName),
-            where("Name", "<=", searchName + '\uf8ff')
-          );
-          
-          // Execute both queries in parallel
-          const [snapshot1, snapshot2] = await Promise.all([
-            getDocs(query1),
-            getDocs(query2)
-          ]);
-          
-          // Combine results (avoiding duplicates)
-          const combinedDocs = new Map();
-          
-          snapshot1.forEach(doc => {
-            combinedDocs.set(doc.id, doc);
-          });
-          
-          snapshot2.forEach(doc => {
-            combinedDocs.set(doc.id, doc);
-          });
-          
-          // Return combined results in a snapshot-like object
-          return {
-            size: combinedDocs.size,
-            forEach: (callback) => {
-              combinedDocs.forEach(callback);
-            }
-          };
-        };
-
-        // Create a timeout promise
-        const timeoutPromise = new Promise((_, reject) => {
-          setTimeout(() => reject(new Error('Search timeout')), 10000); // 10 second timeout
-        });
-
-        // Race between search and timeout
-        const snapshot = await Promise.race([searchPromise(), timeoutPromise]);
-
-        console.log(`📊 Query returned ${snapshot.size} results`);
+            where("ParentsNumber", "==", normalizedPhone)
+          ),
+          where("Name", ">=", searchName),
+          where("Name", "<=", searchName + '\uf8ff')
+        )
+        );
+        const snapshot = await getDocs(query1);
 
         snapshot.forEach(docSnapshot => {
           const data = docSnapshot.data();
@@ -491,6 +451,32 @@ async function searchForRecord() {
             console.log('✅ Match found:', data.Name);
           }
         });
+
+        // If no match found with "starts with", try searching for name anywhere in the full name
+        if (!found) {
+          console.log(`🔄 No "starts with" match for "${searchName}", trying "contains" search...`);
+          
+          const phoneOnlyQuery = query(
+            morphersCollection,
+            or(
+              where("MorphersNumber", "==", normalizedPhone),
+              where("ParentsNumber", "==", normalizedPhone)
+            )
+          );
+          const phoneSnapshot = await getDocs(phoneOnlyQuery);
+          
+          phoneSnapshot.forEach(docSnapshot => {
+            const data = docSnapshot.data();
+            console.log('📄 Checking phone match:', data.Name);
+            // Check if the search name appears anywhere in the full name (case-insensitive)
+            if (data.Name && data.Name.toLowerCase().includes(searchName.toLowerCase())) {
+              found = data;
+              foundDoc = docSnapshot;
+              existingDocId = docSnapshot.id;
+              console.log('✅ Contains match found:', data.Name);
+            }
+          });
+        }
 
         if (found) {
           console.log('🎯 Record found, breaking search loop');
@@ -511,31 +497,20 @@ async function searchForRecord() {
         try {
           const morphersCollection = collection(db, "morphers");
           
-          // Search in MorphersNumber field
-          const fallbackQuery1 = query(morphersCollection, where("MorphersNumber", "==", normalizedPhone));
-          // Search in ParentsNumber field  
-          const fallbackQuery2 = query(morphersCollection, where("ParentsNumber", "==", normalizedPhone));
+          // Use single query with 'or' operator instead of two separate queries
+          const fallbackQuery = query(
+            morphersCollection, 
+            or(
+              where("MorphersNumber", "==", normalizedPhone),
+              where("ParentsNumber", "==", normalizedPhone)
+            )
+          );
           
-          // Execute both queries in parallel
-          const [fallbackSnapshot1, fallbackSnapshot2] = await Promise.all([
-            getDocs(fallbackQuery1),
-            getDocs(fallbackQuery2)
-          ]);
+          const fallbackSnapshot = await getDocs(fallbackQuery);
           
-          // Combine results (avoiding duplicates)
-          const combinedDocs = new Map();
-          
-          fallbackSnapshot1.forEach(doc => {
-            combinedDocs.set(doc.id, doc);
-          });
-          
-          fallbackSnapshot2.forEach(doc => {
-            combinedDocs.set(doc.id, doc);
-          });
-          
-          console.log(`📊 Fallback query returned ${combinedDocs.size} results`);
+          console.log(`📊 Fallback query returned ${fallbackSnapshot.size} results`);
             
-          combinedDocs.forEach(docSnapshot => {
+          fallbackSnapshot.forEach(docSnapshot => {
             const data = docSnapshot.data();
             console.log('📄 Fallback found document:', data.Name);
             if (data.Name && data.Name.toLowerCase().includes(searchName.toLowerCase())) {
@@ -941,6 +916,9 @@ function denyIdentity() {
   // Reset instructions
   document.getElementById("instructions").innerText = "Enter your first name and phone number to check for existing records.";
   document.getElementById("instructions").className = "instructions";
+
+  // Show search button
+  document.getElementById("searchBtn").style.display = "block";
   
   // Reset to step 1
   updateStepIndicator(1);
