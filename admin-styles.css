@@ -504,13 +504,34 @@ html {
 }
 
 .auth-card .field label {
-  display: block;
+  display: flex;
+  align-items: center;
+  gap: 6px;
   margin-bottom: 10px;
   font-weight: 600;
   color: #444;
   font-size: 0.95em;
   text-transform: uppercase;
   letter-spacing: 0.5px;
+  line-height: 1.2;
+}
+
+.auth-card .field label .field-icon {
+  font-size: 1.1em;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+}
+
+.auth-card .field label .field-text {
+  flex: 1;
+  line-height: 1.2;
+  display: flex;
+  align-items: center;
 }
 
 .auth-card .field input[type="email"], 
@@ -819,6 +840,13 @@ html {
   .auth-card .field label {
     font-size: 0.85em;
     margin-bottom: 8px;
+    gap: 6px;
+  }
+  
+  .auth-card .field label .field-icon {
+    width: 18px;
+    height: 18px;
+    font-size: 1.1em;
   }
   
   .auth-card .field.email-field input,
