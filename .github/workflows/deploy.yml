@@ -48,9 +48,9 @@ jobs:
       - name: Minify JavaScript and CSS files
         run: |
           # Create minified versions (don't overwrite originals)
-          terser scripts.js --compress --mangle drop_console=true,drop_debugger=true --mangle toplevel,reserved=[] --output scripts.min.js
-          terser admin.js --compress --mangle drop_console=true,drop_debugger=true --mangle toplevel,reserved=[] --output admin.min.js
-          terser config.js --compress --mangle drop_console=true,drop_debugger=true --mangle toplevel,reserved=[] --output config.min.js
+          terser scripts.js --compress drop_console=true,drop_debugger=true --mangle toplevel,reserved=[] --output scripts.min.js
+          terser admin.js --compress drop_console=true,drop_debugger=true --mangle toplevel,reserved=[] --output admin.min.js
+          terser config.js --compress drop_console=true,drop_debugger=true --mangle toplevel,reserved=[] --output config.min.js
 
           # Create minified CSS files
           cleancss styles.css --output styles.min.css
