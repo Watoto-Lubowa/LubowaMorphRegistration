@@ -47,21 +47,27 @@ jobs:
 
       - name: Minify JavaScript and CSS files
         run: |
-          # Minify and overwrite JS files in place
-          terser scripts.js --compress --mangle --output scripts.js
-          terser admin.js --compress --mangle --output admin.js
-          terser config.js --compress --mangle --output config.js
-          
-          # Minify and overwrite CSS files in place
-          cleancss styles.css --output styles.css
-          cleancss admin-styles.css --output admin-styles.css
+          # Create minified versions (don't overwrite originals)
+          terser scripts.js --compress --mangle drop_console=true,drop_debugger=true --mangle toplevel,reserved=[] --output scripts.min.js
+          terser admin.js --compress --mangle drop_console=true,drop_debugger=true --mangle toplevel,reserved=[] --output admin.min.js
+          terser config.js --compress --mangle drop_console=true,drop_debugger=true --mangle toplevel,reserved=[] --output config.min.js
 
-      - name: Minify HTML files
+          # Create minified CSS files
+          cleancss styles.css --output styles.min.css
+          cleancss admin-styles.css --output admin-styles.min.css
+
+      - name: Minify HTML files and update references
         run: |
+          # Update HTML files to use minified resources
+          sed -i 's/scripts\.js/scripts.min.js/g' *.html
+          sed -i 's/admin\.js/admin.min.js/g' *.html
+          sed -i 's/config\.js/config.min.js/g' *.html
+          sed -i 's/styles\.css/styles.min.css/g' *.html
+          sed -i 's/admin-styles\.css/admin-styles.min.css/g' *.html
+          
+          # Minify HTML files in place
           html-minifier-terser --input-dir . --output-dir . --file-ext html \
             --remove-comments \
-            --remove-optional-tags \
-            --remove-redundant-attributes \
             --remove-script-type-attributes \
             --remove-tag-whitespace \
             --use-short-doctype \
@@ -71,6 +77,13 @@ jobs:
             --process-conditional-comments \
             --sort-attributes \
             --sort-class-name
+            
+      - name: Verify minified files exist
+        run: |
+          echo "Checking for minified files..."
+          ls -la *.min.js *.min.css
+          echo "HTML references:"
+          grep -E "\.(min\.)?(js|css)" *.html
       
       - name: Setup Pages
         uses: actions/configure-pages@v4
