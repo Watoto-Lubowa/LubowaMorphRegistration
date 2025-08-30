@@ -1297,8 +1297,6 @@ async function saveRecord() {
       lastUpdated: Timestamp.now()
     };
 
-    console.log("Payload:", payload);
-
     if (existingDocId) {
       const docRef = doc(db, "morphers", existingDocId);
       await updateDoc(docRef, payload);
