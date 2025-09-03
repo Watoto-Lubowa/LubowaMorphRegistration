@@ -43,6 +43,7 @@ jobs:
           sed -i "s/FIREBASE_APP_ID_PLACEHOLDER/${{ secrets.FIREBASE_APP_ID }}/g" config.js
           sed -i "s/FIREBASE_MEASUREMENT_ID_PLACEHOLDER/${{ secrets.FIREBASE_MEASUREMENT_ID }}/g" config.js
           sed -i "s/AUTHORIZED_ADMIN_EMAILS_PLACEHOLDER/${{ secrets.AUTHORIZED_ADMIN_EMAILS }}/g" config.js
+          sed -i "s/AUTHORIZED_USER_EMAILS_PLACEHOLDER/${{ secrets.AUTHORIZED_USER_EMAILS }}/g" config.js
           sed -i "s/AUTHORIZED_PHONE_NUMBERS_PLACEHOLDER/${{ secrets.AUTHORIZED_PHONE_NUMBERS }}/g" config.js
 
       - name: Minify JavaScript and CSS files

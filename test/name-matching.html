@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Enhanced Name Matching Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .test-section {
+            background: #f5f5f5;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 5px;
+        }
+        .test-case {
+            margin: 10px 0;
+            padding: 10px;
+            background: white;
+            border-radius: 3px;
+        }
+        .match { background-color: #d4edda; border-left: 4px solid #28a745; }
+        .no-match { background-color: #f8d7da; border-left: 4px solid #dc3545; }
+        .input-section {
+            margin: 20px 0;
+            padding: 15px;
+            background: #e3f2fd;
+            border-radius: 5px;
+        }
+        .input-section input {
+            width: 200px;
+            padding: 5px;
+            margin: 5px;
+        }
+        .input-section button {
+            padding: 8px 15px;
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+        }
+        .result {
+            margin-top: 10px;
+            padding: 10px;
+            border-radius: 3px;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <h1>Enhanced Name Matching Test</h1>
+    <p>This demonstrates the improved name matching algorithm that handles multiple names in different orders.</p>
+
+    <div class="input-section">
+        <h3>Test Your Own Names</h3>
+        <div>
+            <label>Search Input:</label>
+            <input type="text" id="searchInput" placeholder="e.g., John Smith" />
+        </div>
+        <div>
+            <label>Stored Name:</label>
+            <input type="text" id="storedName" placeholder="e.g., Smith John Peter" />
+        </div>
+        <button onclick="testMatch()">Test Match</button>
+        <div id="testResult"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>Predefined Test Cases</h2>
+        <div id="testCases"></div>
+    </div>
+
+    <script>
+        // Enhanced name matching function (copied from main script)
+        function matchesMultipleNames(searchInput, storedName) {
+            if (!searchInput || !storedName) return false;
+            
+            // Normalize both inputs by converting to lowercase and removing extra spaces
+            const normalizeText = (text) => text.toLowerCase().trim().replace(/\s+/g, ' ');
+            
+            const normalizedSearch = normalizeText(searchInput);
+            const normalizedStored = normalizeText(storedName);
+            
+            console.log('🔍 Comparing:', { search: normalizedSearch, stored: normalizedStored });
+            
+            // If it's a single word search, use simple contains check
+            const searchWords = normalizedSearch.split(' ');
+            const storedWords = normalizedStored.split(' ');
+            
+            if (searchWords.length === 1) {
+                // Single word search - check if it's contained in any word of the stored name
+                return storedWords.some(word => word.includes(searchWords[0]));
+            }
+            
+            // Multiple words search - check if all search words exist in stored name (in any order)
+            const matchedWords = [];
+            
+            for (const searchWord of searchWords) {
+                // Skip very short words (like initials) unless they exactly match
+                if (searchWord.length <= 1) {
+                    const exactMatch = storedWords.some(storedWord => storedWord === searchWord);
+                    if (exactMatch) {
+                        matchedWords.push(searchWord);
+                    }
+                    continue;
+                }
+                
+                // For longer words, find if any stored word contains this search word
+                const foundMatch = storedWords.some(storedWord => {
+                    // Check if the search word is contained in the stored word
+                    if (storedWord.includes(searchWord)) {
+                        return true;
+                    }
+                    
+                    // Also check if stored word is contained in search word (for cases like "Emmanuel" vs "Emmanuel Jr")
+                    if (searchWord.includes(storedWord) && storedWord.length >= 3) {
+                        return true;
+                    }
+                    
+                    return false;
+                });
+                
+                if (foundMatch) {
+                    matchedWords.push(searchWord);
+                }
+            }
+            
+            // Calculate match percentage
+            const matchPercentage = (matchedWords.length / searchWords.length) * 100;
+            const isMatch = matchPercentage >= 70; // Require at least 70% of words to match
+            
+            console.log('📊 Match analysis:', {
+                searchWords: searchWords.length,
+                matchedWords: matchedWords.length,
+                matchPercentage: `${matchPercentage.toFixed(1)}%`,
+                isMatch
+            });
+            
+            return isMatch;
+        }
+
+        // Test cases
+        const testCases = [
+            { search: "John Smith", stored: "Smith John Peter", shouldMatch: true },
+            { search: "Aaron Emmanuel", stored: "Emmanuel Aaron Jr", shouldMatch: true },
+            { search: "Mary Jane", stored: "Jane Mary Wilson", shouldMatch: true },
+            { search: "Peter Paul", stored: "Paul Peter Mary", shouldMatch: true },
+            { search: "John", stored: "Johnson Peter", shouldMatch: true },
+            { search: "Emmanuel", stored: "Aaron Emmanuel Jr", shouldMatch: true },
+            { search: "Smith", stored: "John Smith", shouldMatch: true },
+            { search: "James Bond", stored: "Bond James William", shouldMatch: true },
+            { search: "Anna Belle", stored: "Belle Anna Grace", shouldMatch: true },
+            { search: "Michael Jordan", stored: "Jordan Michael Anthony", shouldMatch: true },
+            { search: "Sarah Connor", stored: "Connor Sarah Jane", shouldMatch: true },
+            { search: "David Miller", stored: "Miller David John", shouldMatch: true },
+            { search: "John Smith", stored: "Peter Johnson", shouldMatch: false },
+            { search: "Anna Mary", stored: "Peter John", shouldMatch: false },
+            { search: "William Henry", stored: "James Robert", shouldMatch: false },
+            { search: "Grace Kelly", stored: "John Smith", shouldMatch: false },
+            { search: "Robert Johnson", stored: "Michael Williams", shouldMatch: false }
+        ];
+
+        // Function to run predefined test cases
+        function runTestCases() {
+            const container = document.getElementById('testCases');
+            container.innerHTML = '';
+
+            testCases.forEach((test, index) => {
+                const result = matchesMultipleNames(test.search, test.stored);
+                const passed = result === test.shouldMatch;
+                
+                const testDiv = document.createElement('div');
+                testDiv.className = `test-case ${passed ? 'match' : 'no-match'}`;
+                testDiv.innerHTML = `
+                    <strong>Test ${index + 1}:</strong> "${test.search}" vs "${test.stored}"<br>
+                    Expected: ${test.shouldMatch ? 'Match' : 'No Match'}, 
+                    Got: ${result ? 'Match' : 'No Match'} 
+                    ${passed ? '✅' : '❌'}
+                `;
+                
+                container.appendChild(testDiv);
+            });
+        }
+
+        // Function to test user input
+        function testMatch() {
+            const searchInput = document.getElementById('searchInput').value;
+            const storedName = document.getElementById('storedName').value;
+            const resultDiv = document.getElementById('testResult');
+            
+            if (!searchInput || !storedName) {
+                resultDiv.innerHTML = '<div class="result" style="background-color: #fff3cd;">Please enter both search input and stored name.</div>';
+                return;
+            }
+            
+            const result = matchesMultipleNames(searchInput, storedName);
+            
+            resultDiv.innerHTML = `
+                <div class="result ${result ? 'match' : 'no-match'}">
+                    Result: ${result ? 'Match Found ✅' : 'No Match ❌'}
+                </div>
+            `;
+        }
+
+        // Run test cases on page load
+        window.onload = runTestCases;
+    </script>
+</body>
+</html>

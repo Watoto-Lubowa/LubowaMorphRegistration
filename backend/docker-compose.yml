@@ -1,0 +1,18 @@
+services:
+  mongo-lubowa:
+    image: mongo:8.0.13
+    container_name: mongo-lubowa
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    environment:
+      # Change the root username and password for security
+      MONGO_INITDB_ROOT_USERNAME: lubowaadmin
+      MONGO_INITDB_ROOT_PASSWORD: Gy8EKf*9ec9^bu
+      # Set the initial database to "morph"
+      MONGO_INITDB_DATABASE: morph
+    volumes:
+      - mongo-data:/data/db
+
+volumes:
+  mongo-data:

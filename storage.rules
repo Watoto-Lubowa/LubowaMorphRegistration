@@ -1,0 +1,43 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() &&
+             request.auth.token.email in [
+               'jeromessenyonjo@gmail.com',
+               'denis.omoding@watotochurch.com'
+               // Add more admin emails as needed
+             ];
+    }
+
+    // Allow public read access for exported CSV files (temporary access)
+    match /exports/{allPaths=**} {
+      allow read: if true;
+      allow write: if isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    // Admin-only backup files
+    match /backups/{allPaths=**} {
+      allow read, write, delete: if isAdmin();
+    }
+
+    // Temporary upload files (for CSV processing)
+    match /temp/{allPaths=**} {
+      allow read, write: if isAuthenticated();
+      allow delete: if isAuthenticated() || isAdmin();
+    }
+
+    // Deny all other access
+    match /{allPaths=**} {
+      allow read, write, delete: if false;
+    }
+  }
+}

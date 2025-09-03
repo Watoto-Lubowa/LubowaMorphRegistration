@@ -47,3 +47,10 @@ firebase-debug.log
 
 # Local development
 config-local.js
+
+# Python backend
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.venv/

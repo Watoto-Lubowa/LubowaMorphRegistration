@@ -4,17 +4,24 @@ console.log('🚀 scripts.js file loaded successfully');
 // Store found record data
 let existingDocId = null;
 let foundRecord = null;
+let searchCounter = 0; // Track number of searches for "Create New Record" logic
 
 // Global variable to store current form attendance
 let currentAttendance = {};
 
 // Firebase variables (initialized once Firebase is loaded)
 let db = null;
+let auth = null;
 let firebaseApp = null;
 let firebaseInitialized = false;
 
 // Firebase functions
 let collection, doc, getDocs, getDoc, setDoc, updateDoc, deleteDoc, query, where, getCountFromServer, Timestamp, writeBatch, limit, or, and;
+let signInWithEmailAndPassword, sendPasswordResetEmail, signOut, onAuthStateChanged, setPersistence, browserSessionPersistence;
+
+// Authentication state
+let currentUser = null;
+const AUTHORIZED_USER_EMAILS = window.APP_CONFIG ? window.APP_CONFIG.authorizedUserEmails || [] : [];
 
 // Constants
 const VALIDATION_CONSTANTS = {
@@ -144,6 +151,87 @@ function sanitizeInput(input) {
   return input.trim().replace(/[<>]/g, ''); // Basic XSS prevention
 }
 
+// Auto-focus utility function for invalid fields
+function autoFocusToField(fieldId, showMessage = true) {
+  const field = document.getElementById(fieldId);
+  if (field) {
+    // Scroll to the field if needed
+    field.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    
+    // Focus the field with a slight delay to ensure smooth scrolling
+    setTimeout(() => {
+      field.focus();
+      
+      // Add visual emphasis with CSS classes if available
+      field.classList.add('field-error');
+      
+      // Remove the error class after a few seconds
+      setTimeout(() => {
+        field.classList.remove('field-error');
+      }, 3000);
+    }, 300);
+    
+    return true;
+  }
+  
+  // Handle special cases like radio buttons
+  if (fieldId === 'cellYes' || fieldId === 'cellNo') {
+    const radioGroup = document.querySelector('.radio-group');
+    const cellField = document.getElementById('cellField');
+    
+    if (radioGroup && cellField) {
+      // Scroll to the radio group
+      cellField.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      
+      setTimeout(() => {
+        // Focus the first radio button
+        const firstRadio = document.getElementById('cellYes');
+        if (firstRadio) {
+          firstRadio.focus();
+        }
+        
+        // Add error class to radio group
+        radioGroup.classList.add('field-error');
+        
+        // Remove the error class after a few seconds
+        setTimeout(() => {
+          radioGroup.classList.remove('field-error');
+        }, 3000);
+      }, 300);
+      
+      return true;
+    }
+  }
+  
+  return false;
+}
+
+// Enhanced validation with smart auto-focus for multiple fields
+function validateAndFocusFirstError(validations) {
+  // validations is an array of objects: { fieldId: 'field1', isValid: true/false, message: 'error message' }
+  const invalidFields = validations.filter(v => !v.isValid);
+  
+  if (invalidFields.length === 0) {
+    return { isValid: true, errors: [] };
+  }
+  
+  // If there's only one invalid field, show its specific message and focus it
+  if (invalidFields.length === 1) {
+    const invalid = invalidFields[0];
+    showToast(invalid.message, 'warning');
+    autoFocusToField(invalid.fieldId);
+    return { isValid: false, errors: invalidFields, focusedField: invalid.fieldId };
+  }
+  
+  // If there are multiple invalid fields, show a summary and focus the first one
+  const errorMessages = invalidFields.map(v => v.message);
+  const summaryMessage = `Please correct the following: ${errorMessages.join(', ')}`;
+  showToast(summaryMessage, 'warning');
+  autoFocusToField(invalidFields[0].fieldId);
+  
+  return { isValid: false, errors: invalidFields, focusedField: invalidFields[0].fieldId };
+}
+
 function removeToast(toast) {
   if (toast && toast.parentNode) {
     // Clear any pending timers to prevent memory leaks
@@ -158,6 +246,194 @@ function removeToast(toast) {
         toast.parentNode.removeChild(toast);
       }
     }, 300);
+  }
+}
+
+// Authentication Functions
+function showLoginScreen() {
+  document.getElementById('loginSection').classList.remove('hidden');
+  document.getElementById('mainContainer').classList.add('hidden');
+  
+  // Clear login form fields when showing login screen
+  const emailInput = document.getElementById('userEmail');
+  const passwordInput = document.getElementById('userPassword');
+  const loginStatus = document.getElementById('loginStatus');
+  const signInBtn = document.getElementById('userSignInBtn');
+  
+  if (emailInput) emailInput.value = '';
+  if (passwordInput) passwordInput.value = '';
+  
+  // Clear authentication status
+  if (loginStatus) {
+    loginStatus.innerHTML = '';
+    loginStatus.className = 'login-status';
+  }
+  
+  // Reset sign-in button state
+  if (signInBtn) {
+    signInBtn.classList.remove('loading');
+    signInBtn.disabled = false;
+  }
+}
+
+function showMainApp() {
+  document.getElementById('loginSection').classList.add('hidden');
+  document.getElementById('mainContainer').classList.remove('hidden');
+  
+  // Update current service display when showing main app
+  updateCurrentServiceDisplay();
+}
+
+// Sign in with email and password
+async function signInUser() {
+  const emailInput = document.getElementById('userEmail');
+  const passwordInput = document.getElementById('userPassword');
+  const email = emailInput.value.trim();
+  const password = passwordInput.value;
+  const signInBtn = document.getElementById('userSignInBtn');
+  const loginStatus = document.getElementById('loginStatus');
+  
+  if (!email) {
+    showToast('Please enter your email address.', 'warning');
+    autoFocusToField('userEmail');
+    return;
+  }
+  
+  // Validate email format
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(email)) {
+    showToast('Please enter a valid email address.', 'warning');
+    autoFocusToField('userEmail');
+    return;
+  }
+  
+  if (!password) {
+    showToast('Please enter your password.', 'warning');
+    autoFocusToField('userPassword');
+    return;
+  }
+  
+  // Check if email is authorized
+  if (AUTHORIZED_USER_EMAILS.length > 0 && !AUTHORIZED_USER_EMAILS.includes(email)) {
+    loginStatus.innerHTML = '<p>⚠️ This email is not authorized to access the system. Please contact support.</p>';
+    loginStatus.className = 'login-status error';
+    showToast('Unauthorized email address. Please contact support.', 'error');
+    return;
+  }
+  
+  // Show loading state
+  signInBtn.disabled = true;
+  loginStatus.innerHTML = '';
+  
+  try {
+    await signInWithEmailAndPassword(auth, email, password);
+    
+    loginStatus.innerHTML = '<p>✅ Sign in successful! Redirecting...</p>';
+    loginStatus.className = 'login-status success';
+    showToast('Welcome! Sign in successful.', 'success');
+    
+  } catch (error) {
+    console.error('❌ Sign in failed:', error);
+    
+    let errorMessage = '';
+    let statusMessage = '';
+    
+    switch (error.code) {
+      case 'auth/user-not-found':
+        errorMessage = 'No account found with this email address.';
+        statusMessage = '❌ Account not found. Please check your email or contact support.';
+        break;
+      case 'auth/wrong-password':
+        errorMessage = 'Incorrect password. Please try again.';
+        statusMessage = '❌ Incorrect password. Please try again or use "Forgot Password".';
+        break;
+      case 'auth/invalid-email':
+        errorMessage = 'Invalid email address format.';
+        statusMessage = '❌ Please enter a valid email address.';
+        break;
+      case 'auth/user-disabled':
+        errorMessage = 'This account has been disabled.';
+        statusMessage = '❌ Account disabled. Please contact support.';
+        break;
+      case 'auth/too-many-requests':
+        errorMessage = 'Too many failed attempts. Please try again later.';
+        statusMessage = '⚠️ Too many failed attempts. Please wait a few minutes and try again.';
+        break;
+      default:
+        errorMessage = `Sign in failed: ${error.message}`;
+        statusMessage = '❌ Sign in failed. Please check your connection and try again.';
+        break;
+    }
+    
+    loginStatus.innerHTML = `<p>${statusMessage}</p>`;
+    loginStatus.className = 'login-status error';
+    showToast(errorMessage, 'error');
+    
+  } finally {
+    // Reset button state
+    signInBtn.disabled = false;
+  }
+}
+
+// Reset password function
+async function resetUserPassword() {
+  const emailInput = document.getElementById('userEmail');
+  const email = emailInput.value.trim();
+  const loginStatus = document.getElementById('loginStatus');
+  
+  if (!email) {
+    showToast('Please enter your email address first.', 'warning');
+    autoFocusToField('userEmail');
+    return;
+  }
+  
+  // Validate email format
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(email)) {
+    showToast('Please enter a valid email address.', 'warning');
+    autoFocusToField('userEmail');
+    return;
+  }
+  
+  // Check if email is authorized
+  if (AUTHORIZED_USER_EMAILS.length > 0 && !AUTHORIZED_USER_EMAILS.includes(email)) {
+    loginStatus.innerHTML = '<p>⚠️ This email is not authorized to access the system.</p>';
+    loginStatus.className = 'login-status error';
+    showToast('Unauthorized email address. Please contact support.', 'error');
+    return;
+  }
+  
+  try {
+    await sendPasswordResetEmail(auth, email);
+    
+    loginStatus.innerHTML = '<p>✅ Password reset email sent! Please check your inbox.</p>';
+    loginStatus.className = 'login-status success';
+    showToast('Password reset email sent successfully!', 'success');
+    
+  } catch (error) {
+    console.error('❌ Password reset failed:', error);
+    
+    let errorMessage = '';
+    let statusMessage = '';
+    
+    switch (error.code) {
+      case 'auth/user-not-found':
+        errorMessage = 'No account found with this email address.';
+        statusMessage = '❌ No account found. Please check your email address.';
+        break;
+      case 'auth/invalid-email':
+        errorMessage = 'Invalid email address format.';
+        statusMessage = '❌ Please enter a valid email address.';
+        break;
+      default:
+        errorMessage = `Password reset failed: ${error.message}`;
+        statusMessage = '❌ Failed to send reset email. Please try again.';
+        break;
+    }
+    
+    loginStatus.innerHTML = `<p>${statusMessage}</p>`;
+    loginStatus.className = 'login-status error';
+    showToast(errorMessage, 'error');
   }
 }
 
@@ -179,9 +455,38 @@ function initializeApp() {
     // Initialize Firebase app
     firebaseApp = window.firebaseApp.initializeApp(firebaseConfig);
     db = window.firebaseFirestore.getFirestore(firebaseApp);
+    auth = window.firebaseAuth.getAuth(firebaseApp);
 
     // Firebase functions for easy access
     ({ collection, doc, getDocs, getDoc, setDoc, updateDoc, deleteDoc, query, where, getCountFromServer, Timestamp, writeBatch, limit, or, and } = window.firebaseFirestore);
+    ({ signInWithEmailAndPassword, sendPasswordResetEmail, signOut, onAuthStateChanged, setPersistence, browserSessionPersistence } = window.firebaseAuth);
+    
+    // Set authentication persistence to browser session only
+    if (setPersistence && browserSessionPersistence) {
+      setPersistence(auth, browserSessionPersistence).then(() => {
+        console.log('✅ Auth persistence set to browser session');
+      }).catch((error) => {
+        console.warn('⚠️ Could not set auth persistence:', error);
+      });
+    }
+    
+    // Setup authentication state listener
+    onAuthStateChanged(auth, async (user) => {
+      if (user && AUTHORIZED_USER_EMAILS.includes(user.email)) {
+        currentUser = user;
+        console.log('✅ User authenticated:', user.email);
+        showMainApp();
+      } else if (user) {
+        console.warn('⚠️ Unauthorized user:', user.email);
+        await signOut(auth);
+        showLoginScreen();
+        showToast('Unauthorized access. Please contact support.', 'error');
+      } else {
+        currentUser = null;
+        console.log('ℹ️ User not authenticated');
+        showLoginScreen();
+      }
+    });
     
     // Mark Firebase as initialized
     firebaseInitialized = true;
@@ -197,11 +502,11 @@ function initializeApp() {
     
     // Show user-friendly error
     if (error.code === 'app/invalid-api-key') {
-      showToast('Invalid Firebase configuration. Please contact support.', 'error');
+      showToast('Oops! There\'s a setup issue. Please ask a leader for help.', 'error');
     } else if (error.code === 'app/app-deleted') {
-      showToast('Firebase project not found. Please contact support.', 'error');
+      showToast('Hmm, we can\'t connect to the system right now. Please tell a volunteer or leader.', 'error');
     } else {
-      showToast('Failed to initialize database connection. Please refresh the page.', 'error');
+      showToast('Connection problem! Try refreshing the page, or ask for help.', 'error');
     }
   }
 }
@@ -210,6 +515,13 @@ function initializeApp() {
 function setupEventListeners() {
   console.log('Setting up DOM event listeners');
   
+  // Login form elements
+  const userEmailInput = document.getElementById('userEmail');
+  const userPasswordInput = document.getElementById('userPassword');
+  const userSignInBtn = document.getElementById('userSignInBtn');
+  const userResetPasswordBtn = document.getElementById('userResetPasswordBtn');
+  
+  // Main app elements
   const nameInput = document.getElementById("name");
   const phoneInput = document.getElementById("morphersNumber");
   const searchBtn = document.getElementById('searchBtn');
@@ -218,6 +530,43 @@ function setupEventListeners() {
   const searchAgainBtn = document.getElementById("searchAgainBtn");
   const createNewBtn = document.getElementById("createNewBtn");
   const saveBtn = document.getElementById("saveBtn");
+
+  // Login Form Event Listeners
+  if (userEmailInput) {
+    userEmailInput.addEventListener('keydown', function(event) {
+      if (event.key === 'Enter') {
+        event.preventDefault();
+        if (userPasswordInput) {
+          userPasswordInput.focus();
+        } else {
+          signInUser();
+        }
+      }
+    });
+  }
+
+  if (userPasswordInput) {
+    userPasswordInput.addEventListener('keydown', function(event) {
+      if (event.key === 'Enter') {
+        event.preventDefault();
+        signInUser();
+      }
+    });
+  }
+
+  if (userSignInBtn) {
+    userSignInBtn.addEventListener('click', function(event) {
+      event.preventDefault();
+      signInUser();
+    });
+  }
+
+  if (userResetPasswordBtn) {
+    userResetPasswordBtn.addEventListener('click', function(event) {
+      event.preventDefault();
+      resetUserPassword();
+    });
+  }
 
   // Search Button Event Handler
   if (searchBtn) {
@@ -232,7 +581,7 @@ function setupEventListeners() {
         window.searchForRecord();
       } else {
         console.error('searchForRecord function not available');
-        showToast('Search function not ready. Please refresh the page.', 'error');
+        showToast('Oops! The search isn\'t working right now. Please try refreshing the page.', 'error');
       }
       return false;
     });
@@ -266,8 +615,37 @@ function setupEventListeners() {
   // No record section button handlers
   if (searchAgainBtn) {
     searchAgainBtn.addEventListener("click", function() {
-      if (window.enableIdentitySection) window.enableIdentitySection();
-      document.getElementById("noRecordSection").classList.add("hidden");
+      // Smooth transition from no record section back to identity section
+      const noRecordSection = document.getElementById("noRecordSection");
+      const identitySection = document.getElementById("identitySection");
+      
+      if (noRecordSection && identitySection) {
+        // Start transition out of no record section
+        noRecordSection.classList.add("transitioning-out");
+        
+        // After hide transition completes, show identity section
+        setTimeout(() => {
+          noRecordSection.classList.add("hidden");
+          noRecordSection.classList.remove("transitioning-out");
+          
+          // Show identity section with transition
+          identitySection.classList.remove("hidden");
+          identitySection.classList.add("transitioning-in");
+          
+          // Enable identity section after show transition
+          setTimeout(() => {
+            if (window.enableIdentitySection) window.enableIdentitySection();
+            identitySection.classList.remove("transitioning-in");
+          }, 400);
+        }, 400);
+      } else {
+        // Fallback for when sections aren't found
+        if (window.enableIdentitySection) window.enableIdentitySection();
+        document.getElementById("noRecordSection").classList.add("hidden");
+        document.getElementById("identitySection").classList.remove("hidden");
+      }
+      
+      // Reset UI state
       document.getElementById("identitySection").classList.remove("disabled");
       document.getElementById("recordMessage").innerText = "";
       document.getElementById("recordMessage").className = "";
@@ -325,6 +703,74 @@ function setupEventListeners() {
   console.log('DOM event listeners setup complete');
 }
 
+// Enhanced name matching function for multiple names in different orders
+function matchesMultipleNames(searchInput, storedName) {
+  if (!searchInput || !storedName) return false;
+  
+  // Normalize both inputs by converting to lowercase and removing extra spaces
+  const normalizeText = (text) => text.toLowerCase().trim().replace(/\s+/g, ' ');
+  
+  const normalizedSearch = normalizeText(searchInput);
+  const normalizedStored = normalizeText(storedName);
+  
+  console.log('🔍 Comparing:', { search: normalizedSearch, stored: normalizedStored });
+  
+  // If it's a single word search, use simple contains check
+  const searchWords = normalizedSearch.split(' ');
+  const storedWords = normalizedStored.split(' ');
+  
+  if (searchWords.length === 1) {
+    // Single word search - check if it's contained in any word of the stored name
+    return storedWords.some(word => word.includes(searchWords[0]));
+  }
+  
+  // Multiple words search - check if all search words exist in stored name (in any order)
+  const matchedWords = [];
+  
+  for (const searchWord of searchWords) {
+    // Skip very short words (like initials) unless they exactly match
+    if (searchWord.length <= 1) {
+      const exactMatch = storedWords.some(storedWord => storedWord === searchWord);
+      if (exactMatch) {
+        matchedWords.push(searchWord);
+      }
+      continue;
+    }
+    
+    // For longer words, find if any stored word contains this search word
+    const foundMatch = storedWords.some(storedWord => {
+      // Check if the search word is contained in the stored word
+      if (storedWord.includes(searchWord)) {
+        return true;
+      }
+      
+      // Also check if stored word is contained in search word (for cases like "Emmanuel" vs "Emmanuel Jr")
+      if (searchWord.includes(storedWord) && storedWord.length >= 3) {
+        return true;
+      }
+      
+      return false;
+    });
+    
+    if (foundMatch) {
+      matchedWords.push(searchWord);
+    }
+  }
+  
+  // Calculate match percentage
+  const matchPercentage = (matchedWords.length / searchWords.length) * 100;
+  const isMatch = matchPercentage >= 70; // Require at least 70% of words to match
+  
+  console.log('📊 Match analysis:', {
+    searchWords: searchWords.length,
+    matchedWords: matchedWords.length,
+    matchPercentage: `${matchPercentage.toFixed(1)}%`,
+    isMatch
+  });
+  
+  return isMatch;
+}
+
 // 2️⃣ Search for existing record (triggered by button click)
 async function searchForRecord() {
   console.log('🔍 searchForRecord function called!');
@@ -344,7 +790,7 @@ async function searchForRecord() {
     // Check for required DOM elements
     if (!firstNameInput || !phoneNumberInput || !searchBtn) {
       console.error('Required DOM elements not found');
-      showToast('Page elements not loaded properly. Please refresh the page.', 'error');
+      showToast('Oops! Something went wrong. Please try refreshing the page.', 'error');
       return;
     }
 
@@ -357,18 +803,24 @@ async function searchForRecord() {
     if (!isValidString(firstName, VALIDATION_CONSTANTS.MIN_NAME_LENGTH)) {
       console.log('❌ Invalid first name');
       showToast(ERROR_MESSAGES.INVALID_NAME, "warning");
+      autoFocusToField("name");
       return;
     }
     
     if (!isValidPhoneNumber(phoneNumber)) {
       console.log('❌ Invalid phone number');
       showToast(ERROR_MESSAGES.INVALID_PHONE, "warning");
+      autoFocusToField("morphersNumber");
       return;
     }
 
     console.log('🚀 Starting search process...');
     console.log('🔥 Firebase initialized:', firebaseInitialized);
     console.log('💾 Database initialized:', !!db);
+    
+    // Increment search counter
+    searchCounter++;
+    console.log(`📊 Search attempt #${searchCounter}`);
 
     // Show loading state
     try {
@@ -399,11 +851,11 @@ async function searchForRecord() {
       
       // Check if it's a specific Firebase error
       if (connectionError.code === 'unavailable') {
-        showToast('Firebase service is currently unavailable. Please try again later.', 'error');
+        showToast('Oops! Our system seems to be unavailable. Please try again in a few minutes.', 'error');
       } else if (connectionError.code === 'permission-denied') {
-        showToast('Access denied to database. Please contact support.', 'error');
+        showToast('Hmm, we can\'t access your info right now. Please ask a leader for help.', 'error');
       } else {
-        showToast('Unable to connect to database. Please check your internet connection.', 'error');
+        showToast('Sorry, something went wrong. Check your internet and try again, or tell a volunteer.', 'error');
       }
       return;
     }
@@ -468,8 +920,9 @@ async function searchForRecord() {
           phoneSnapshot.forEach(docSnapshot => {
             const data = docSnapshot.data();
             console.log('📄 Checking phone match:', data.Name);
-            // Check if the search name appears anywhere in the full name (case-insensitive)
-            if (data.Name && data.Name.toLowerCase().includes(searchName.toLowerCase())) {
+            
+            // Enhanced name matching for multiple names in different orders
+            if (data.Name && matchesMultipleNames(searchName, data.Name)) {
               found = data;
               foundDoc = docSnapshot;
               existingDocId = docSnapshot.id;
@@ -488,7 +941,7 @@ async function searchForRecord() {
         // If it's a timeout, break the loop
         if (error.message === 'Search timeout') {
           console.error('🕒 Search timed out');
-          showToast('Search is taking too long. Please try again.', 'warning');
+            showToast('Oops, the search is taking a bit longer than usual. Please give it another try!', 'warning');
           break;
         }
         
@@ -513,7 +966,9 @@ async function searchForRecord() {
           fallbackSnapshot.forEach(docSnapshot => {
             const data = docSnapshot.data();
             console.log('📄 Fallback found document:', data.Name);
-            if (data.Name && data.Name.toLowerCase().includes(searchName.toLowerCase())) {
+            
+            // Enhanced name matching for multiple names in different orders
+            if (data.Name && matchesMultipleNames(searchName, data.Name)) {
               found = data;
               foundDoc = docSnapshot;
               existingDocId = docSnapshot.id;
@@ -543,7 +998,32 @@ async function searchForRecord() {
       }
     } else {
       console.log('❌ No record found, showing no record section');
-      showNoRecordSection();
+      
+      // Smooth transition from identity section to no record section
+      const identitySection = document.getElementById("identitySection");
+      const noRecordSection = document.getElementById("noRecordSection");
+      
+      if (identitySection && noRecordSection) {
+        // Start transition out of identity section
+        identitySection.classList.add("transitioning-out");
+        
+        setTimeout(() => {
+          identitySection.classList.add("hidden");
+          identitySection.classList.remove("transitioning-out");
+          
+          // Show no record section with transition
+          showNoRecordSection();
+          noRecordSection.classList.add("transitioning-in");
+          
+          // Remove transitioning class after animation
+          setTimeout(() => {
+            noRecordSection.classList.remove("transitioning-in");
+          }, 400);
+        }, 400);
+      } else {
+        showNoRecordSection();
+      }
+      
       // Hide search button for no record case too
       if (searchBtn) {
         searchBtn.style.display = "none";
@@ -600,6 +1080,18 @@ function showConfirmationSection(found) {
   }
   
   foundRecord = found;
+
+    // Show "Create New Record" button only after 2 search attempts
+  const createNewBtn = document.getElementById("confirmCreateNewBtn");
+  if (createNewBtn) {
+    if (searchCounter >= 2) {
+      createNewBtn.style.display = "inline-block";
+      console.log(`✅ Showing "Create New Record" button after ${searchCounter} search attempts`);
+    } else {
+      createNewBtn.style.display = "none";
+      console.log(`🔒 Hiding "Create New Record" button - only ${searchCounter} of 2 required attempts`);
+    }
+  }
   
   try {
     // Update message
@@ -609,10 +1101,27 @@ function showConfirmationSection(found) {
       recordMessage.className = "found";
     }
     
-    // Show confirmation section
+    // Smooth transition from identity section to confirmation section
+    const identitySection = document.getElementById("identitySection");
     const confirmationSection = document.getElementById("confirmationSection");
-    if (confirmationSection) {
-      confirmationSection.classList.remove("hidden");
+    
+    if (identitySection && confirmationSection) {
+      // Start transition out of identity section
+      identitySection.classList.add("transitioning-out");
+      
+      setTimeout(() => {
+        identitySection.classList.add("hidden");
+        identitySection.classList.remove("transitioning-out");
+        
+        // Show confirmation section with transition
+        confirmationSection.classList.remove("hidden");
+        confirmationSection.classList.add("transitioning-in");
+        
+        // Remove transitioning class after animation
+        setTimeout(() => {
+          confirmationSection.classList.remove("transitioning-in");
+        }, 400);
+      }, 400);
     }
     
     // Update display elements safely
@@ -640,7 +1149,7 @@ function showConfirmationSection(found) {
     }
   } catch (error) {
     console.error('Error in showConfirmationSection:', error);
-    showToast('Error displaying confirmation section. Please try again.', 'error');
+    showToast('Oops! Something went wrong showing your info. Please try again or ask a leader for help.', 'error');
   }
   
   // Disable identity section inputs to prevent further searches
@@ -651,8 +1160,36 @@ function showNoRecordSection() {
   document.getElementById("recordMessage").innerText = "❌ No existing record found.";
   document.getElementById("recordMessage").className = "error";
   
+  // Get the search inputs
+  const nameInput = document.getElementById("name").value.trim();
+  const phoneInput = document.getElementById("morphersNumber").value.trim();
+  
+  // Update the search details with user input
+  const searchedInfoElement = document.getElementById("searchedInfo");
+  if (searchedInfoElement) {
+    searchedInfoElement.innerHTML = `
+      We searched for: <strong>${nameInput}</strong> with phone number <strong>${phoneInput}</strong>
+    `;
+  }
+  
   // Show no record section
-  document.getElementById("noRecordSection").classList.remove("hidden");
+  const noRecordSection = document.getElementById("noRecordSection");
+  noRecordSection.classList.remove("hidden");
+  
+  // Show "Create New Record" button only after 2 search attempts
+  const createNewBtn = document.getElementById("createNewBtn");
+  const noteSpan = document.getElementById("note");
+  if (createNewBtn) {
+    if (searchCounter >= 2) {
+      createNewBtn.style.display = "inline-block";
+      noteSpan.style.display = "inline";
+      console.log(`✅ Showing "Create New Record" button after ${searchCounter} search attempts`);
+    } else {
+      createNewBtn.style.display = "none";
+      noteSpan.style.display = "none";
+      console.log(`🔒 Hiding "Create New Record" button - only ${searchCounter} of 2 required attempts`);
+    }
+  }
   
   disableIdentitySection();
 }
@@ -663,21 +1200,42 @@ function showNewRecordSection() {
   existingDocId = null;
   foundRecord = null;
   
-  // Hide the identity section (first name and phone fields)
-  document.getElementById("identitySection").classList.add("hidden");
+  // Smooth transition from no record section to completion section
+  const noRecordSection = document.getElementById("noRecordSection");
+  const completionSection = document.getElementById("completionSection");
   
-  // Hide no record section, show completion section directly for new records
-  document.getElementById("noRecordSection").classList.add("hidden");
-  showCompletionSection(true);
+  if (noRecordSection && completionSection) {
+    // Start transition out of no record section
+    noRecordSection.classList.add("transitioning-out");
+    
+    setTimeout(() => {
+      noRecordSection.classList.add("hidden");
+      noRecordSection.classList.remove("transitioning-out");
+      
+      // Show completion section with transition
+      showCompletionSection(true);
+      completionSection.classList.add("transitioning-in");
+      
+      // Remove transitioning class after animation
+      setTimeout(() => {
+        completionSection.classList.remove("transitioning-in");
+      }, 400);
+    }, 400);
+  } else {
+    showCompletionSection(true);
+  }
 }
 
 function showCompletionSection(isNewRecord = false) {
   // Update step indicator
   updateStepIndicator(2);
   
-  // Hide confirmation section, show completion section
-  document.getElementById("confirmationSection").classList.add("hidden");
-  document.getElementById("completionSection").classList.remove("hidden");
+  // For smooth transitions, sections are handled by the caller
+  // Only show completion section if not already visible
+  const completionSection = document.getElementById("completionSection");
+  if (completionSection.classList.contains("hidden")) {
+    completionSection.classList.remove("hidden");
+  }
   
   if (isNewRecord) {
     document.getElementById("instructions").innerText = "Complete your registration by filling in all the information below.";
@@ -767,11 +1325,11 @@ function getCurrentService() {
   
 // Service times in minutes from midnight
 const service1Start = 8 * 60; // 8:00 AM = 480 minutes
-const service1End = 10 * 60; // 10:00 AM = 600 minutes
+const service1End = 10 * 60 + 15; // 10:15 AM = 615 minutes
 const service2Start = 10 * 60; // 10:00 AM = 600 minutes
-const service2End = 12 * 60; // 12:00 PM = 720 minutes
+const service2End = 12 * 60 + 15; // 12:15 PM = 735 minutes
 const service3Start = 12 * 60; // 12:00 PM = 720 minutes
-const dayEnd = 14 * 60; // 2:00 PM = 840 minutes (end of church day)
+const dayEnd = 14 * 60 + 15; // 2:15 PM = 855 minutes (end of church day)
 
 let service;
 
@@ -829,51 +1387,6 @@ function updateCurrentServiceDisplay() {
   console.log('✅ Service display updated');
 }
 
-function addAttendance() {
-  const dateInput = document.getElementById("attendanceDate");
-  
-  if (!dateInput.value) {
-    showToast("Please select a date", "warning");
-    return;
-  }
-  
-  // Get current service based on time
-  const currentService = getCurrentService();
-  if (!currentService) {
-    showToast("Unable to detect current service. Please try again during service hours.", "warning");
-    return;
-  }
-  
-  const date = new Date(dateInput.value);
-  const dateStr = `${date.getDate().toString().padStart(2, '0')}_${(date.getMonth() + 1).toString().padStart(2, '0')}_${date.getFullYear()}`;
-  
-  // Check if attendance for this date already exists in global variable
-  if (currentAttendance[dateStr]) {
-    if (!confirm("Attendance for this date already exists. Replace it?")) {
-      return;
-    }
-  }
-  
-  // Store in global variable
-  currentAttendance[dateStr] = currentService;
-  
-  addAttendanceToDisplay(dateStr, currentService);
-  
-  // Clear inputs
-  dateInput.value = "";
-}
-
-function removeAttendance(dateStr) {
-  // Remove from global variable
-  delete currentAttendance[dateStr];
-  
-  // Remove from display
-  const item = document.querySelector(`[data-date="${dateStr}"]`);
-  if (item) {
-    item.remove();
-  }
-}
-
 function clearAllAttendance() {
   // Clear global variable
   currentAttendance = {};
@@ -886,11 +1399,30 @@ function confirmIdentity() {
   document.getElementById("recordMessage").innerText = "✅ Identity confirmed! Complete the missing fields below.";
   document.getElementById("recordMessage").className = "confirmed";
   
-  // Hide the identity section (first name and phone fields)
-  document.getElementById("identitySection").classList.add("hidden");
+  // Smooth transition from confirmation section to completion section
+  const confirmationSection = document.getElementById("confirmationSection");
+  const completionSection = document.getElementById("completionSection");
   
-  // Show completion section
-  showCompletionSection(false);
+  if (confirmationSection && completionSection) {
+    // Start transition out of confirmation section
+    confirmationSection.classList.add("transitioning-out");
+    
+    setTimeout(() => {
+      confirmationSection.classList.add("hidden");
+      confirmationSection.classList.remove("transitioning-out");
+      
+      // Show completion section with transition
+      showCompletionSection(false);
+      completionSection.classList.add("transitioning-in");
+      
+      // Remove transitioning class after animation
+      setTimeout(() => {
+        completionSection.classList.remove("transitioning-in");
+      }, 400);
+    }, 400);
+  } else {
+    showCompletionSection(false);
+  }
 }
 
 function denyIdentity() {
@@ -898,16 +1430,41 @@ function denyIdentity() {
   foundRecord = null;
   matchedRecord = null;
   existingDocId = null;
+
   
-  // Enable identity section
-  enableIdentitySection();
+  // Smooth transition back to identity section
+  const confirmationSection = document.getElementById("confirmationSection");
+  const identitySection = document.getElementById("identitySection");
+  const noRecordSection = document.getElementById("noRecordSection");
   
-  // Hide confirmation section
-  document.getElementById("confirmationSection").classList.add("hidden");
+  if (confirmationSection && identitySection) {
+    // Start transition out of confirmation section
+    confirmationSection.classList.add("transitioning-out");
+    
+    // Also hide no record section if it's showing
+    if (noRecordSection) {
+      noRecordSection.classList.add("hidden");
+    }
+    
+    // After hide transition completes, show identity section
+    setTimeout(() => {
+      confirmationSection.classList.add("hidden");
+      confirmationSection.classList.remove("transitioning-out");
+      
+      // Show identity section with transition
+      identitySection.classList.remove("hidden");
+      identitySection.classList.add("transitioning-in");
+      
+      // Enable identity section after show transition
+      setTimeout(() => {
+        enableIdentitySection();
+        identitySection.classList.remove("transitioning-in");
+      }, 400);
+    }, 400);
+  }
   
-  // Clear inputs for new search
-  document.getElementById("name").value = "";
-  document.getElementById("morphersNumber").value = "";
+  // Keep input values preserved - DO NOT clear them
+  // Users want to search again with same or modified values
   
   // Reset message
   document.getElementById("recordMessage").innerText = "";
@@ -956,19 +1513,50 @@ function resetToStep1() {
   document.getElementById("instructions").innerText = "Enter your first name and phone number to check for existing records.";
   document.getElementById("instructions").className = "instructions";
   
-  // Hide all sections except identity
-  document.getElementById("confirmationSection").classList.add("hidden");
-  document.getElementById("completionSection").classList.add("hidden");
+  // Smooth transition from completion section back to identity section
+  const completionSection = document.getElementById("completionSection");
+  const identitySection = document.getElementById("identitySection");
   
-  // Hide no record section if it exists
-  const noRecordSection = document.getElementById("noRecordSection");
-  if (noRecordSection) {
-    noRecordSection.classList.add("hidden");
+  if (completionSection && identitySection && !completionSection.classList.contains("hidden")) {
+    // Start transition out of completion section
+    completionSection.classList.add("transitioning-out");
+    
+    setTimeout(() => {
+      completionSection.classList.add("hidden");
+      completionSection.classList.remove("transitioning-out");
+      
+      // Hide other sections
+      document.getElementById("confirmationSection").classList.add("hidden");
+      const noRecordSection = document.getElementById("noRecordSection");
+      if (noRecordSection) {
+        noRecordSection.classList.add("hidden");
+      }
+      
+      // Show identity section with transition
+      identitySection.classList.remove("hidden");
+      identitySection.classList.remove("disabled");
+      identitySection.classList.add("transitioning-in");
+      
+      // Remove transitioning class after animation
+      setTimeout(() => {
+        identitySection.classList.remove("transitioning-in");
+      }, 400);
+    }, 400);
+  } else {
+    // Hide all sections except identity (fallback for immediate reset)
+    document.getElementById("confirmationSection").classList.add("hidden");
+    document.getElementById("completionSection").classList.add("hidden");
+    
+    // Hide no record section if it exists
+    const noRecordSection = document.getElementById("noRecordSection");
+    if (noRecordSection) {
+      noRecordSection.classList.add("hidden");
+    }
+    
+    // Make sure identity section is visible and enabled
+    document.getElementById("identitySection").classList.remove("hidden");
+    document.getElementById("identitySection").classList.remove("disabled");
   }
-  
-  // Make sure identity section is visible and enabled
-  document.getElementById("identitySection").classList.remove("hidden");
-  document.getElementById("identitySection").classList.remove("disabled");
   
   // Enable identity section
   enableIdentitySection();
@@ -1233,8 +1821,37 @@ async function saveRecord() {
     const cell = getCellValue();
 
     // Validate required fields
-    if (!name || !number || !school || !clazz || !residence || !cell) {
-      showToast("Please fill in all required fields (Name, Phone, School, Class, Residence, In Cell)", "warning");
+    const missingFields = [];
+    const fieldMappings = {
+      "Name": "editableName",
+      "Phone": "editablePhone", 
+      "School": "school",
+      "Class": "class",
+      "Residence": "residence",
+      "In Cell": "cellYes" // Focus on the first radio option
+    };
+    
+    if (!name) missingFields.push("Name");
+    if (!number) missingFields.push("Phone");
+    if (!school) missingFields.push("School");
+    if (!clazz) missingFields.push("Class");
+    if (!residence) missingFields.push("Residence");
+    if (!cell) missingFields.push("In Cell");
+    
+    if (missingFields.length > 0) {
+      const fieldList = missingFields.join(", ");
+      const message = missingFields.length === 1 
+        ? `Please fill in the ${fieldList} field`
+        : `Please fill in the following fields: ${fieldList}`;
+      showToast(message, "warning");
+      
+      // Auto-focus to the first missing field if there's only one
+      if (missingFields.length === 1) {
+        const fieldId = fieldMappings[missingFields[0]];
+        if (fieldId) {
+          autoFocusToField(fieldId);
+        }
+      }
       return;
     }
     
@@ -1243,6 +1860,7 @@ async function saveRecord() {
       const suggestion = suggestFullName(name);
       const message = suggestion || "Please enter your full name (first and last name)";
       showToast(message, "warning");
+      autoFocusToField("editableName");
       return;
     }
 
@@ -1253,6 +1871,7 @@ async function saveRecord() {
     
     if (!schoolValidation.isValid) {
         showToast("Please correct the full school name to continue", "warning");
+        autoFocusToField("school");
         return;
     }
     
@@ -1261,11 +1880,13 @@ async function saveRecord() {
     // Validate phone numbers
     if (!validatePhoneNumber(number)) {
       showToast("Please enter a valid phone number", "warning");
+      autoFocusToField("editablePhone");
       return;
     }
     
     if (parentsNumber && !validatePhoneNumber(parentsNumber)) {
-      showToast("Please enter a valid parents phone number", "warning");
+      showToast("Please enter a valid parent's phone number", "warning");
+      autoFocusToField("editableParentsPhone");
       return;
     }
 
@@ -1308,7 +1929,7 @@ async function saveRecord() {
     }
 
     // Show success message
-    showToast("Record saved successfully!", "success");
+    showToast("Attendance submitted successfully!", "success");
     document.getElementById("recordMessage").className = "";
     
     // Reset form after successful save
@@ -1318,13 +1939,15 @@ async function saveRecord() {
 
   } catch (error) {
     console.error("Save error:", error);
-    showToast("Error saving record. Please check your internet connection and try again.", "error");
+    showToast("Oops! Something went wrong saving your info. Please check your internet and try again, or ask a leader for help.", "error");
     document.getElementById("recordMessage").innerText = "";
     document.getElementById("recordMessage").className = "";
   } finally {
-    // Remove loading state
-    saveBtn.classList.remove("loading");
-    saveBtn.disabled = false;
+    // Remove loading state after 1500 ms
+    setTimeout(() => {
+      saveBtn.classList.remove("loading");
+      saveBtn.disabled = false;
+    }, 1500);
   }
 }
 
@@ -1354,405 +1977,17 @@ function resetForm() {
   foundRecord = null;
   matchedRecord = null;
   existingDocId = null;
+  searchCounter = 0;
   currentAttendance = {}; // Clear global attendance variable
   
   // Reset to step 1
   resetToStep1();
 }
 
-// 4️⃣ Download CSV
-async function downloadAll() {
-  const morphersCollection = collection(db, "morphers");
-  const snapshot = await getDocs(morphersCollection);
-  if (snapshot.empty) return showToast("No records to download", "warning");
-  
-  const data = snapshot.docs.map(doc => {
-    const record = doc.data();
-    const flatRecord = {};
-    
-    // Handle basic fields
-    Object.keys(record).forEach(key => {
-      if (key === 'attendance') {
-        // Flatten attendance object - convert each attendance date to a column
-        if (record.attendance && typeof record.attendance === 'object') {
-          Object.keys(record.attendance).forEach(date => {
-            flatRecord[`attendance_${date}`] = record.attendance[date];
-          });
-        }
-      } else if (record[key] && typeof record[key] === 'object') {
-        // Handle Firestore Timestamps and other objects
-        if (record[key].seconds !== undefined) {
-          // Firestore Timestamp
-          const timestamp = new Timestamp(record[key].seconds, record[key].nanoseconds || 0);
-          flatRecord[key] = timestamp.toDate().toISOString();
-        } else {
-          // Other objects - convert to string
-          flatRecord[key] = JSON.stringify(record[key]);
-        }
-      } else {
-        // Simple values
-        flatRecord[key] = record[key] || '';
-      }
-    });
-    
-    return flatRecord;
-  });
-  
-  if (data.length === 0) return showToast("No records to download", "warning");
-  
-  // Get all unique column headers from all records
-  const allHeaders = new Set();
-  data.forEach(record => {
-    Object.keys(record).forEach(key => allHeaders.add(key));
-  });
-  
-  const headers = Array.from(allHeaders).sort();
-  const headerRow = headers.join(",") + "\n";
-  
-  const rows = data.map(record => {
-    return headers.map(header => {
-      const value = record[header] || '';
-      // Escape commas and quotes in CSV
-      if (typeof value === 'string' && (value.includes(',') || value.includes('"') || value.includes('\n'))) {
-        return '"' + value.replace(/"/g, '""') + '"';
-      }
-      return value;
-    }).join(",");
-  }).join("\n");
-  
-  const csv = headerRow + rows;
-
-  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url; 
-  a.download = "morphers-data.csv"; 
-  a.click();
-  URL.revokeObjectURL(url);
-}
-
-// 5️⃣ Upload CSV
-async function uploadCSV(file) {
-  if (!file) return showToast("Please select a file", "warning");
-  
-  if (!file.name.toLowerCase().endsWith('.csv')) {
-    return showToast("Please select a CSV file", "warning");
-  }
-  
-  try {
-    const text = await file.text();
-    const lines = text.split('\n').map(line => line.trim()).filter(line => line);
-    
-    if (lines.length < 2) {
-      return showToast("CSV file must have headers and at least one data row", "warning");
-    }
-    
-    // Parse CSV headers
-    const headers = lines[0].split(',').map(h => h.trim());
-    const dataRows = lines.slice(1);
-    
-    // Convert CSV rows to JSON objects
-    const records = dataRows.map(row => {
-      const values = parseCSVRow(row);
-      const record = {};
-      
-      headers.forEach((header, index) => {
-        const value = values[index] ? values[index].trim() : '';
-        
-        if (header.startsWith('attendance_')) {
-          // Handle attendance columns
-          if (!record.attendance) record.attendance = {};
-          const dateKey = header.replace('attendance_', '');
-          if (value && value !== '' && value !== '-') {
-            record.attendance[dateKey] = value;
-          }
-        } else {
-          // Handle regular fields
-          switch(header) {
-            case 'Name':
-              record.Name = value;
-              break;
-            case 'MorphersNumber':
-              record.MorphersNumber = value && value !== '-' ? normalizePhoneNumber(value) : '';
-              break;
-            case 'ParentsName':
-              record.ParentsName = value;
-              break;
-            case 'ParentsNumber':
-              record.ParentsNumber = value && value !== '-' ? normalizePhoneNumber(value) : '';
-              break;
-            case 'School':
-              record.School = value;
-              break;
-            case 'Class':
-              record.Class = value;
-              break;
-            case 'Residence':
-              record.Residence = value;
-              break;
-            case 'Cell':
-              record.Cell = value;
-              break;
-            case 'createdAt':
-              if (value && value !== '') {
-                record.createdAt = Timestamp.fromDate(new Date(value));
-              }
-              break;
-            case 'lastUpdated':
-              if (value && value !== '') {
-                record.lastUpdated = Timestamp.fromDate(new Date(value));
-              }
-              break;
-            default:
-              // Handle any other fields
-              record[header] = value;
-              break;
-          }
-        }
-      });
-      
-      // Ensure required timestamps exist
-      if (!record.lastUpdated) {
-        record.lastUpdated = Timestamp.now();
-      }
-      if (!record.createdAt) {
-        record.createdAt = Timestamp.now();
-      }
-      
-      // Ensure attendance object exists
-      if (!record.attendance) {
-        record.attendance = {};
-      }
-      
-      return record;
-    }).filter(record => record.Name && record.Name.trim() !== ''); // Only include records with names
-    
-    if (records.length === 0) {
-      return showToast("No valid records found in CSV", "warning");
-    }
-    
-    // Confirm before proceeding
-    const confirmMessage = `This will delete all existing ${await getRecordCount()} records and upload ${records.length} new records. Are you sure?`;
-    if (!confirm(confirmMessage)) {
-      return;
-    }
-    
-    showToast("Deleting existing data and uploading new records...", "info");
-    
-    // Delete all existing records
-    await deleteAllRecords();
-    
-    // Upload new records in batches
-    await uploadRecordsInBatches(records);
-    
-    showToast(`Successfully uploaded ${records.length} records!`, "success");
-    
-  } catch (error) {
-    console.error("CSV upload error:", error);
-    showToast("Error processing CSV file. Please check the format and try again.", "error");
-  }
-}
-
-// Helper function to parse CSV row with proper quote handling
-function parseCSVRow(row) {
-  const result = [];
-  let current = '';
-  let inQuotes = false;
-  
-  for (let i = 0; i < row.length; i++) {
-    const char = row[i];
-    
-    if (char === '"') {
-      if (inQuotes && row[i + 1] === '"') {
-        // Escaped quote
-        current += '"';
-        i++; // Skip next quote
-      } else {
-        // Toggle quote state
-        inQuotes = !inQuotes;
-      }
-    } else if (char === ',' && !inQuotes) {
-      // End of field
-      result.push(current);
-      current = '';
-    } else {
-      current += char;
-    }
-  }
-  
-  // Add the last field
-  result.push(current);
-  
-  return result;
-}
-
-// Helper function to get current record count
-async function getRecordCount() {
-  try {
-    const morphersCollection = collection(db, "morphers");
-    const snapshot = await getDocs(morphersCollection);
-    return snapshot.size;
-  } catch (error) {
-    console.error("Error getting record count:", error);
-    return 0;
-  }
-}
-
-// Helper function to delete all existing records
-async function deleteAllRecords() {
-  const batchSize = 500; // Firestore batch limit
-  let deletedCount = 0;
-  
-  while (true) {
-    const morphersCollection = collection(db, "morphers");
-    const limitedQuery = query(morphersCollection, limit(batchSize));
-    const snapshot = await getDocs(limitedQuery);
-    
-    if (snapshot.empty) {
-      break;
-    }
-    
-    const batch = writeBatch(db);
-    snapshot.docs.forEach(docSnapshot => {
-      batch.delete(docSnapshot.ref);
-    });
-    
-    await batch.commit();
-    deletedCount += snapshot.size;
-    
-    console.log(`Deleted ${deletedCount} records so far...`);
-  }
-  
-  console.log(`Total deleted: ${deletedCount} records`);
-}
-
-// Helper function to upload records in batches
-async function uploadRecordsInBatches(records) {
-  const batchSize = 500; // Firestore batch limit
-  let uploadedCount = 0;
-  
-  for (let i = 0; i < records.length; i += batchSize) {
-    const batch = writeBatch(db);
-    const batchRecords = records.slice(i, i + batchSize);
-    
-    batchRecords.forEach(record => {
-      const morphersCollection = collection(db, "morphers");
-      const docRef = doc(morphersCollection);
-      batch.set(docRef, record);
-    });
-    
-    await batch.commit();
-    uploadedCount += batchRecords.length;
-    
-    console.log(`Uploaded ${uploadedCount}/${records.length} records...`);
-  }
-}
-
-// Handle file input for CSV upload
-function handleCSVFileInput(event) {
-  // Check authentication
-  if (!currentUser || !AUTHORIZED_ADMIN_PHONES.includes(currentUser.phoneNumber)) {
-    showToast("Admin authentication required to upload CSV", "error");
-    requestAdminAccess('upload');
-    return;
-  }
-  
-  const file = event.target.files[0];
-  if (file) {
-    uploadCSV(file);
-  }
-}
-
-// Sample JSON data
-const sampleData = [
-  {
-    "Name": "Hadassah Raphaella",
-    "MorphersNumber": "778460633",
-    "ParentsName": "Jane Doe",
-    "ParentsNumber": "787021538",
-    "School": "Sicomoro International Learning Institute",
-    "Class": "S3",
-    "Residence": "Lubowa",
-    "Cell": "Lubowa Cell",
-    "attendance": {
-      "15_01_2025": "1",
-      "22_01_2025": "2",
-      "29_01_2025": "1"
-    },
-    "lastUpdated": "2025-01-30T10:30:00Z"
-  },
-  {
-    "Name": "Aaron Emmanuel Jr",
-    "MorphersNumber": "764811999",
-    "ParentsName": "John Emmanuel",
-    "ParentsNumber": "701330645",
-    "School": "Rainbow International Christian School",
-    "Class": "S4",
-    "Residence": "Ndejje",
-    "Cell": "Ndejje Cell",
-    "attendance": {
-      "15_01_2025": "2",
-      "29_01_2025": "1"
-    },
-    "lastUpdated": "2025-01-29T14:15:00Z"
-  },
-  {
-    "Name": "Abigail Magretor",
-    "MorphersNumber": "757800109",
-    "ParentsName": "Mary Magretor",
-    "ParentsNumber": "",
-    "School": "Seeta High School (Green Campus)",
-    "Class": "",
-    "Residence": "Lubowa",
-    "Cell": "",
-    "attendance": {
-      "22_01_2025": "3"
-    },
-    "lastUpdated": "2025-01-25T09:45:00Z"
-  },
-  {
-    "Name": "Abigail Kirsten",
-    "MorphersNumber": "781581133",
-    "ParentsName": "Kirsten Senior",
-    "ParentsNumber": "772120140",
-    "School": "Victory International Christian Academy",
-    "Class": "S5",
-    "Residence": "Lubowa",
-    "Cell": "",
-    "attendance": {},
-    "lastUpdated": "2025-01-20T16:20:00Z"
-  }
-];
-
-// Function to bulk upload sample data
-async function loadSampleData() {
-  // Check authentication
-  if (!currentUser || !AUTHORIZED_ADMIN_PHONES.includes(currentUser.phoneNumber)) {
-    showToast("Admin authentication required to load sample data", "error");
-    requestAdminAccess('sample');
-    return;
-  }
-  
-  if (!confirm("This will upload sample morphers to Firestore. Continue?")) return;
-
-  const batch = writeBatch(db); // Use batch to speed up multiple writes
-  const collectionRef = collection(db, "morphers");
-
-  sampleData.forEach(item => {
-    const docRef = doc(collectionRef); // auto-generated ID
-    batch.set(docRef, item);
-  });
-
-  await batch.commit();
-  showToast("Sample data loaded into Firestore!", "success");
-}
 
 // Make functions globally accessible
 window.searchForRecord = searchForRecord;
 window.saveRecord = saveRecord;
-window.downloadAll = downloadAll;
-window.handleCSVFileInput = handleCSVFileInput;
-window.loadSampleData = loadSampleData;
 window.confirmIdentity = confirmIdentity;
 window.denyIdentity = denyIdentity;
 window.showNewRecordSection = showNewRecordSection;
@@ -1762,6 +1997,11 @@ window.updateCurrentServiceDisplay = updateCurrentServiceDisplay;
 window.validatePhoneNumber = validatePhoneNumber;
 window.validateFullName = validateFullName;
 window.validateAndNormalizeSchoolName = validateAndNormalizeSchoolName;
+window.signInUser = signInUser;
+window.resetUserPassword = resetUserPassword;
+window.autoFocusToField = autoFocusToField;
+window.validateAndFocusFirstError = validateAndFocusFirstError;
+window.matchesMultipleNames = matchesMultipleNames;
 
 // Debug: End of script file
 console.log('📝 End of scripts.js reached - ready for initialization');

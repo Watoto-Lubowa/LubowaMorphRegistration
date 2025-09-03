@@ -12,5 +12,6 @@ window.APP_CONFIG = {
     measurementId: "FIREBASE_MEASUREMENT_ID_PLACEHOLDER"
   },
   authorizedAdminEmails: "AUTHORIZED_ADMIN_EMAILS_PLACEHOLDER".split(',').map(email => email.trim()),
+  authorizedUserEmails: "AUTHORIZED_USER_EMAILS_PLACEHOLDER".split(',').map(email => email.trim()),
   authorizedPhoneNumbers: "AUTHORIZED_PHONE_NUMBERS_PLACEHOLDER".split(',').map(phone => phone.trim())
 };

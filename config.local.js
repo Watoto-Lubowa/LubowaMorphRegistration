@@ -14,6 +14,7 @@ window.APP_CONFIG = {
     measurementId: "G-07PTV3DXG4"
   },
   authorizedAdminEmails: ["jeromessenyonjo@gmail.com"],
+  authorizedUserEmails: ["jeromessenyonjo@gmail.com", "volunteer.lubowa@watotochurch.com", "denis.omoding@watotochurch.com"],
   authorizedPhoneNumbers: ["0700000000"]
 };
 

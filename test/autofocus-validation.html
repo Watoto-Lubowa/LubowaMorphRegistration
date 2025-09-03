@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Auto-focus Validation Test</title>
+    <link rel="stylesheet" href="../styles.css">
+    <style>
+        .test-container {
+            max-width: 600px;
+            margin: 20px auto;
+            padding: 20px;
+            background: white;
+            border-radius: 10px;
+        }
+        .test-section {
+            margin-bottom: 30px;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .test-button {
+            background: #007bff;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        .test-button:hover {
+            background: #0056b3;
+        }
+    </style>
+</head>
+<body>
+    <!-- Toast Container -->
+    <div id="toast-container" class="toast-container"></div>
+
+    <div class="test-container">
+        <h1>Auto-focus Validation Test</h1>
+        <p>This page tests the auto-focus functionality for invalid fields.</p>
+
+        <div class="test-section">
+            <h2>Test 1: Single Field Validation</h2>
+            <div class="field">
+                <label for="test-email">Email</label>
+                <input type="email" id="test-email" placeholder="Enter your email">
+            </div>
+            <div class="field">
+                <label for="test-phone">Phone</label>
+                <input type="tel" id="test-phone" placeholder="Enter your phone">
+            </div>
+            <button class="test-button" onclick="testSingleField()">Test Single Field Focus</button>
+        </div>
+
+        <div class="test-section">
+            <h2>Test 2: Radio Button Validation</h2>
+            <div class="field" id="test-radio-field">
+                <label>Choose an option:</label>
+                <div class="radio-group">
+                    <label class="radio-option" style="display: inherit;">
+                        <input type="radio" name="test-radio" value="yes" id="test-radio-yes">
+                        <span class="radio-label">Yes</span>
+                    </label>
+                    <label class="radio-option" style="display: inherit;">
+                        <input type="radio" name="test-radio" value="no" id="test-radio-no">
+                        <span class="radio-label">No</span>
+                    </label>
+                </div>
+            </div>
+            <button class="test-button" onclick="testRadioField()">Test Radio Focus</button>
+        </div>
+
+        <div class="test-section">
+            <h2>Test 3: Multiple Field Validation</h2>
+            <div class="field">
+                <label for="test-name">Full Name</label>
+                <input type="text" id="test-name" placeholder="Enter full name">
+            </div>
+            <div class="field">
+                <label for="test-school">School</label>
+                <input type="text" id="test-school" placeholder="Enter school name">
+            </div>
+            <div class="field">
+                <label for="test-class">Class</label>
+                <input type="text" id="test-class" placeholder="Enter class">
+            </div>
+            <button class="test-button" onclick="testMultipleFields()">Test Multiple Field Focus</button>
+        </div>
+    </div>
+
+    <script>
+        // Mock the required functions for testing
+        function showToast(message, type = 'info', duration = 5000) {
+            console.log(`Toast: [${type.toUpperCase()}] ${message}`);
+            
+            const container = document.getElementById('toast-container');
+            if (!container) return;
+            
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+            toast.innerHTML = `
+                <div class="toast-content">
+                    <span class="toast-icon">${type === 'warning' ? '⚠️' : 'ℹ️'}</span>
+                    <span class="toast-message">${message}</span>
+                    <button class="toast-close" onclick="this.parentElement.parentElement.remove()">×</button>
+                </div>
+            `;
+            
+            container.appendChild(toast);
+            setTimeout(() => toast.classList.add('show'), 100);
+            setTimeout(() => toast.remove(), duration);
+        }
+
+        // Auto-focus utility function for invalid fields
+        function autoFocusToField(fieldId, showMessage = true) {
+            const field = document.getElementById(fieldId);
+            if (field) {
+                // Scroll to the field if needed
+                field.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                
+                // Focus the field with a slight delay to ensure smooth scrolling
+                setTimeout(() => {
+                    field.focus();
+                    
+                    // Add visual emphasis with CSS classes if available
+                    field.classList.add('field-error');
+                    
+                    // Remove the error class after a few seconds
+                    setTimeout(() => {
+                        field.classList.remove('field-error');
+                    }, 3000);
+                }, 300);
+                
+                return true;
+            }
+            
+            // Handle special cases like radio buttons
+            if (fieldId === 'test-radio-yes' || fieldId === 'test-radio-no') {
+                const radioGroup = document.querySelector('.radio-group');
+                const radioField = document.getElementById('test-radio-field');
+                
+                if (radioGroup && radioField) {
+                    // Scroll to the radio group
+                    radioField.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    
+                    setTimeout(() => {
+                        // Focus the first radio button
+                        const firstRadio = document.getElementById('test-radio-yes');
+                        if (firstRadio) {
+                            firstRadio.focus();
+                        }
+                        
+                        // Add error class to radio group
+                        radioGroup.classList.add('field-error');
+                        
+                        // Remove the error class after a few seconds
+                        setTimeout(() => {
+                            radioGroup.classList.remove('field-error');
+                        }, 3000);
+                    }, 300);
+                    
+                    return true;
+                }
+            }
+            
+            return false;
+        }
+
+        // Test functions
+        function testSingleField() {
+            const email = document.getElementById('test-email').value.trim();
+            const phone = document.getElementById('test-phone').value.trim();
+            
+            if (!email) {
+                showToast('Please enter your email address.', 'warning');
+                autoFocusToField('test-email');
+                return;
+            }
+            
+            if (!phone) {
+                showToast('Please enter your phone number.', 'warning');
+                autoFocusToField('test-phone');
+                return;
+            }
+            
+            showToast('All fields are valid!', 'success');
+        }
+
+        function testRadioField() {
+            const radioSelected = document.querySelector('input[name="test-radio"]:checked');
+            
+            if (!radioSelected) {
+                showToast('Please select an option.', 'warning');
+                autoFocusToField('test-radio-yes');
+                return;
+            }
+            
+            showToast('Radio selection is valid!', 'success');
+        }
+
+        function testMultipleFields() {
+            const name = document.getElementById('test-name').value.trim();
+            const school = document.getElementById('test-school').value.trim();
+            const classField = document.getElementById('test-class').value.trim();
+            
+            const missingFields = [];
+            const fieldMappings = {
+                "Name": "test-name",
+                "School": "test-school",
+                "Class": "test-class"
+            };
+            
+            if (!name) missingFields.push("Name");
+            if (!school) missingFields.push("School");
+            if (!classField) missingFields.push("Class");
+            
+            if (missingFields.length > 0) {
+                const fieldList = missingFields.join(", ");
+                const message = missingFields.length === 1 
+                    ? `Please fill in the ${fieldList} field`
+                    : `Please fill in the following fields: ${fieldList}`;
+                showToast(message, "warning");
+                
+                // Auto-focus to the first missing field if there's only one
+                if (missingFields.length === 1) {
+                    const fieldId = fieldMappings[missingFields[0]];
+                    if (fieldId) {
+                        autoFocusToField(fieldId);
+                    }
+                } else {
+                    // Focus the first missing field for multiple errors
+                    const firstFieldId = fieldMappings[missingFields[0]];
+                    if (firstFieldId) {
+                        autoFocusToField(firstFieldId);
+                    }
+                }
+                return;
+            }
+            
+            showToast('All fields are valid!', 'success');
+        }
+    </script>
+</body>
+</html>

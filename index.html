@@ -14,7 +14,61 @@
 <!-- Toast Container -->
 <div id="toast-container" class="toast-container"></div>
 
-<div class="container">
+<!-- Login Section -->
+<div id="loginSection" class="login-section">
+  <div class="login-container">
+    <div class="login-header">
+      <h1>Welcome</h1>
+      <p class="login-subtitle">Lubowa Morph Registration System</p>
+    </div>
+    
+    <div class="login-card">
+      <div class="login-icon">👤</div>
+      <h2>Sign In to Continue</h2>
+      <p class="login-description">Please sign in to access the registration system</p>
+      
+      <div class="field email-field">
+        <label for="userEmail">
+          <span class="field-icon">📧</span>
+          <span class="field-text">Email Address</span>
+        </label>
+        <input type="email" id="userEmail" placeholder="your@email.com" required>
+        <small class="field-help">Enter your authorized email address</small>
+      </div>
+      
+      <div class="field password-field">
+        <label for="userPassword">
+          <span class="field-icon">🔐</span>
+          <span class="field-text">Password</span>
+        </label>
+        <input type="password" id="userPassword" placeholder="••••••••••" required>
+        <small class="field-help">Enter your password</small>
+      </div>
+      
+      <div class="button-container">
+        <button id="userSignInBtn">
+          <span class="btn-text">🚀 Sign In</span>
+          <span class="btn-loading" style="display: none;">Signing in...</span>
+        </button>
+      </div>
+      
+      <div class="login-options">
+        <button id="userResetPasswordBtn" class="link-btn">
+          Forgot Password?
+        </button>
+      </div>
+      
+      <div class="security-notice">
+        <small>🔒 Your session will expire when you close your browser for security.</small>
+      </div>
+      
+      <div class="login-status" id="loginStatus"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Main Registration Container (Hidden until authenticated) -->
+<div class="container hidden" id="mainContainer">
   <h2>Lubowa Morph Registration</h2>
   
   <!-- Step Indicator -->
@@ -31,7 +85,7 @@
   
   <!-- Instructions -->
   <div class="instructions" id="instructions">
-    Enter your first name and phone number to check for existing records.
+    Type your name and number to see if you're already registered.
   </div>
   
   <div id="recordMessage"></div>
@@ -54,13 +108,13 @@
       </label>
       <input type="tel" id="morphersNumber" required aria-describedby="phoneHelp">
       <small id="phoneHelp" class="field-help">
-        Enter your phone number. You may try up to 3 times using your own or any of your parents' / guardian's phone number.
+        Use your number or one of your parents'. You get 3 tries!
       </small>
     </div>
     
     <div class="search-button-container">
       <button type="button" id="searchBtn" class="search-btn">
-        <span class="btn-text">🔍 Search Database</span>
+        <span class="btn-text">🔍 Check My Info</span>
         <span class="btn-loading">Searching...</span>
       </button>
     </div>
@@ -80,10 +134,11 @@
         <strong>Parent's Number:</strong> <span id="displayParentsPhone"></span>
       </div>
     </div>
-    <p class="confirmation-text">Is this information correct?</p>
+    <p class="confirmation-text">Is this you?</p>
     <div class="confirmation-buttons">
       <button type="button" id="confirmBtn" class="confirm-btn">Yes, that's me</button>
       <button type="button" id="denyBtn" class="deny-btn">No, search again</button>
+      <button type="button" id="confirmCreateNewBtn" style="display: none;" class="create-new-btn">➕ Create New Record</button>
     </div>
   </div>
 
@@ -91,23 +146,29 @@
   <div class="form-section hidden" id="noRecordSection">
     <h3>❌ No Record Found</h3>
     <div class="no-record-message">
-      <p>We couldn't find any existing records matching your information.</p>
-      <p>What would you like to do?</p>
+      <p>Hmm, we couldn't find you.</p>
+      <div class="search-details">
+        <p id="searchedInfo" class="searched-info"></p>
+      </div>
+      <span id="note">
+        <p>What would you like to do?</p>
+        <p><strong>Note:</strong> You can try searching again or create a new record.</p>
+      </span>
     </div>
     <div class="no-record-options">
       <button type="button" id="searchAgainBtn" class="search-again-btn">🔍 Search Again</button>
-      <button type="button" id="createNewBtn" class="create-new-btn">➕ Create New Record</button>
+      <button type="button" id="createNewBtn" class="create-new-btn">➕ Make a New Record</button>
     </div>
   </div>
 
   <!-- Form Completion Section (hidden initially) -->
   <div class="form-section hidden" id="completionSection">
     <h3>Register Your Attendance</h3>
-    <p class="section-description">Review and update your information below, if necessary:</p>
+    <p class="section-description">Update your details if you need to.</p>
     
     <!-- All Editable Information -->
     <div class="editable-info">
-      <h4>✏️ Personal Information</h4>
+      <h4>👤 Personal Information</h4>
       
       <div class="field">
         <label for="editableName">Full Name <span class="required">*</span></label>
@@ -118,23 +179,59 @@
       <div class="field">
         <label for="editablePhone">Phone Number <span class="required">*</span></label>
         <input type="tel" id="editablePhone" required>
-        <small class="field-help">Your phone number (e.g., 0700123456). Use your own or any of your parents' / guardian's phone number if you don't have one.</small>
+        <small class="field-help">Your phone number (e.g., 0700123456). Use any of your parents' / guardian's phone number if you don't have one.</small>
       </div>
       
       <div class="field">
         <label for="editableParentsName">Parent's Name <span class="required">*</span></label>
         <input type="text" id="editableParentsName" required>
-        <small class="field-help">Your Parent's  or guardian's name</small>
+        <small class="field-help">Use your family name if you're not sure.</small>
       </div>
       
       <div class="field">
         <label for="editableParentsPhone">Parent's Phone <span class="required">*</span></label>
         <input type="tel" id="editableParentsPhone" required>
-        <small class="field-help">Your Parent's  or guardian's phone number</small>
+        <small class="field-help">Use your own again if you're not sure.</small>
+      </div>
+    </div>
+        
+    <!-- Additional Information Fields -->
+    <div class="editable-info">
+      <h4>📖 School & Other Details</h4>
+      <div class="field" id="schoolField">
+        <label for="school">School <span class="required">*</span></label>
+        <input type="text" id="school" required>
+        <small class="field-help"><strong>Enter your school's full name (NO ABBREVIATIONS). Example: "Sicomoro International Christian School" not "SICS"</strong></small>
+      </div>
+      <div class="field" id="classField">
+        <label for="class">Class <span class="required">*</span></label>
+        <input type="text" id="class" required>
+        <small class="field-help">
+          e.g., S1 (Senior 1), Y2 (Year 2), G3 (Grade 3), etc.
+        </small>
+      </div>
+      <div class="field" id="residenceField">
+        <label for="residence">Residence <span class="required">*</span></label>
+        <input type="text" id="residence" required>
+        <small class="field-help">Your place of residence</small>
+      </div>
+      <div class="field" id="cellField">
+        <label for="cell">In Cell? <span class="required">*</span></label>
+        <div class="radio-group" aria-required="true">
+          <label class="radio-option" style="display: inherit;">
+            <input type="radio" name="cell" value="1" id="cellYes" required>
+            <span class="radio-label">Yes</span>
+          </label>
+          <label class="radio-option" style="display: inherit;">
+            <input type="radio" name="cell" value="0" id="cellNo" required>
+            <span class="radio-label">No</span>
+          </label>
+        </div>
+        <small class="field-help">Are you in a Morph cell?</small>
       </div>
     </div>
     
-    <!-- Attendance Tracking -->
+    <!-- Service Attendance -->
     <div class="attendance-section">
       <h4>📅 Service Attendance</h4>
       <div class="attendance-input">
@@ -147,75 +244,25 @@
       </div>
     </div>
     
-    <!-- School Disclaimer -->
-    <div class="school-disclaimer">
-      <h4>⚠️ Important School Name Guidelines</h4>
-      <p>Please enter your school name in <strong>FULL FORM</strong>, not abbreviations:</p>
-      <ul>
-        <li><strong>✅ Correct:</strong> Sicomoro International Christian School</li>
-        <li><strong>❌ Wrong:</strong> SICS</li>
-        <li><strong>✅ Correct:</strong> St. Mary's Secondary School Kitende</li>
-        <li><strong>❌ Wrong:</strong> SMASK</li>
-      </ul>
+    <div class="button-container">
+      <button id="saveBtn" disabled>
+        <span class="btn-text">✅ Done</span>
+        <span class="btn-loading" style="display: none;">Submitting...</span>
+      </button>
     </div>
-  <div class="field" id="schoolField">
-    <label for="school">School <span class="required">*</span></label>
-    <input type="text" id="school" required>
-    <small class="field-help">Enter your school's full name (no abbreviations)</small>
   </div>
-  <div class="field" id="classField">
-    <label for="class">Class <span class="required">*</span></label>
-    <input type="text" id="class" required>
-    <small class="field-help">
-      e.g., S1 (Senior 1), Y2 (Year 2), G3 (Grade 3), etc.
-    </small>
-  </div>
-  <div class="field" id="residenceField">
-    <label for="residence">Residence <span class="required">*</span></label>
-    <input type="text" id="residence" required>
-    <small class="field-help">Your place of residence</small>
-  </div>
-  <div class="field" id="cellField">
-    <label for="cell">In Cell? <span class="required">*</span></label>
-    <div class="radio-group" aria-required="true">
-      <label class="radio-option" style="display: inherit;">
-        <input type="radio" name="cell" value="1" id="cellYes" required>
-        <span class="radio-label">Yes</span>
-      </label>
-      <label class="radio-option" style="display: inherit;">
-        <input type="radio" name="cell" value="0" id="cellNo" required>
-        <span class="radio-label">No</span>
-      </label>
-    </div>
-    <small class="field-help">Are you in a Morph cell?</small>
-  </div>
-  
-  <div class="button-container">
-    <button id="saveBtn" disabled>
-      <span class="btn-text">Save Record</span>
-      <span class="btn-loading" style="display: none;">Saving...</span>
-    </button>
-    <!-- <button onclick="downloadAll()">
-      <span class="btn-text">Download CSV</span>
-      <span class="btn-loading" style="display: none;">Downloading...</span>
-    </button>
-    <label for="csvFileInput" class="file-upload-btn">
-      <span class="btn-text">Upload CSV</span>
-      <input type="file" id="csvFileInput" accept=".csv" style="display: none;" onchange="handleCSVFileInput(event)">
-    </label>
-    <button onclick="loadSampleData()">Load Sample Data</button> -->
-  </div>
-</div>
 
 <!-- Firebase Scripts - Modular SDK v9+ -->
 <script type="module">
   // Import the functions you need from the SDKs you need
   import { initializeApp } from 'https://www.gstatic.com/firebasejs/12.1.0/firebase-app.js';
   import { getFirestore, collection, doc, getDocs, getDoc, setDoc, updateDoc, deleteDoc, query, where, getCountFromServer, Timestamp, writeBatch, limit, or, and } from 'https://www.gstatic.com/firebasejs/12.1.0/firebase-firestore.js';
+  import { getAuth, signInWithEmailAndPassword, sendPasswordResetEmail, signOut, onAuthStateChanged, setPersistence, browserSessionPersistence } from 'https://www.gstatic.com/firebasejs/12.1.0/firebase-auth.js';
   
   // Make Firebase available globally
   window.firebaseApp = { initializeApp };
   window.firebaseFirestore = { getFirestore, collection, doc, getDocs, getDoc, setDoc, updateDoc, deleteDoc, query, where, getCountFromServer, Timestamp, writeBatch, limit, or, and };
+  window.firebaseAuth = { getAuth, signInWithEmailAndPassword, sendPasswordResetEmail, signOut, onAuthStateChanged, setPersistence, browserSessionPersistence };
   
   // Signal that Firebase modules are ready
   window.firebaseReady = true;
