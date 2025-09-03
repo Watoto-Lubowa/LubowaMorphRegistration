@@ -360,7 +360,7 @@ async function signInUser() {
         statusMessage = '⚠️ Too many failed attempts. Please wait a few minutes and try again.';
         break;
       default:
-        errorMessage = `Sign in failed: ${error.message}`;
+        errorMessage = `Sign in failed. Please check your connection and try again.`;
         statusMessage = '❌ Sign in failed. Please check your connection and try again.';
         break;
     }
@@ -771,294 +771,371 @@ function matchesMultipleNames(searchInput, storedName) {
   return isMatch;
 }
 
-// 2️⃣ Search for existing record (triggered by button click)
+// 2️⃣ Search for existing record (refactored for better maintainability)
 async function searchForRecord() {
   console.log('🔍 searchForRecord function called!');
   
   try {
-    // Check if Firebase is initialized
-    if (!firebaseInitialized || !db) {
-      console.error('Firebase not initialized');
-      showToast(ERROR_MESSAGES.FIREBASE_NOT_INITIALIZED, 'error');
+    // Validate prerequisites
+    const validation = validateSearchPrerequisites();
+    if (!validation.isValid) {
       return;
     }
 
-    const firstNameInput = document.getElementById("name");
-    const phoneNumberInput = document.getElementById("morphersNumber");
-    const searchBtn = document.getElementById("searchBtn");
-    
-    // Check for required DOM elements
-    if (!firstNameInput || !phoneNumberInput || !searchBtn) {
-      console.error('Required DOM elements not found');
-      showToast('Oops! Something went wrong. Please try refreshing the page.', 'error');
-      return;
-    }
-
-    const firstName = sanitizeInput(firstNameInput.value);
-    const phoneNumber = sanitizeInput(phoneNumberInput.value);
-    
+    const { firstName, phoneNumber, searchBtn } = validation.data;
     console.log('🔎 Search inputs:', { firstName, phoneNumber });
     
-    // Enhanced input validation
-    if (!isValidString(firstName, VALIDATION_CONSTANTS.MIN_NAME_LENGTH)) {
-      console.log('❌ Invalid first name');
-      showToast(ERROR_MESSAGES.INVALID_NAME, "warning");
-      autoFocusToField("name");
-      return;
-    }
+    // Update UI for search state
+    updateSearchUI(searchBtn, true);
     
-    if (!isValidPhoneNumber(phoneNumber)) {
-      console.log('❌ Invalid phone number');
-      showToast(ERROR_MESSAGES.INVALID_PHONE, "warning");
-      autoFocusToField("morphersNumber");
+    // Test Firebase connection
+    const connectionOk = await testFirebaseConnection();
+    if (!connectionOk) {
       return;
     }
 
-    console.log('🚀 Starting search process...');
-    console.log('🔥 Firebase initialized:', firebaseInitialized);
-    console.log('💾 Database initialized:', !!db);
+    // Perform the progressive search
+    const searchResult = await performProgressiveSearch(firstName, phoneNumber);
     
-    // Increment search counter
-    searchCounter++;
-    console.log(`📊 Search attempt #${searchCounter}`);
+    // Handle results and update UI
+    await handleSearchResults(searchResult, searchBtn);
+    
+  } catch (error) {
+    console.error("🔴 Search failed:", error);
+    handleSearchError(error);
+  } finally {
+    // Always clean up UI state
+    cleanupSearchUI();
+  }
+}
 
-    // Show loading state
-    try {
+// Validate all prerequisites for search
+function validateSearchPrerequisites() {
+  // Check if Firebase is initialized
+  if (!firebaseInitialized || !db) {
+    console.error('Firebase not initialized');
+    showToast(ERROR_MESSAGES.FIREBASE_NOT_INITIALIZED, 'error');
+    return { isValid: false };
+  }
+
+  // Get DOM elements
+  const firstNameInput = document.getElementById("name");
+  const phoneNumberInput = document.getElementById("morphersNumber");
+  const searchBtn = document.getElementById("searchBtn");
+  
+  if (!firstNameInput || !phoneNumberInput || !searchBtn) {
+    console.error('Required DOM elements not found');
+    showToast('Oops! Something went wrong. Please try refreshing the page.', 'error');
+    return { isValid: false };
+  }
+
+  // Sanitize and validate inputs
+  const firstName = sanitizeInput(firstNameInput.value);
+  const phoneNumber = sanitizeInput(phoneNumberInput.value);
+  
+  if (!isValidString(firstName, VALIDATION_CONSTANTS.MIN_NAME_LENGTH)) {
+    console.log('❌ Invalid first name');
+    showToast(ERROR_MESSAGES.INVALID_NAME, "warning");
+    autoFocusToField("name");
+    return { isValid: false };
+  }
+  
+  if (!isValidPhoneNumber(phoneNumber)) {
+    console.log('❌ Invalid phone number');
+    showToast(ERROR_MESSAGES.INVALID_PHONE, "warning");
+    autoFocusToField("morphersNumber");
+    return { isValid: false };
+  }
+
+  // Increment search counter
+  searchCounter++;
+  console.log(`📊 Search attempt #${searchCounter}`);
+
+  return { 
+    isValid: true, 
+    data: { firstName, phoneNumber, searchBtn }
+  };
+}
+
+// Update UI to show search in progress
+function updateSearchUI(searchBtn, isSearching) {
+  try {
+    if (isSearching) {
       searchBtn.classList.add("loading");
       searchBtn.disabled = true;
       
-      // Show searching message
       const recordMessage = document.getElementById("recordMessage");
       if (recordMessage) {
         recordMessage.innerText = "🔍 Searching for existing record...";
         recordMessage.className = "searching";
       }
-    } catch (domError) {
-      console.error('DOM manipulation error:', domError);
     }
+  } catch (domError) {
+    console.error('DOM manipulation error:', domError);
+  }
+}
 
-    // Test Firebase connection before searching
-    console.log('🔌 Testing Firebase connection...');
+// Test Firebase connection before proceeding
+async function testFirebaseConnection() {
+  console.log('🔌 Testing Firebase connection...');
+  
+  try {
+    const morphersCollection = collection(db, "morphers");
+    const testQuery = query(morphersCollection, limit(1));
+    await getDocs(testQuery);
+    console.log('✅ Firebase connection successful');
+    return true;
+  } catch (connectionError) {
+    console.error('❌ Firebase connection failed:', connectionError);
     
-    // Try a simple connection test first
-    try {
-      const morphersCollection = collection(db, "morphers");
-      const testQuery = query(morphersCollection, limit(1));
-      await getDocs(testQuery);
-      console.log('✅ Firebase connection successful');
-    } catch (connectionError) {
-      console.error('❌ Firebase connection failed:', connectionError);
-      
-      // Check if it's a specific Firebase error
-      if (connectionError.code === 'unavailable') {
-        showToast('Oops! Our system seems to be unavailable. Please try again in a few minutes.', 'error');
-      } else if (connectionError.code === 'permission-denied') {
-        showToast('Hmm, we can\'t access your info right now. Please ask a leader for help.', 'error');
-      } else {
-        showToast('Sorry, something went wrong. Check your internet and try again, or tell a volunteer.', 'error');
-      }
-      return;
+    if (connectionError.code === 'unavailable') {
+      showToast('Oops! Our system seems to be unavailable. Please try again in a few minutes.', 'error');
+    } else if (connectionError.code === 'permission-denied') {
+      showToast('Hmm, we can\'t access your info right now. Please ask a leader for help.', 'error');
+    } else {
+      showToast('Sorry, something went wrong. Check your internet and try again, or tell a volunteer.', 'error');
+    }
+    return false;
+  }
+}
+
+// Perform progressive search with different strategies
+async function performProgressiveSearch(firstName, phoneNumber) {
+  const normalizedPhone = normalizePhoneNumber(phoneNumber);
+  console.log('📞 Normalized phone:', normalizedPhone);
+  console.log('🔍 Starting progressive search...');
+  
+  let found = null;
+  let foundDoc = null;
+
+  // Progressive search: start with full first name, then reduce length
+  for (let i = firstName.length; i >= 3; i--) {
+    const searchName = firstName.substring(0, i);
+    console.log(`🔎 Searching with name: "${searchName}"`);
+    
+    const result = await searchWithName(searchName, normalizedPhone);
+    
+    if (result.found) {
+      found = result.found;
+      foundDoc = result.foundDoc;
+      existingDocId = result.docId;
+      console.log('🎯 Record found, breaking search loop');
+      break;
+    }
+  }
+
+  return { found, foundDoc, docId: existingDocId };
+}
+
+// Search with a specific name and phone combination
+async function searchWithName(searchName, normalizedPhone) {
+  try {
+    const morphersCollection = collection(db, "morphers");
+    
+    // First try: compound query with name "starts with" filter
+    const compoundResult = await searchWithCompoundQuery(morphersCollection, searchName, normalizedPhone);
+    if (compoundResult.found) {
+      return compoundResult;
     }
 
-    // Normalize phone number for consistent searching
-    const normalizedPhone = normalizePhoneNumber(phoneNumber);
-    console.log('📞 Normalized phone:', normalizedPhone);
+    // Second try: phone-only search with enhanced name matching
+    console.log(`🔄 No "starts with" match for "${searchName}", trying "contains" search...`);
+    const phoneResult = await searchWithPhoneOnly(morphersCollection, searchName, normalizedPhone);
+    
+    return phoneResult;
+    
+  } catch (error) {
+    console.error("🔴 Search error:", error);
+    
+    if (error.message === 'Search timeout') {
+      console.error('🕒 Search timed out');
+      showToast('Oops, the search is taking a bit longer than usual. Please give it another try!', 'warning');
+      return { found: null, foundDoc: null, docId: null };
+    }
+    
+    // Fallback to phone-only search on error
+    console.log('🔄 Trying fallback search...');
+    return await fallbackSearch(morphersCollection, searchName, normalizedPhone);
+  }
+}
+
+// Search using compound query (phone + name starts with)
+async function searchWithCompoundQuery(morphersCollection, searchName, normalizedPhone) {
+  const query1 = query(
+    morphersCollection,
+    and(
+      or(
+        where("MorphersNumber", "==", normalizedPhone),
+        where("ParentsNumber", "==", normalizedPhone)
+      ),
+      where("Name", ">=", searchName),
+      where("Name", "<=", searchName + '\uf8ff')
+    )
+  );
+  
+  const snapshot = await getDocs(query1);
+  let found = null;
+  let foundDoc = null;
+  let docId = null;
+
+  snapshot.forEach(docSnapshot => {
+    const data = docSnapshot.data();
+    console.log('📄 Found document:', data.Name);
+    
+    if (data.Name && data.Name.toLowerCase().startsWith(searchName.toLowerCase())) {
+      found = data;
+      foundDoc = docSnapshot;
+      docId = docSnapshot.id;
+      console.log('✅ Match found:', data.Name);
+    }
+  });
+
+  return { found, foundDoc, docId };
+}
+
+// Search using phone only with enhanced name matching
+async function searchWithPhoneOnly(morphersCollection, searchName, normalizedPhone) {
+  const phoneOnlyQuery = query(
+    morphersCollection,
+    or(
+      where("MorphersNumber", "==", normalizedPhone),
+      where("ParentsNumber", "==", normalizedPhone)
+    )
+  );
+  
+  const phoneSnapshot = await getDocs(phoneOnlyQuery);
+  let found = null;
+  let foundDoc = null;
+  let docId = null;
+
+  phoneSnapshot.forEach(docSnapshot => {
+    const data = docSnapshot.data();
+    console.log('📄 Checking phone match:', data.Name);
+    
+    if (data.Name && matchesMultipleNames(searchName, data.Name)) {
+      found = data;
+      foundDoc = docSnapshot;
+      docId = docSnapshot.id;
+      console.log('✅ Contains match found:', data.Name);
+    }
+  });
+
+  return { found, foundDoc, docId };
+}
+
+// Fallback search when main queries fail
+async function fallbackSearch(morphersCollection, searchName, normalizedPhone) {
+  try {
+    const fallbackQuery = query(
+      morphersCollection, 
+      or(
+        where("MorphersNumber", "==", normalizedPhone),
+        where("ParentsNumber", "==", normalizedPhone)
+      )
+    );
+    
+    const fallbackSnapshot = await getDocs(fallbackQuery);
+    console.log(`📊 Fallback query returned ${fallbackSnapshot.size} results`);
     
     let found = null;
     let foundDoc = null;
-
-    // Progressive search: start with full first name, then chop off characters
-    console.log('🔍 Starting progressive search...');
+    let docId = null;
     
-    for (let i = firstName.length; i >= 3; i--) {
-      const searchName = firstName.substring(0, i);
-      console.log(`🔎 Searching with name: "${searchName}"`);
+    fallbackSnapshot.forEach(docSnapshot => {
+      const data = docSnapshot.data();
+      console.log('📄 Fallback found document:', data.Name);
       
-      try {
-        // Search for records where phone number matches AND name starts with searchName
-        const morphersCollection = collection(db, "morphers");
-        
-        // First try: Search using or operator for both phone fields with name filter (starts with)
-        const query1 = query(
-          morphersCollection,
-          and(
-          or(
-            where("MorphersNumber", "==", normalizedPhone),
-            where("ParentsNumber", "==", normalizedPhone)
-          ),
-          where("Name", ">=", searchName),
-          where("Name", "<=", searchName + '\uf8ff')
-        )
-        );
-        const snapshot = await getDocs(query1);
-
-        snapshot.forEach(docSnapshot => {
-          const data = docSnapshot.data();
-          console.log('📄 Found document:', data.Name);
-          // Double-check that the name actually starts with our search term (case-insensitive)
-          if (data.Name && data.Name.toLowerCase().startsWith(searchName.toLowerCase())) {
-            found = data;
-            foundDoc = docSnapshot;
-            existingDocId = docSnapshot.id;
-            console.log('✅ Match found:', data.Name);
-          }
-        });
-
-        // If no match found with "starts with", try searching for name anywhere in the full name
-        if (!found) {
-          console.log(`🔄 No "starts with" match for "${searchName}", trying "contains" search...`);
-          
-          const phoneOnlyQuery = query(
-            morphersCollection,
-            or(
-              where("MorphersNumber", "==", normalizedPhone),
-              where("ParentsNumber", "==", normalizedPhone)
-            )
-          );
-          const phoneSnapshot = await getDocs(phoneOnlyQuery);
-          
-          phoneSnapshot.forEach(docSnapshot => {
-            const data = docSnapshot.data();
-            console.log('📄 Checking phone match:', data.Name);
-            
-            // Enhanced name matching for multiple names in different orders
-            if (data.Name && matchesMultipleNames(searchName, data.Name)) {
-              found = data;
-              foundDoc = docSnapshot;
-              existingDocId = docSnapshot.id;
-              console.log('✅ Contains match found:', data.Name);
-            }
-          });
-        }
-
-        if (found) {
-          console.log('🎯 Record found, breaking search loop');
-          break; // Stop searching once we find a match
-        }
-      } catch (error) {
-        console.error("🔴 Search error:", error);
-        
-        // If it's a timeout, break the loop
-        if (error.message === 'Search timeout') {
-          console.error('🕒 Search timed out');
-            showToast('Oops, the search is taking a bit longer than usual. Please give it another try!', 'warning');
-          break;
-        }
-        
-        // If compound query fails, fallback to phone number only search
-        console.log('🔄 Trying fallback search...');
-        try {
-          const morphersCollection = collection(db, "morphers");
-          
-          // Use single query with 'or' operator instead of two separate queries
-          const fallbackQuery = query(
-            morphersCollection, 
-            or(
-              where("MorphersNumber", "==", normalizedPhone),
-              where("ParentsNumber", "==", normalizedPhone)
-            )
-          );
-          
-          const fallbackSnapshot = await getDocs(fallbackQuery);
-          
-          console.log(`📊 Fallback query returned ${fallbackSnapshot.size} results`);
-            
-          fallbackSnapshot.forEach(docSnapshot => {
-            const data = docSnapshot.data();
-            console.log('📄 Fallback found document:', data.Name);
-            
-            // Enhanced name matching for multiple names in different orders
-            if (data.Name && matchesMultipleNames(searchName, data.Name)) {
-              found = data;
-              foundDoc = docSnapshot;
-              existingDocId = docSnapshot.id;
-              console.log('✅ Fallback match found:', data.Name);
-            }
-          });
-          
-          if (found) {
-            console.log('🎯 Fallback record found, breaking search loop');
-            break;
-          }
-        } catch (fallbackError) {
-          console.error("🔴 Fallback search error:", fallbackError);
-        }
+      if (data.Name && matchesMultipleNames(searchName, data.Name)) {
+        found = data;
+        foundDoc = docSnapshot;
+        docId = docSnapshot.id;
+        console.log('✅ Fallback match found:', data.Name);
       }
+    });
+    
+    return { found, foundDoc, docId };
+  } catch (fallbackError) {
+    console.error("🔴 Fallback search error:", fallbackError);
+    return { found: null, foundDoc: null, docId: null };
+  }
+}
+
+// Handle search results and update UI accordingly
+async function handleSearchResults(searchResult, searchBtn) {
+  const { found } = searchResult;
+  console.log('📋 Search completed. Found record:', !!found);
+  
+  if (found) {
+    console.log('✅ Showing confirmation section for:', found.Name);
+    showConfirmationSection(found);
+    if (searchBtn) {
+      searchBtn.style.display = "none";
     }
+  } else {
+    console.log('❌ No record found, showing no record section');
+    await transitionToNoRecordSection();
+    if (searchBtn) {
+      searchBtn.style.display = "none";
+    }
+  }
+}
 
-    // Handle search results
-    console.log('📋 Search completed. Found record:', !!found);
+// Handle smooth transition to no record section
+async function transitionToNoRecordSection() {
+  const identitySection = document.getElementById("identitySection");
+  const noRecordSection = document.getElementById("noRecordSection");
+  
+  if (identitySection && noRecordSection) {
+    identitySection.classList.add("transitioning-out");
     
-    if (found) {
-      console.log('✅ Showing confirmation section for:', found.Name);
-      showConfirmationSection(found);
-      // Hide search button after record is found
-      if (searchBtn) {
-        searchBtn.style.display = "none";
-      }
-    } else {
-      console.log('❌ No record found, showing no record section');
-      
-      // Smooth transition from identity section to no record section
-      const identitySection = document.getElementById("identitySection");
-      const noRecordSection = document.getElementById("noRecordSection");
-      
-      if (identitySection && noRecordSection) {
-        // Start transition out of identity section
-        identitySection.classList.add("transitioning-out");
+    return new Promise(resolve => {
+      setTimeout(() => {
+        identitySection.classList.add("hidden");
+        identitySection.classList.remove("transitioning-out");
+        
+        showNoRecordSection();
+        noRecordSection.classList.add("transitioning-in");
         
         setTimeout(() => {
-          identitySection.classList.add("hidden");
-          identitySection.classList.remove("transitioning-out");
-          
-          // Show no record section with transition
-          showNoRecordSection();
-          noRecordSection.classList.add("transitioning-in");
-          
-          // Remove transitioning class after animation
-          setTimeout(() => {
-            noRecordSection.classList.remove("transitioning-in");
-          }, 400);
+          noRecordSection.classList.remove("transitioning-in");
+          resolve();
         }, 400);
-      } else {
-        showNoRecordSection();
-      }
-      
-      // Hide search button for no record case too
-      if (searchBtn) {
-        searchBtn.style.display = "none";
-      }
-    }
-  } catch (error) {
-    console.error("🔴 Search failed:", error);
-    
-    // Determine error type for better user messaging
-    let errorMessage = ERROR_MESSAGES.SEARCH_FAILED;
-    if (error.code === 'permission-denied') {
-      errorMessage = ERROR_MESSAGES.PERMISSION_DENIED;
-    } else if (error.code === 'unavailable') {
-      errorMessage = ERROR_MESSAGES.SERVICE_UNAVAILABLE;
-    } else if (error.message === 'Search timeout') {
-      errorMessage = 'Search timed out. Please try again with a different search term.';
-    }
-    
-    showToast(errorMessage, "error");
-    
-    // Clear search results display
-    const recordMessage = document.getElementById("recordMessage");
-    if (recordMessage) {
-      recordMessage.innerText = "";
-      recordMessage.className = "";
-    }
-  } finally {
-    // Always remove loading state
-    console.log('🧹 Cleaning up search state...');
-    const searchBtn = document.getElementById("searchBtn");
-    if (searchBtn) {
-      searchBtn.classList.remove("loading");
-      searchBtn.disabled = false;
-      console.log('✅ Search button restored');
-    }
+      }, 400);
+    });
+  } else {
+    showNoRecordSection();
+  }
+}
+
+// Handle search errors with appropriate user messaging
+function handleSearchError(error) {
+  let errorMessage = ERROR_MESSAGES.SEARCH_FAILED;
+  
+  if (error.code === 'permission-denied') {
+    errorMessage = ERROR_MESSAGES.PERMISSION_DENIED;
+  } else if (error.code === 'unavailable') {
+    errorMessage = ERROR_MESSAGES.SERVICE_UNAVAILABLE;
+  } else if (error.message === 'Search timeout') {
+    errorMessage = 'Search timed out. Please try again with a different search term.';
+  }
+  
+  showToast(errorMessage, "error");
+  
+  const recordMessage = document.getElementById("recordMessage");
+  if (recordMessage) {
+    recordMessage.innerText = "";
+    recordMessage.className = "";
+  }
+}
+
+// Clean up UI state after search completion
+function cleanupSearchUI() {
+  console.log('🧹 Cleaning up search state...');
+  const searchBtn = document.getElementById("searchBtn");
+  if (searchBtn) {
+    searchBtn.classList.remove("loading");
+    searchBtn.disabled = false;
+    console.log('✅ Search button restored');
   }
 }
 
