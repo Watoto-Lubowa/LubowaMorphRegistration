@@ -22,7 +22,7 @@ if (!fs.existsSync(distDir)) {
 
 // JavaScript minification with obfuscation
 console.log('📦 Minifying JavaScript files...');
-const jsFiles = ['scripts.js', 'admin.js', 'config.js'];
+const jsFiles = ['src/scripts/scripts.js', 'src/scripts/admin.js', 'config/config.js'];
 
 jsFiles.forEach(file => {
   if (fs.existsSync(file)) {
@@ -40,7 +40,7 @@ jsFiles.forEach(file => {
 
 // CSS minification
 console.log('🎨 Minifying CSS files...');
-const cssFiles = ['styles.css', 'admin-styles.css'];
+const cssFiles = ['src/styles/styles.css', 'src/styles/admin-styles.css'];
 
 cssFiles.forEach(file => {
   if (fs.existsSync(file)) {
@@ -69,11 +69,11 @@ htmlFiles.forEach(file => {
       let htmlContent = fs.readFileSync(file, 'utf8');
       
       // Replace script and CSS references with minified versions
-      htmlContent = htmlContent.replace(/scripts\.js/g, 'scripts.min.js');
-      htmlContent = htmlContent.replace(/admin\.js/g, 'admin.min.js');
-      htmlContent = htmlContent.replace(/config\.js/g, 'config.min.js');
-      htmlContent = htmlContent.replace(/styles\.css/g, 'styles.min.css');
-      htmlContent = htmlContent.replace(/admin-styles\.css/g, 'admin-styles.min.css');
+      htmlContent = htmlContent.replace(/src\/scripts\/scripts\.js/g, 'scripts.min.js');
+      htmlContent = htmlContent.replace(/src\/scripts\/admin\.js/g, 'admin.min.js');
+      htmlContent = htmlContent.replace(/config\/config\.js/g, 'config.min.js');
+      htmlContent = htmlContent.replace(/src\/styles\/styles\.css/g, 'styles.min.css');
+      htmlContent = htmlContent.replace(/src\/styles\/admin-styles\.css/g, 'admin-styles.min.css');
       
       // Write modified HTML to temp file
       const tempFile = file + '.temp';
@@ -94,7 +94,7 @@ htmlFiles.forEach(file => {
 
 // Copy other necessary files
 console.log('📁 Copying other files...');
-const otherFiles = ['firestore.rules', 'firestore.indexes.json', 'README.md', '.gitignore'];
+const otherFiles = ['config/firestore.rules', 'config/firestore.indexes.json', 'README.md', '.gitignore'];
 
 otherFiles.forEach(file => {
   if (fs.existsSync(file)) {

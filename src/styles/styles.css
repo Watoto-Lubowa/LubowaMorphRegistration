@@ -2127,3 +2127,178 @@ html {
     transform: translateY(0);
   }
 }
+
+/* Separate Phone Number Component Styles */
+.phone-row {
+  display: flex;
+  gap: 4px;
+  align-items: stretch;
+}
+
+.country-field {
+  min-width: 200px;
+  max-width: 220px;
+}
+
+.phone-input-field {
+  flex: 1;
+}
+
+/* Mobile responsive styles */
+@media (max-width: 768px) {
+  .phone-row {
+    gap: 2px;
+  }
+  
+  .country-field {
+    min-width: 140px;
+    max-width: 160px;
+  }
+}
+
+@media (max-width: 480px) {
+  .phone-row {
+    gap: 1px;
+  }
+  
+  .country-field {
+    min-width: 120px;
+    max-width: 140px;
+  }
+  
+  .country-select {
+    padding: 12px 8px;
+    font-size: 0.8em;
+    height: 44px; /* Consistent mobile height */
+  }
+  
+  .phone-input {
+    padding: 12px 15px;
+    height: 44px; /* Consistent mobile height */
+  }
+}
+
+.country-select {
+  width: 100%;
+  padding: 15px 12px;
+  font-size: 0.9em;
+  color: #555;
+  border: 2px solid #e1e5e9;
+  border-radius: 10px !important;
+  background: white;
+  outline: none;
+  cursor: pointer;
+  transition: border-color 0.3s ease, box-shadow 0.3s ease, background-color 0.3s ease;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  box-sizing: border-box;
+  height: 52px; /* Match phone input height */
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6,9 12,15 18,9'%3e%3c/polyline%3e%3c/svg%3e");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  background-size: 16px;
+}
+
+.country-select:hover {
+  border-color: #c8d0f0;
+  background: white;
+}
+
+.country-select:focus {
+  border-color: #667eea;
+  background: white;
+  box-shadow: 0 0 20px rgba(102, 126, 234, 0.15);
+}
+
+.phone-input {
+  width: 100%;
+  padding: 15px 20px;
+  font-size: 1em;
+  color: #333;
+  border: 2px solid #e1e5e9;
+  border-radius: 10px !important;
+  background: white;
+  outline: none;
+  transition: border-color 0.3s ease, box-shadow 0.3s ease, background-color 0.3s ease;
+  box-sizing: border-box;
+  height: 52px; /* Explicit height for consistency */
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+}
+
+.phone-input:hover {
+  border-color: #c8d0f0;
+  background: white;
+}
+
+.phone-input:focus {
+  border-color: #667eea;
+  background: white;
+  box-shadow: 0 0 20px rgba(102, 126, 234, 0.15);
+}
+
+.phone-input::placeholder {
+  color: #999;
+  font-style: italic;
+}
+
+/* Error states for separate phone fields */
+.field.field-error .country-select {
+  border-color: #dc3545 !important;
+  box-shadow: 0 0 10px rgba(220, 53, 69, 0.15) !important;
+  background-color: rgba(220, 53, 69, 0.02);
+}
+
+.field.field-error .phone-input {
+  border-color: #dc3545 !important;
+  box-shadow: 0 0 10px rgba(220, 53, 69, 0.15) !important;
+  background-color: rgba(220, 53, 69, 0.02);
+}
+
+/* Also handle direct phone input error states */
+.phone-input.field-error {
+  border-color: #dc3545 !important;
+  box-shadow: 0 0 10px rgba(220, 53, 69, 0.15) !important;
+  background-color: rgba(220, 53, 69, 0.02);
+}
+
+/* Valid states for separate phone fields */
+.field.field-valid .country-select {
+  border-color: #27ae60 !important;
+  box-shadow: 0 0 10px rgba(39, 174, 96, 0.15) !important;
+  background-color: white !important;
+}
+
+.field.field-valid .phone-input {
+  border-color: #27ae60 !important;
+  box-shadow: 0 0 10px rgba(39, 174, 96, 0.15) !important;
+  background-color: white !important;
+}
+
+/* Also handle direct phone input valid states */
+.phone-input.field-valid {
+  border-color: #27ae60 !important;
+  box-shadow: 0 0 10px rgba(39, 174, 96, 0.15) !important;
+  background-color: white !important;
+}
+
+/* Mobile responsiveness */
+@media (max-width: 768px) {
+  .phone-field .country-select {
+    min-width: 120px;
+    max-width: 140px;
+    padding: 12px 10px;
+    font-size: 0.85em;
+    height: 46px; /* Consistent tablet height */
+  }
+  
+  .phone-field .phone-input {
+    padding: 12px 16px;
+    height: 46px; /* Consistent tablet height */
+  }
+}

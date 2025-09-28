@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Lubowa Morph Registration</title>
-<link rel="stylesheet" href="styles.css">
+<link rel="stylesheet" href="src/styles/styles.css">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
@@ -101,14 +101,32 @@
       <small id="nameHelp" class="field-help">Enter your first name only</small>
     </div>
     
-    <div class="field">
+    <div class="field phone-field">
       <label for="morphersNumber">
         Phone Number
         <span class="required">*</span>
       </label>
-      <input type="tel" id="morphersNumber" required aria-describedby="phoneHelp">
+      <div class="phone-row">
+        <div class="country-field">
+          <select class="country-select" id="morphersNumber_country" data-phone-input="morphersNumber">
+            <!-- Countries will be populated by JavaScript -->
+          </select>
+        </div>
+        <div class="phone-input-field">
+          <input 
+            type="tel" 
+            id="morphersNumber" 
+            class="phone-input" 
+            placeholder="Enter phone number (e.g., 701234567)"
+            required
+            aria-required="true"
+            data-country="UG"
+            autocomplete="tel"
+          >
+        </div>
+      </div>
       <small id="phoneHelp" class="field-help">
-        Use your number or one of your parents'. You get 3 tries!
+        Use your number or one of your parents'. Don't start with 0!
       </small>
     </div>
     
@@ -176,10 +194,28 @@
         <small class="field-help">Your complete full name</small>
       </div>
       
-      <div class="field">
+      <div class="field phone-field">
         <label for="editablePhone">Phone Number <span class="required">*</span></label>
-        <input type="tel" id="editablePhone" required>
-        <small class="field-help">Your phone number (e.g., 0700123456). Use any of your parents' / guardian's phone number if you don't have one.</small>
+        <div class="phone-row">
+          <div class="country-field">
+            <select class="country-select" id="editablePhone_country" data-phone-input="editablePhone">
+              <!-- Countries will be populated by JavaScript -->
+            </select>
+          </div>
+          <div class="phone-input-field">
+            <input 
+              type="tel" 
+              id="editablePhone" 
+              class="phone-input" 
+              placeholder="Enter phone number (e.g., 701234567)"
+              required
+              aria-required="true"
+              data-country="UG"
+              autocomplete="tel"
+            >
+          </div>
+        </div>
+        <small class="field-help">Your phone number (e.g., 701234567). Don't start with 0!</small>
       </div>
       
       <div class="field">
@@ -188,10 +224,28 @@
         <small class="field-help">Use your family name if you're not sure.</small>
       </div>
       
-      <div class="field">
+      <div class="field phone-field">
         <label for="editableParentsPhone">Parent's Phone <span class="required">*</span></label>
-        <input type="tel" id="editableParentsPhone" required>
-        <small class="field-help">Use your own again if you're not sure.</small>
+        <div class="phone-row">
+          <div class="country-field">
+            <select class="country-select" id="editableParentsPhone_country" data-phone-input="editableParentsPhone">
+              <!-- Countries will be populated by JavaScript -->
+            </select>
+          </div>
+          <div class="phone-input-field">
+            <input 
+              type="tel" 
+              id="editableParentsPhone" 
+              class="phone-input" 
+              placeholder="Enter phone number (e.g., 701234567)"
+              required
+              aria-required="true"
+              data-country="UG"
+              autocomplete="tel"
+            >
+          </div>
+        </div>
+        <small class="field-help">Use your own again if you're not sure. Don't start with 0!</small>
       </div>
     </div>
         
@@ -272,7 +326,8 @@
   window.dispatchEvent(new CustomEvent('firebaseReady'));
 </script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/libphonenumber-js/1.10.44/libphonenumber-js.min.js"></script>
-<script src="config.js"></script>
-<script src="scripts.js"></script>
+<script src="config/config.js"></script>
+<script src="src/scripts/phone-dropdown.js"></script>
+<script src="src/scripts/scripts.js"></script>
 </body>
 </html>

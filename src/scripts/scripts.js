@@ -135,13 +135,21 @@ function isValidString(value, minLength = VALIDATION_CONSTANTS.MIN_NAME_LENGTH) 
   return typeof value === 'string' && value.trim().length >= minLength;
 }
 
-function isValidPhoneNumber(phoneNumber) {
-  if (!isValidString(phoneNumber, VALIDATION_CONSTANTS.MIN_PHONE_LENGTH)) {
+function isValidPhoneNumber(phoneNumber, inputId = null) {
+  // If we have a simple phone handler instance, use its validation
+  if (inputId && window.simplePhoneHandler) {
+    const phoneData = window.simplePhoneHandler.getPhoneNumber(inputId);
+    return phoneData && phoneData.isValid;
+  }
+  
+  // Fallback validation - check E.164 format
+  if (!phoneNumber) {
     return false;
   }
-  // Basic phone number validation (allows international formats)
-  const phoneRegex = new RegExp(`^[\\+]?[0-9\\s\\-\\(\\)]{${VALIDATION_CONSTANTS.MIN_PHONE_LENGTH},${VALIDATION_CONSTANTS.MAX_PHONE_LENGTH}}$`);
-  return phoneRegex.test(phoneNumber.trim());
+  
+  // E.164 format: +[1-9]\d{1,14}
+  const e164Regex = /^\+[1-9]\d{1,14}$/;
+  return e164Regex.test(phoneNumber.trim());
 }
 
 function sanitizeInput(input) {
@@ -831,7 +839,7 @@ function validateSearchPrerequisites() {
 
   // Sanitize and validate inputs
   const firstName = sanitizeInput(firstNameInput.value);
-  const phoneNumber = sanitizeInput(phoneNumberInput.value);
+  const phoneNumber = sanitizeInput(getPhoneValue("morphersNumber"));
   
   if (!isValidString(firstName, VALIDATION_CONSTANTS.MIN_NAME_LENGTH)) {
     console.log('❌ Invalid first name');
@@ -840,7 +848,7 @@ function validateSearchPrerequisites() {
     return { isValid: false };
   }
   
-  if (!isValidPhoneNumber(phoneNumber)) {
+  if (!isValidPhoneNumber(phoneNumber, "morphersNumber")) {
     console.log('❌ Invalid phone number');
     showToast(ERROR_MESSAGES.INVALID_PHONE, "warning");
     autoFocusToField("morphersNumber");
@@ -961,12 +969,16 @@ async function searchWithName(searchName, normalizedPhone) {
 
 // Search using compound query (phone + name starts with)
 async function searchWithCompoundQuery(morphersCollection, searchName, normalizedPhone) {
+  // Generate multiple phone formats to search for backward compatibility
+  const phoneVariants = generatePhoneVariants(normalizedPhone);
+  console.log('📞 Searching with phone variants:', phoneVariants);
+  
   const query1 = query(
     morphersCollection,
     and(
       or(
-        where("MorphersNumber", "==", normalizedPhone),
-        where("ParentsNumber", "==", normalizedPhone)
+        ...phoneVariants.map(phone => where("MorphersNumber", "==", phone)),
+        ...phoneVariants.map(phone => where("ParentsNumber", "==", phone))
       ),
       where("Name", ">=", searchName),
       where("Name", "<=", searchName + '\uf8ff')
@@ -995,11 +1007,15 @@ async function searchWithCompoundQuery(morphersCollection, searchName, normalize
 
 // Search using phone only with enhanced name matching
 async function searchWithPhoneOnly(morphersCollection, searchName, normalizedPhone) {
+  // Generate multiple phone formats to search for backward compatibility
+  const phoneVariants = generatePhoneVariants(normalizedPhone);
+  console.log('📞 Phone-only search with variants:', phoneVariants);
+  
   const phoneOnlyQuery = query(
     morphersCollection,
     or(
-      where("MorphersNumber", "==", normalizedPhone),
-      where("ParentsNumber", "==", normalizedPhone)
+      ...phoneVariants.map(phone => where("MorphersNumber", "==", phone)),
+      ...phoneVariants.map(phone => where("ParentsNumber", "==", phone))
     )
   );
   
@@ -1207,16 +1223,16 @@ function showConfirmationSection(found) {
       displayName.innerText = found.Name;
     }
     
-    // Display phone number with leading 0 for user readability
+    // Display phone number with proper formatting
     const displayPhone = document.getElementById("displayPhone");
     if (displayPhone && found.MorphersNumber) {
-      displayPhone.innerText = "0" + found.MorphersNumber;
+      displayPhone.innerText = formatPhoneForDisplay(found.MorphersNumber);
     }
 
-    // Display parent's phone number with leading 0 for user readability
+    // Display parent's phone number with proper formatting
     const displayParentsPhone = document.getElementById("displayParentsPhone");
     if (displayParentsPhone && found.ParentsNumber) {
-      displayParentsPhone.innerText = "0" + found.ParentsNumber;
+      displayParentsPhone.innerText = formatPhoneForDisplay(found.ParentsNumber);
     }
 
     // Update instructions
@@ -1241,11 +1257,20 @@ function showNoRecordSection() {
   const nameInput = document.getElementById("name").value.trim();
   const phoneInput = document.getElementById("morphersNumber").value.trim();
   
+  // Get the full phone number from the phone handler for proper display
+  let displayPhoneNumber = phoneInput;
+  if (window.simplePhoneHandler) {
+    const phoneData = window.simplePhoneHandler.getPhoneNumber("morphersNumber");
+    if (phoneData && phoneData.e164) {
+      displayPhoneNumber = formatPhoneForDisplay(phoneData.e164);
+    }
+  }
+  
   // Update the search details with user input
   const searchedInfoElement = document.getElementById("searchedInfo");
   if (searchedInfoElement) {
     searchedInfoElement.innerHTML = `
-      We searched for: <strong>${nameInput}</strong> with phone number <strong>${phoneInput}</strong>
+      We searched for: <strong>${nameInput}</strong> with phone number <strong>${displayPhoneNumber}</strong>
     `;
   }
   
@@ -1339,15 +1364,73 @@ function showCompletionSection(isNewRecord = false) {
   document.getElementById("saveBtn").disabled = false;
 }
 
+// Helper function to set phone number in simple phone input
+// Format phone number for display (adds 0 prefix for Uganda numbers if needed)
+function formatPhoneForDisplay(phoneNumber) {
+  if (!phoneNumber) return '';
+  
+  let cleanNumber = phoneNumber.replace(/[\s\-\(\)]/g, '');
+  
+  // If it's E.164 format (+256...), extract national number and add 0
+  if (cleanNumber.startsWith('+256')) {
+    return '0' + cleanNumber.substring(4); // +256773491676 -> 0773491676
+  }
+  
+  // If it starts with 256 (without +), extract national number and add 0
+  if (cleanNumber.startsWith('256') && cleanNumber.length === 12) {
+    return '0' + cleanNumber.substring(3); // 256773491676 -> 0773491676
+  }
+  
+  // If it already starts with 0, return as-is
+  if (cleanNumber.startsWith('0')) {
+    return cleanNumber; // 0773491676 -> 0773491676
+  }
+  
+  // If it's national format (9 digits), add 0
+  if (cleanNumber.length === 9 && /^[7]\d{8}$/.test(cleanNumber)) {
+    return '0' + cleanNumber; // 773491676 -> 0773491676
+  }
+  
+  // For other formats, return as-is
+  return cleanNumber;
+}
+
+// Set phone value in the input field (parses the stored format correctly)
+function setPhoneValue(inputId, phoneNumber, countryCode = 'UG') {
+  if (window.simplePhoneHandler) {
+    // Use simple phone handler API
+    window.simplePhoneHandler.setPhoneNumber(inputId, phoneNumber, countryCode);
+  } else {
+    // Fallback to regular input
+    const input = document.getElementById(inputId);
+    if (input) {
+      input.value = formatPhoneForDisplay(phoneNumber);
+    }
+  }
+}
+
+// Helper function to get phone number from simple phone input (returns E.164 format)
+function getPhoneValue(inputId) {
+  if (window.simplePhoneHandler) {
+    // Use simple phone handler API - returns E.164 format
+    const phoneData = window.simplePhoneHandler.getPhoneNumber(inputId);
+    return phoneData ? phoneData.e164 : '';
+  } else {
+    // Fallback to regular input
+    const input = document.getElementById(inputId);
+    return input ? input.value.trim() : '';
+  }
+}
+
 function populateNewRecordData() {
   const name = document.getElementById("name").value.trim();
-  const phone = document.getElementById("morphersNumber").value.trim();
+  const phone = getPhoneValue("morphersNumber");
   
   // Populate the editable fields with identity data
   document.getElementById("editableName").value = name;
-  document.getElementById("editablePhone").value = phone;
+  setPhoneValue("editablePhone", phone);
   document.getElementById("editableParentsName").value = "";
-  document.getElementById("editableParentsPhone").value = "";
+  setPhoneValue("editableParentsPhone", "");
 }
 
 function populateAllEditableFields() {
@@ -1355,10 +1438,10 @@ function populateAllEditableFields() {
   
   // Populate ALL editable fields with existing values
   document.getElementById("editableName").value = foundRecord.Name || "";
-  // Display phone number with leading 0 for user convenience
-  document.getElementById("editablePhone").value = foundRecord.MorphersNumber ? "0" + foundRecord.MorphersNumber : "";
+  // Set phone number with proper formatting
+  setPhoneValue("editablePhone", foundRecord.MorphersNumber || "");
   document.getElementById("editableParentsName").value = foundRecord.ParentsName || "";
-  document.getElementById("editableParentsPhone").value = foundRecord.ParentsNumber ? "0" + foundRecord.ParentsNumber : "";
+  setPhoneValue("editableParentsPhone", foundRecord.ParentsNumber || "");
   document.getElementById("school").value = foundRecord.School || "";
   document.getElementById("class").value = foundRecord.Class || "";
   document.getElementById("residence").value = foundRecord.Residence || "";
@@ -1651,41 +1734,22 @@ function resetToStep1() {
   document.getElementById("saveBtn").disabled = true;
 }
 
-// Phone validation function
-function validatePhoneNumber(phoneNumber, countryCode = 'UG') {
-  try {
-    // Clean the phone number for analysis
-    const cleanNumber = phoneNumber.replace(/[\s\-\(\)]/g, '');
-    
-    // Check if it's an international number (doesn't start with 256 or 0, has 10+ characters)
-    const startsWithUganda = cleanNumber.startsWith('256') || cleanNumber.startsWith('0');
-    const isLongEnough = cleanNumber.length >= 10;
-    
-    // If it's not Uganda format but long enough, consider it valid international number
-    if (!startsWithUganda && isLongEnough) {
-      // Basic validation: only digits, +, -, (, ), and spaces allowed
-      const validChars = /^[\d\+\-\(\)\s]+$/;
-      return validChars.test(phoneNumber) && cleanNumber.length <= 15; // Max international number length
-    }
-    
-    // For Uganda numbers or short numbers, use libphonenumber validation
-    const phoneNumberObj = libphonenumber.parsePhoneNumber(phoneNumber, countryCode);
-    return phoneNumberObj && phoneNumberObj.isValid();
-  } catch (error) {
-    console.error("Phone validation error:", error);
-    
-    // Fallback validation for international numbers if libphonenumber fails
-    const cleanNumber = phoneNumber.replace(/[\s\-\(\)]/g, '');
-    const startsWithUganda = cleanNumber.startsWith('256') || cleanNumber.startsWith('0');
-    const isLongEnough = cleanNumber.length >= 10;
-    
-    if (!startsWithUganda && isLongEnough) {
-      const validChars = /^[\d\+\-\(\)\s]+$/;
-      return validChars.test(phoneNumber) && cleanNumber.length <= 15;
-    }
-    
+// Simple phone validation function - Updated to work with simple phone inputs
+function validatePhoneNumber(phoneNumber, countryCode = 'UG', inputId = null) {
+  // If we have a simple phone handler instance, use its validation
+  if (inputId && window.simplePhoneHandler) {
+    const phoneData = window.simplePhoneHandler.getPhoneNumber(inputId);
+    return phoneData && phoneData.isValid;
+  }
+  
+  // Fallback validation - E.164 format check
+  if (!phoneNumber) {
     return false;
   }
+  
+  // E.164 format: +[1-9]\d{1,14} (must start with + and a non-zero digit)
+  const e164Regex = /^\+[1-9]\d{1,14}$/;
+  return e164Regex.test(phoneNumber.trim());
 }
 
 // Helper functions for radio button handling
@@ -1752,6 +1816,84 @@ function normalizePhoneNumber(phoneNumber) {
   }
   
   return normalized;
+}
+
+// Generate phone number variants for backward compatibility with database
+function generatePhoneVariants(phoneNumber) {
+  if (!phoneNumber) return [];
+  
+  const variants = new Set();
+  let cleanNumber = phoneNumber.replace(/[\s\-\(\)+]/g, '');
+  
+  // If it's an E.164 format (+256...)
+  if (phoneNumber.startsWith('+256')) {
+    const nationalNumber = cleanNumber.substring(3); // Remove 256
+    variants.add(nationalNumber); // National format (e.g., 701234567)
+    variants.add('0' + nationalNumber); // With leading zero (e.g., 0701234567)
+    variants.add(cleanNumber); // Full international without + (e.g., 256701234567)
+    variants.add(phoneNumber); // Original E.164 format (+256701234567)
+  }
+  // If it starts with 256 (international without +)
+  else if (cleanNumber.startsWith('256')) {
+    const nationalNumber = cleanNumber.substring(3);
+    variants.add(nationalNumber); // National format
+    variants.add('0' + nationalNumber); // With leading zero
+    variants.add(cleanNumber); // International format
+    variants.add('+' + cleanNumber); // E.164 format
+  }
+  // If it starts with 0 (Uganda format with leading zero)
+  else if (cleanNumber.startsWith('0')) {
+    const nationalNumber = cleanNumber.substring(1);
+    variants.add(nationalNumber); // Without leading zero
+    variants.add(cleanNumber); // With leading zero
+    variants.add('256' + nationalNumber); // International format
+    variants.add('+256' + nationalNumber); // E.164 format
+  }
+  // If it's national format without leading zero
+  else if (cleanNumber.length === 9) {
+    variants.add(cleanNumber); // National format
+    variants.add('0' + cleanNumber); // With leading zero
+    variants.add('256' + cleanNumber); // International format
+    variants.add('+256' + cleanNumber); // E.164 format
+  }
+  // For other formats, include as-is
+  else {
+    variants.add(cleanNumber);
+    variants.add(phoneNumber);
+  }
+  
+  return Array.from(variants);
+}
+
+// Format phone number for database storage - prioritize E.164 format for new records
+function formatPhoneForStorage(phoneNumber) {
+  if (!phoneNumber) return "";
+  
+  // If it's already in E.164 format, keep it
+  if (phoneNumber.startsWith('+') && phoneNumber.length >= 10) {
+    return phoneNumber;
+  }
+  
+  // Otherwise, try to convert to E.164 format
+  let cleanNumber = phoneNumber.replace(/[\s\-\(\)+]/g, '');
+  
+  // If it starts with 256, add the +
+  if (cleanNumber.startsWith('256') && cleanNumber.length === 12) {
+    return '+' + cleanNumber;
+  }
+  
+  // If it starts with 0 (Uganda format), convert to E.164
+  if (cleanNumber.startsWith('0') && cleanNumber.length === 10) {
+    return '+256' + cleanNumber.substring(1);
+  }
+  
+  // If it's 9 digits (national format), convert to E.164
+  if (cleanNumber.length === 9 && /^[7]\d{8}$/.test(cleanNumber)) {
+    return '+256' + cleanNumber;
+  }
+  
+  // For other international numbers, keep as normalized (fallback for non-Uganda numbers)
+  return normalizePhoneNumber(phoneNumber);
 }
 
 function updateStepIndicator(step) {
@@ -1889,9 +2031,9 @@ async function saveRecord() {
 
   try {
     const name = document.getElementById("editableName").value.trim();
-    const number = document.getElementById("editablePhone").value.trim();
+    const number = getPhoneValue("editablePhone");
     const parentsName = document.getElementById("editableParentsName").value.trim();
-    const parentsNumber = document.getElementById("editableParentsPhone").value.trim();
+    const parentsNumber = getPhoneValue("editableParentsPhone");
     const school = document.getElementById("school").value.trim();
     const clazz = document.getElementById("class").value.trim();
     const residence = document.getElementById("residence").value.trim();
@@ -1955,21 +2097,21 @@ async function saveRecord() {
     finalSchoolName = schoolValidation.normalizedName;
     
     // Validate phone numbers
-    if (!validatePhoneNumber(number)) {
+    if (!validatePhoneNumber(number, 'UG', 'editablePhone')) {
       showToast("Please enter a valid phone number", "warning");
       autoFocusToField("editablePhone");
       return;
     }
     
-    if (parentsNumber && !validatePhoneNumber(parentsNumber)) {
+    if (parentsNumber && !validatePhoneNumber(parentsNumber, 'UG', 'editableParentsPhone')) {
       showToast("Please enter a valid parent's phone number", "warning");
       autoFocusToField("editableParentsPhone");
       return;
     }
 
-    // Normalize phone numbers for consistent storage
-    const normalizedPhone = normalizePhoneNumber(number);
-    const normalizedParentsPhone = parentsNumber ? normalizePhoneNumber(parentsNumber) : "";
+    // Store phone numbers in E.164 format for new records, keep normalized for legacy compatibility
+    const normalizedPhone = formatPhoneForStorage(number);
+    const normalizedParentsPhone = parentsNumber ? formatPhoneForStorage(parentsNumber) : "";
 
     // Use global attendance variable
     const attendance = currentAttendance;
@@ -2043,6 +2185,24 @@ function resetForm() {
   document.getElementById("residence").value = "";
   setCellValue("");
   
+  // Clear all validation state classes
+  clearAllValidationStates();
+  
+  // Force browser to re-validate (removes :invalid/:valid states)
+  const form = document.querySelector('form') || document.body;
+  const inputs = form.querySelectorAll('input[required]');
+  inputs.forEach(input => {
+    // Temporarily remove required attribute to clear :invalid state
+    const wasRequired = input.hasAttribute('required');
+    if (wasRequired) {
+      input.removeAttribute('required');
+      // Force a reflow to clear :invalid styling
+      input.offsetHeight;
+      // Restore required attribute
+      input.setAttribute('required', '');
+    }
+  });
+  
   // Reset attendance date to today
   const today = new Date();
   const todayStr = today.getFullYear() + '-' + 
@@ -2061,6 +2221,61 @@ function resetForm() {
   resetToStep1();
 }
 
+// Clear all validation state classes from form fields
+function clearAllValidationStates() {
+  // Clear validation states from all regular input fields
+  const allFields = document.querySelectorAll('.field');
+  allFields.forEach(field => {
+    field.classList.remove('field-error', 'field-valid');
+  });
+  
+  // Clear validation states from all input elements and reset browser validation
+  const allInputs = document.querySelectorAll('input, select, textarea');
+  allInputs.forEach(input => {
+    input.classList.remove('field-error', 'field-valid');
+    
+    // Clear browser native validation
+    if (input.setCustomValidity) {
+      input.setCustomValidity('');
+    }
+    
+    // Clear any inline styles that might have been set by validation
+    input.style.borderColor = '';
+    input.style.boxShadow = '';
+    input.style.backgroundColor = '';
+  });
+  
+  // Clear validation states from phone fields specifically
+  const phoneFields = document.querySelectorAll('.phone-field');
+  phoneFields.forEach(phoneField => {
+    if (window.simplePhoneHandler) {
+      window.simplePhoneHandler.clearFieldError(phoneField);
+    }
+  });
+  
+  // Clear country select and phone input fields specifically
+  const countrySelects = document.querySelectorAll('.country-select');
+  const phoneInputs = document.querySelectorAll('.phone-input');
+  
+  [...countrySelects, ...phoneInputs].forEach(element => {
+    element.classList.remove('field-error', 'field-valid');
+    element.style.borderColor = '';
+    element.style.boxShadow = '';
+    element.style.backgroundColor = '';
+    if (element.setCustomValidity) {
+      element.setCustomValidity('');
+    }
+  });
+  
+  // Clear any error messages or status displays
+  const errorElements = document.querySelectorAll('.error-message, .field-error-message');
+  errorElements.forEach(element => {
+    element.textContent = '';
+    element.style.display = 'none';
+  });
+  
+  console.log('✅ All validation states cleared');
+}
 
 // Make functions globally accessible
 window.searchForRecord = searchForRecord;
