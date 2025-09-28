@@ -48,11 +48,11 @@ jobs:
 
       - name: Minify JavaScript and CSS files
         run: |
-          # Create minified versions (don't overwrite originals)
-          terser src/scripts/scripts.js --compress drop_console=true,drop_debugger=true --mangle toplevel,reserved=[] --output scripts.min.js
-          terser src/scripts/admin.js --compress drop_console=true,drop_debugger=true --mangle toplevel,reserved=[] --output admin.min.js
-          terser src/scripts/phone-dropdown.js --compress drop_console=true,drop_debugger=true --mangle toplevel,reserved=[] --output phone-dropdown.min.js
-          terser config/config.js --compress drop_console=true,drop_debugger=true --mangle toplevel,reserved=[] --output config.min.js
+          # Create minified versions with safe settings that preserve functionality
+          terser src/scripts/scripts.js --compress drop_console=false,drop_debugger=true,sequences=false --mangle reserved=['console','window','document','fetch','Promise','APP_CONFIG','firebase','firebaseApp','firebaseFirestore','firebaseAuth','db','auth','currentUser'] --output scripts.min.js
+          terser src/scripts/admin.js --compress drop_console=false,drop_debugger=true,sequences=false --mangle reserved=['console','window','document','fetch','Promise','APP_CONFIG','firebase','firebaseApp','firebaseFirestore','firebaseAuth','db','auth','showToast'] --output admin.min.js  
+          terser src/scripts/phone-dropdown.js --compress drop_console=false,drop_debugger=true,sequences=false --mangle reserved=['console','window','document','fetch','Promise','SimplePhoneHandler','countries'] --output phone-dropdown.min.js
+          terser config/config.js --compress drop_console=false,drop_debugger=true --mangle reserved=['window','APP_CONFIG'] --output config.min.js
 
           # Create minified CSS files
           cleancss src/styles/styles.css --output styles.min.css
