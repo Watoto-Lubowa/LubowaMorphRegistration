@@ -49,23 +49,33 @@ jobs:
       - name: Minify JavaScript and CSS files
         run: |
           # Create minified versions (don't overwrite originals)
-          terser scripts.js --compress drop_console=true,drop_debugger=true --mangle toplevel,reserved=[] --output scripts.min.js
-          terser admin.js --compress drop_console=true,drop_debugger=true --mangle toplevel,reserved=[] --output admin.min.js
-          run: |
+          terser src/scripts/scripts.js --compress drop_console=true,drop_debugger=true --mangle toplevel,reserved=[] --output scripts.min.js
+          terser src/scripts/admin.js --compress drop_console=true,drop_debugger=true --mangle toplevel,reserved=[] --output admin.min.js
+          terser src/scripts/phone-dropdown.js --compress drop_console=true,drop_debugger=true --mangle toplevel,reserved=[] --output phone-dropdown.min.js
           terser config/config.js --compress drop_console=true,drop_debugger=true --mangle toplevel,reserved=[] --output config.min.js
 
           # Create minified CSS files
-          cleancss styles.css --output styles.min.css
-          cleancss admin-styles.css --output admin-styles.min.css
+          cleancss src/styles/styles.css --output styles.min.css
+          cleancss src/styles/admin-styles.css --output admin-styles.min.css
 
       - name: Minify HTML files and update references
         run: |
           # Update HTML files to use minified resources
-          sed -i 's/scripts\.js/scripts.min.js/g' *.html
-          sed -i 's/admin\.js/admin.min.js/g' *.html
-          sed -i 's/config\.js/config.min.js/g' *.html
-          sed -i 's/styles\.css/styles.min.css/g' *.html
-          sed -i 's/admin-styles\.css/admin-styles.min.css/g' *.html
+          sed -i 's|src/scripts/scripts\.js|scripts.min.js|g' *.html
+          sed -i 's|src/scripts/admin\.js|admin.min.js|g' *.html
+          sed -i 's|src/scripts/phone-dropdown\.js|phone-dropdown.min.js|g' *.html
+          sed -i 's|config/config\.js|config.min.js|g' *.html
+          sed -i 's|src/styles/styles\.css|styles.min.css|g' *.html
+          sed -i 's|src/styles/admin-styles\.css|admin-styles.min.css|g' *.html
+          
+          # Handle dynamic script loading in admin.html
+          sed -i "s|script.src = 'src/scripts/admin.js'|script.src = 'admin.min.js'|g" *.html
+          
+          # Copy data files to root for production
+          cp src/data/countries.json ./countries.json
+          
+          # Update data file references in minified JS
+          sed -i 's|\\./src/data/countries\\.json|./countries.json|g' phone-dropdown.min.js
           
           # Minify HTML files in place
           html-minifier-terser --input-dir . --output-dir . --file-ext html \
@@ -83,9 +93,11 @@ jobs:
       - name: Verify minified files exist
         run: |
           echo "Checking for minified files..."
-          ls -la *.min.js *.min.css
+          ls -la *.min.js *.min.css countries.json
           echo "HTML references:"
           grep -E "\.(min\.)?(js|css)" *.html
+          echo "Data file references in JS:"
+          grep -E "countries\.json" *.min.js || echo "No countries.json references found"
       
       - name: Setup Pages
         uses: actions/configure-pages@v4
