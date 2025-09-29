@@ -1,4 +1,19 @@
-// Admin Panel JavaScript
+/*
+ * =====================================================================================
+ * LUBOWA MORPH REGISTRATION - ADMIN PANEL
+ * =====================================================================================
+ * Administrative interface for managing member records and system data.
+ * This file contains admin-specific functionality organized into logical sections.
+ * =====================================================================================
+ */
+
+/*
+ * =====================================================================================
+ * SECTION 1: GLOBAL VARIABLES & STATE MANAGEMENT
+ * =====================================================================================
+ * Admin panel state variables and data management
+ */
+
 // Store found record data
 let existingDocId = null;
 let foundRecord = null;
@@ -6,7 +21,14 @@ let foundRecord = null;
 // Global variable to store current form attendance
 let currentAttendance = {};
 
-// Toast notification system (copied from main scripts.js)
+/*
+ * =====================================================================================
+ * SECTION 2: UI NOTIFICATION SYSTEM
+ * =====================================================================================
+ * Toast notifications for admin panel feedback (copied from main scripts.js)
+ */
+
+// Toast notification system
 function showToast(message, type = 'info', duration = 5000) {
   const container = document.getElementById('toast-container');
   
@@ -93,6 +115,13 @@ function removeToast(toast) {
     }, 300);
   }
 }
+
+/*
+ * =====================================================================================
+ * SECTION 3: FIREBASE INITIALIZATION & CONFIGURATION
+ * =====================================================================================
+ * Admin panel Firebase setup and configuration
+ */
 
 // Wait for Firebase to be ready before initializing
 function initializeAdmin() {

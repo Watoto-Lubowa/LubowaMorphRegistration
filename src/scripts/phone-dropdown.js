@@ -1,3 +1,19 @@
+/*
+ * =====================================================================================
+ * LUBOWA MORPH REGISTRATION - PHONE NUMBER COMPONENT
+ * =====================================================================================
+ * This module provides phone number input functionality with country selection.
+ * It handles phone number validation, formatting, and country code management.
+ * =====================================================================================
+ */
+
+/*
+ * =====================================================================================
+ * SECTION 1: PHONE NUMBER HANDLER CLASS
+ * =====================================================================================
+ * Main class for managing phone number inputs with country selection
+ */
+
 // Simple Phone Number Component JavaScript
 // This module provides simple functionality for phone number input with country select
 
@@ -142,6 +158,13 @@ class SimplePhoneHandler {
     console.log(`📋 Select populated with ${select.children.length} options`);
   }
 
+/*
+ * =====================================================================================
+ * SECTION 2: VALIDATION & FORMATTING FUNCTIONS
+ * =====================================================================================
+ * Input validation, phone number formatting, and error handling
+ */
+
   validateInput(input) {
     let value = input.value;
     
@@ -251,6 +274,13 @@ class SimplePhoneHandler {
     }
   }
 
+/*
+ * =====================================================================================
+ * SECTION 3: PUBLIC API METHODS
+ * =====================================================================================
+ * External interface methods for getting/setting phone numbers and validation
+ */
+
   // Public API methods
   getPhoneNumber(inputId) {
     const phoneInput = document.getElementById(inputId);
@@ -302,11 +332,24 @@ class SimplePhoneHandler {
     let detectedCountryCode = null;
     let nationalNumber = '';
 
-    // Parse different phone number formats
-    if (cleanNumber.startsWith('+256')) {
-      // E.164 format: +256773491676
-      detectedCountryCode = 'UG';
-      nationalNumber = cleanNumber.substring(4); // Remove +256
+    // Parse different phone number formats (now expecting full international format as input)
+    if (cleanNumber.startsWith('+')) {
+      // E.164 format: +256773491676 or other international numbers
+      // Find matching country
+      for (const country of this.countries) {
+        const callingCodeDigits = country.calling_code.substring(1); // Remove '+'
+        if (cleanNumber.substring(1).startsWith(callingCodeDigits)) {
+          detectedCountryCode = country.code;
+          nationalNumber = cleanNumber.substring(1 + callingCodeDigits.length); // Remove +XXX
+          break;
+        }
+      }
+      
+      // Fallback for Uganda if not found
+      if (!detectedCountryCode && cleanNumber.startsWith('+256')) {
+        detectedCountryCode = 'UG';
+        nationalNumber = cleanNumber.substring(4); // Remove +256
+      }
     } else if (cleanNumber.startsWith('256') && cleanNumber.length === 12) {
       // International without +: 256773491676
       detectedCountryCode = 'UG';
@@ -320,7 +363,7 @@ class SimplePhoneHandler {
       detectedCountryCode = 'UG';
       nationalNumber = cleanNumber;
     } else {
-      // Other formats - use as provided
+      // Other formats - try to detect or use provided country code
       nationalNumber = cleanNumber;
       detectedCountryCode = countryCode || 'UG';
     }
@@ -334,7 +377,7 @@ class SimplePhoneHandler {
       }
     }
 
-    // Set the national number in the input
+    // Set the national number in the input (only the national part)
     phoneInput.value = nationalNumber;
     this.validateInput(phoneInput);
     
@@ -360,6 +403,13 @@ class SimplePhoneHandler {
     return allValid;
   }
 }
+
+/*
+ * =====================================================================================
+ * SECTION 4: INITIALIZATION & GLOBAL EXPORTS
+ * =====================================================================================
+ * Component initialization and global access setup
+ */
 
 // Initialize simple phone handler when script loads
 const simplePhoneHandler = new SimplePhoneHandler();

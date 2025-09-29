@@ -1,29 +1,56 @@
+/*
+ * =====================================================================================
+ * LUBOWA MORPH REGISTRATION - MAIN SCRIPTS
+ * =====================================================================================
+ * This file contains all the core functionality for the member registration system.
+ * It's organized into logical sections for easy maintenance and debugging.
+ * =====================================================================================
+ */
+
 // Debug: Check if script is loading
 console.log('🚀 scripts.js file loaded successfully');
 
-// Store found record data
-let existingDocId = null;
-let foundRecord = null;
-let searchCounter = 0; // Track number of searches for "Create New Record" logic
+/*
+ * =====================================================================================
+ * SECTION 1: GLOBAL VARIABLES & STATE MANAGEMENT
+ * =====================================================================================
+ * Contains all global variables used throughout the application
+ */
 
-// Global variable to store current form attendance
-let currentAttendance = {};
+// Record Management State
+let existingDocId = null;           // ID of existing record if found
+let foundRecord = null;             // Data of found record
+let searchCounter = 0;              // Track number of searches for "Create New Record" logic
 
-// Firebase variables (initialized once Firebase is loaded)
-let db = null;
-let auth = null;
-let firebaseApp = null;
-let firebaseInitialized = false;
+// Form State
+let currentAttendance = {};         // Current form attendance data
 
-// Firebase functions
+// Firebase Connection State
+let db = null;                      // Firestore database reference
+let auth = null;                    // Firebase auth reference
+let firebaseApp = null;             // Firebase app instance
+let firebaseInitialized = false;   // Firebase initialization status
+
+// Firebase Functions (imported from SDK)
 let collection, doc, getDocs, getDoc, setDoc, updateDoc, deleteDoc, query, where, getCountFromServer, Timestamp, writeBatch, limit, or, and;
 let signInWithEmailAndPassword, sendPasswordResetEmail, signOut, onAuthStateChanged, setPersistence, browserSessionPersistence;
 
-// Authentication state
+// Countries Data
+let countriesData = [];                 // Array of all countries data
+let countryCodeToCallingCode = {};      // Map country codes to calling codes
+let callingCodeToCountryCode = {};      // Map calling codes to country codes
+
+// Authentication State
 let currentUser = null;
 const AUTHORIZED_USER_EMAILS = window.APP_CONFIG ? window.APP_CONFIG.authorizedUserEmails || [] : [];
 
-// Constants
+/*
+ * =====================================================================================
+ * SECTION 2: CONSTANTS & CONFIGURATION
+ * =====================================================================================
+ * Application constants and validation rules
+ */
+
 const VALIDATION_CONSTANTS = {
   MIN_NAME_LENGTH: 2,
   MIN_PHONE_LENGTH: 7,
@@ -40,6 +67,67 @@ const ERROR_MESSAGES = {
   PERMISSION_DENIED: 'Access denied. Please contact support if this continues.',
   SERVICE_UNAVAILABLE: 'Service temporarily unavailable. Please try again in a few moments.'
 };
+
+/*
+ * =====================================================================================
+ * SECTION 3: UTILITY FUNCTIONS
+ * =====================================================================================
+ * Helper functions used throughout the application
+ */
+
+// Load countries data
+async function loadCountriesData() {
+  try {
+    const response = await fetch('/src/data/countries.json');
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    countriesData = await response.json();
+    
+    // Build lookup maps for quick access
+    countriesData.forEach(country => {
+      countryCodeToCallingCode[country.code] = country.calling_code;
+      callingCodeToCountryCode[country.calling_code] = country.code;
+    });
+    
+    console.log('✅ Countries data loaded successfully');
+    return true;
+  } catch (error) {
+    console.error('❌ Failed to load countries data:', error);
+    
+    // Fallback to basic East African countries
+    countriesData = [
+      { "name": "Uganda", "code": "UG", "calling_code": "+256" },
+      { "name": "Kenya", "code": "KE", "calling_code": "+254" },
+      { "name": "Tanzania", "code": "TZ", "calling_code": "+255" }
+    ];
+    
+    countriesData.forEach(country => {
+      countryCodeToCallingCode[country.code] = country.calling_code;
+      callingCodeToCountryCode[country.calling_code] = country.code;
+    });
+    
+    console.log('⚠️ Using fallback countries data');
+    return false;
+  }
+}
+
+// Helper function to get country code from calling code
+function getCountryCodeFromCallingCode(callingCode) {
+  return callingCodeToCountryCode[callingCode] || 'UG'; // Default to Uganda
+}
+
+// Helper function to get calling code from country code
+function getCallingCodeFromCountryCode(countryCode) {
+  return countryCodeToCallingCode[countryCode] || '+256'; // Default to Uganda
+}
+
+/*
+ * =====================================================================================
+ * SECTION 4: UI NOTIFICATION SYSTEM
+ * =====================================================================================
+ * Toast notifications and user feedback functions
+ */
 
 // Toast notification system
 function showToast(message, type = 'info', duration = 5000) {
@@ -129,6 +217,13 @@ function closeToast(button) {
   const toast = button.closest('.toast');
   removeToast(toast);
 }
+
+/*
+ * =====================================================================================
+ * SECTION 5: INPUT VALIDATION & SANITIZATION
+ * =====================================================================================
+ * Functions for validating and sanitizing user input
+ */
 
 // Input validation utility functions
 function isValidString(value, minLength = VALIDATION_CONSTANTS.MIN_NAME_LENGTH) {
@@ -256,6 +351,13 @@ function removeToast(toast) {
     }, 300);
   }
 }
+
+/*
+ * =====================================================================================
+ * SECTION 6: AUTHENTICATION SYSTEM
+ * =====================================================================================
+ * User authentication, login, and access control functions
+ */
 
 // Authentication Functions
 function showLoginScreen() {
@@ -445,9 +547,20 @@ async function resetUserPassword() {
   }
 }
 
+/*
+ * =====================================================================================
+ * SECTION 7: FIREBASE INITIALIZATION & CONFIGURATION
+ * =====================================================================================
+ * Firebase setup, connection management, and app initialization
+ */
+
 // Wait for Firebase to be ready before initializing
-function initializeApp() {
+async function initializeApp() {
   try {
+    // 0️⃣ Load countries data first
+    console.log('📍 Loading countries data...');
+    await loadCountriesData();
+    
     // 1️⃣ Initialize Firebase v9+ Modular SDK
     const firebaseConfig = window.APP_CONFIG ? window.APP_CONFIG.firebase : {};
 
@@ -711,6 +824,13 @@ function setupEventListeners() {
   console.log('DOM event listeners setup complete');
 }
 
+/*
+ * =====================================================================================
+ * SECTION 8: SEARCH & RECORD MANAGEMENT
+ * =====================================================================================
+ * Functions for searching existing records and managing member data
+ */
+
 // Enhanced name matching function for multiple names in different orders
 function matchesMultipleNames(searchInput, storedName) {
   if (!searchInput || !storedName) return false;
@@ -969,17 +1089,45 @@ async function searchWithName(searchName, normalizedPhone) {
 
 // Search using compound query (phone + name starts with)
 async function searchWithCompoundQuery(morphersCollection, searchName, normalizedPhone) {
-  // Generate multiple phone formats to search for backward compatibility
-  const phoneVariants = generatePhoneVariants(normalizedPhone);
-  console.log('📞 Searching with phone variants:', phoneVariants);
+  // Parse phone to get full international number and country code
+  const phoneData = parsePhoneNumber(normalizedPhone);
+  const fullNumber = phoneData.fullNumber;
+  const countryCode = phoneData.countryCode;
+  
+  console.log('📞 Phone data for search:', { fullNumber, countryCode });
+  
+  let phoneSearchConditions = [];
+  
+  if (countryCode === 'UG') {
+    // For Uganda numbers, generate multiple variants for backward compatibility
+    const phoneVariants = generatePhoneVariants(normalizedPhone);
+    console.log('📞 Searching with Uganda phone variants:', phoneVariants);
+    
+    phoneSearchConditions = [
+      // Search in new format (full international number)
+      ...(fullNumber ? [where("MorphersNumber", "==", fullNumber), where("ParentsNumber", "==", fullNumber)] : []),
+      // Search in legacy format (phone variants for backward compatibility)
+      ...phoneVariants.map(phone => where("MorphersNumber", "==", phone)),
+      ...phoneVariants.map(phone => where("ParentsNumber", "==", phone))
+    ];
+  } else {
+    // For international numbers, search only for the exact full number
+    console.log('📞 Searching with exact international number:', fullNumber);
+    phoneSearchConditions = fullNumber ? [
+      where("MorphersNumber", "==", fullNumber),
+      where("ParentsNumber", "==", fullNumber)
+    ] : [];
+  }
+  
+  if (phoneSearchConditions.length === 0) {
+    console.log('❌ No valid phone search conditions generated');
+    return { found: null, foundDoc: null, docId: null };
+  }
   
   const query1 = query(
     morphersCollection,
     and(
-      or(
-        ...phoneVariants.map(phone => where("MorphersNumber", "==", phone)),
-        ...phoneVariants.map(phone => where("ParentsNumber", "==", phone))
-      ),
+      or(...phoneSearchConditions),
       where("Name", ">=", searchName),
       where("Name", "<=", searchName + '\uf8ff')
     )
@@ -1007,16 +1155,44 @@ async function searchWithCompoundQuery(morphersCollection, searchName, normalize
 
 // Search using phone only with enhanced name matching
 async function searchWithPhoneOnly(morphersCollection, searchName, normalizedPhone) {
-  // Generate multiple phone formats to search for backward compatibility
-  const phoneVariants = generatePhoneVariants(normalizedPhone);
-  console.log('📞 Phone-only search with variants:', phoneVariants);
+  // Parse phone to get full international number and country code
+  const phoneData = parsePhoneNumber(normalizedPhone);
+  const fullNumber = phoneData.fullNumber;
+  const countryCode = phoneData.countryCode;
+  
+  console.log('📞 Phone-only search data:', { fullNumber, countryCode });
+  
+  let phoneSearchConditions = [];
+  
+  if (countryCode === 'UG') {
+    // For Uganda numbers, generate multiple variants for backward compatibility
+    const phoneVariants = generatePhoneVariants(normalizedPhone);
+    console.log('📞 Phone-only search with Uganda variants:', phoneVariants);
+    
+    phoneSearchConditions = [
+      // Search in new format (full international number)
+      ...(fullNumber ? [where("MorphersNumber", "==", fullNumber), where("ParentsNumber", "==", fullNumber)] : []),
+      // Search in legacy format (phone variants for backward compatibility)
+      ...phoneVariants.map(phone => where("MorphersNumber", "==", phone)),
+      ...phoneVariants.map(phone => where("ParentsNumber", "==", phone))
+    ];
+  } else {
+    // For international numbers, search only for the exact full number
+    console.log('📞 Phone-only search with exact international number:', fullNumber);
+    phoneSearchConditions = fullNumber ? [
+      where("MorphersNumber", "==", fullNumber),
+      where("ParentsNumber", "==", fullNumber)
+    ] : [];
+  }
+  
+  if (phoneSearchConditions.length === 0) {
+    console.log('❌ No valid phone search conditions generated for phone-only search');
+    return { found: null, foundDoc: null, docId: null };
+  }
   
   const phoneOnlyQuery = query(
     morphersCollection,
-    or(
-      ...phoneVariants.map(phone => where("MorphersNumber", "==", phone)),
-      ...phoneVariants.map(phone => where("ParentsNumber", "==", phone))
-    )
+    or(...phoneSearchConditions)
   );
   
   const phoneSnapshot = await getDocs(phoneOnlyQuery);
@@ -1042,12 +1218,41 @@ async function searchWithPhoneOnly(morphersCollection, searchName, normalizedPho
 // Fallback search when main queries fail
 async function fallbackSearch(morphersCollection, searchName, normalizedPhone) {
   try {
-    const fallbackQuery = query(
-      morphersCollection, 
-      or(
+    // Parse phone to get both formats and country code for fallback search
+    const phoneData = parsePhoneNumber(normalizedPhone);
+    const fullNumber = phoneData.fullNumber;
+    const countryCode = phoneData.countryCode;
+    
+    console.log('📞 Fallback search data:', { fullNumber, countryCode, normalizedPhone });
+    
+    let fallbackConditions = [];
+    
+    if (countryCode === 'UG') {
+      // For Uganda numbers, include legacy format searches
+      fallbackConditions = [
+        // Search with full international format (new)
+        where("MorphersNumber", "==", fullNumber),
+        where("ParentsNumber", "==", fullNumber),
+        // Search with normalized format (legacy)
         where("MorphersNumber", "==", normalizedPhone),
         where("ParentsNumber", "==", normalizedPhone)
-      )
+      ];
+    } else {
+      // For international numbers, search only exact full number
+      fallbackConditions = fullNumber ? [
+        where("MorphersNumber", "==", fullNumber),
+        where("ParentsNumber", "==", fullNumber)
+      ] : [];
+    }
+    
+    if (fallbackConditions.length === 0) {
+      console.log('❌ No valid conditions for fallback search');
+      return { found: null, foundDoc: null, docId: null };
+    }
+    
+    const fallbackQuery = query(
+      morphersCollection, 
+      or(...fallbackConditions)
     );
     
     const fallbackSnapshot = await getDocs(fallbackQuery);
@@ -1166,6 +1371,13 @@ function handleSearchButtonClick(event) {
   return false;
 }
 
+/*
+ * =====================================================================================
+ * SECTION 9: UI STATE MANAGEMENT
+ * =====================================================================================
+ * Functions for managing UI sections, transitions, and form states
+ */
+
 function showConfirmationSection(found) {
   if (!found) {
     console.error('No record data provided to showConfirmationSection');
@@ -1223,16 +1435,20 @@ function showConfirmationSection(found) {
       displayName.innerText = found.Name;
     }
     
-    // Display phone number with proper formatting
+    // Display phone number with proper formatting using stored country code
     const displayPhone = document.getElementById("displayPhone");
     if (displayPhone && found.MorphersNumber) {
-      displayPhone.innerText = formatPhoneForDisplay(found.MorphersNumber);
+      // Use stored country code if available, otherwise parse from number
+      const countryCode = found.MorphersCountryCode || parsePhoneNumber(found.MorphersNumber).countryCode || 'UG';
+      displayPhone.innerText = formatPhoneForDisplay(found.MorphersNumber, countryCode);
     }
 
-    // Display parent's phone number with proper formatting
+    // Display parent's phone number with proper formatting using stored country code
     const displayParentsPhone = document.getElementById("displayParentsPhone");
     if (displayParentsPhone && found.ParentsNumber) {
-      displayParentsPhone.innerText = formatPhoneForDisplay(found.ParentsNumber);
+      // Use stored country code if available, otherwise parse from number
+      const parentCountryCode = found.ParentsCountryCode || parsePhoneNumber(found.ParentsNumber).countryCode || 'UG';
+      displayParentsPhone.innerText = formatPhoneForDisplay(found.ParentsNumber, parentCountryCode);
     }
 
     // Update instructions
@@ -1364,29 +1580,71 @@ function showCompletionSection(isNewRecord = false) {
   document.getElementById("saveBtn").disabled = false;
 }
 
+/*
+ * =====================================================================================
+ * SECTION 10: PHONE NUMBER HANDLING
+ * =====================================================================================
+ * Functions for parsing, formatting, and validating phone numbers
+ */
+
 // Helper function to set phone number in simple phone input
-// Format phone number for display (adds 0 prefix for Uganda numbers if needed)
-function formatPhoneForDisplay(phoneNumber) {
+// Format phone number for display (Uganda numbers get 0 prefix, others show full international format)
+function formatPhoneForDisplay(phoneNumber, countryCode = null) {
   if (!phoneNumber) return '';
   
   let cleanNumber = phoneNumber.replace(/[\s\-\(\)]/g, '');
   
-  // If it's E.164 format (+256...), extract national number and add 0
+  // If we have a country code, use it to determine display format
+  if (countryCode) {
+    if (countryCode === 'UG') {
+      // For Ugandan numbers, remove the calling code and show with 0 prefix
+      const callingCode = getCallingCodeFromCountryCode(countryCode); // +256
+      const callingCodeDigits = callingCode.substring(1); // 256
+      
+      if (cleanNumber.startsWith(callingCode)) {
+        return '0' + cleanNumber.substring(callingCode.length); // +256773491676 -> 0773491676
+      }
+      if (cleanNumber.startsWith(callingCodeDigits)) {
+        return '0' + cleanNumber.substring(callingCodeDigits.length); // 256773491676 -> 0773491676
+      }
+      if (cleanNumber.length === 9 && /^[7]\d{8}$/.test(cleanNumber)) {
+        return '0' + cleanNumber; // 773491676 -> 0773491676
+      }
+      if (cleanNumber.startsWith('0')) {
+        return cleanNumber; // 0773491676 -> 0773491676
+      }
+    } else {
+      // For non-Ugandan numbers, show full international format
+      if (!cleanNumber.startsWith('+')) {
+        const callingCode = getCallingCodeFromCountryCode(countryCode);
+        return `${callingCode}${cleanNumber}`; // Add country code if missing
+      }
+      return cleanNumber; // Already has + prefix
+    }
+  }
+  
+  // Legacy handling when no country code provided - auto-detect
+  // If it's E.164 format (+256...), extract national number and add 0 for Uganda
   if (cleanNumber.startsWith('+256')) {
     return '0' + cleanNumber.substring(4); // +256773491676 -> 0773491676
   }
   
-  // If it starts with 256 (without +), extract national number and add 0
+  // If it starts with other country codes, return full international format
+  if (cleanNumber.startsWith('+') && !cleanNumber.startsWith('+256')) {
+    return cleanNumber; // Keep full international format for non-Uganda
+  }
+  
+  // If it starts with 256 (without +), handle as Uganda
   if (cleanNumber.startsWith('256') && cleanNumber.length === 12) {
     return '0' + cleanNumber.substring(3); // 256773491676 -> 0773491676
   }
   
-  // If it already starts with 0, return as-is
+  // If it already starts with 0, return as-is (likely Uganda format)
   if (cleanNumber.startsWith('0')) {
     return cleanNumber; // 0773491676 -> 0773491676
   }
   
-  // If it's national format (9 digits), add 0
+  // If it's national format (9 digits), assume Uganda and add 0
   if (cleanNumber.length === 9 && /^[7]\d{8}$/.test(cleanNumber)) {
     return '0' + cleanNumber; // 773491676 -> 0773491676
   }
@@ -1401,24 +1659,31 @@ function setPhoneValue(inputId, phoneNumber, countryCode = 'UG') {
     // Use simple phone handler API
     window.simplePhoneHandler.setPhoneNumber(inputId, phoneNumber, countryCode);
   } else {
-    // Fallback to regular input
+    // Fallback to regular input - show only national part for input fields
     const input = document.getElementById(inputId);
     if (input) {
-      input.value = formatPhoneForDisplay(phoneNumber);
+      const parsed = parsePhoneNumber(phoneNumber);
+      input.value = parsed.nationalNumber || ''; // Show only national part in input
     }
   }
 }
 
-// Helper function to get phone number from simple phone input (returns E.164 format)
+// Helper function to get phone number from simple phone input (returns full international E.164 format)
 function getPhoneValue(inputId) {
   if (window.simplePhoneHandler) {
     // Use simple phone handler API - returns E.164 format
     const phoneData = window.simplePhoneHandler.getPhoneNumber(inputId);
     return phoneData ? phoneData.e164 : '';
   } else {
-    // Fallback to regular input
+    // Fallback to regular input - construct full international format
     const input = document.getElementById(inputId);
-    return input ? input.value.trim() : '';
+    if (!input) return '';
+    
+    const nationalNumber = input.value.trim();
+    if (!nationalNumber) return '';
+    
+    // For fallback, assume Uganda (you may want to get country from elsewhere)
+    return `+256${nationalNumber}`;
   }
 }
 
@@ -1426,9 +1691,12 @@ function populateNewRecordData() {
   const name = document.getElementById("name").value.trim();
   const phone = getPhoneValue("morphersNumber");
   
+  // Parse the phone to get country code from the original input
+  const phoneData = parsePhoneNumber(phone, "morphersNumber");
+  
   // Populate the editable fields with identity data
   document.getElementById("editableName").value = name;
-  setPhoneValue("editablePhone", phone);
+  setPhoneValue("editablePhone", phone, phoneData.countryCode);
   document.getElementById("editableParentsName").value = "";
   setPhoneValue("editableParentsPhone", "");
 }
@@ -1438,10 +1706,51 @@ function populateAllEditableFields() {
   
   // Populate ALL editable fields with existing values
   document.getElementById("editableName").value = foundRecord.Name || "";
-  // Set phone number with proper formatting
-  setPhoneValue("editablePhone", foundRecord.MorphersNumber || "");
+  
+  // Handle morpher's phone number
+  let morpherPhoneNumber = '';
+  let morpherCountryCode = 'UG'; // Default fallback
+  
+  if (foundRecord.MorphersNumber) {
+    // Phone number is stored in full international format
+    morpherPhoneNumber = foundRecord.MorphersNumber;
+    
+    // Use stored country code if available, otherwise parse from number
+    if (foundRecord.MorphersCountryCode) {
+      morpherCountryCode = foundRecord.MorphersCountryCode;
+    } else {
+      // Fallback: parse from number for legacy records (no input ID available)
+      const parsedData = parsePhoneNumber(foundRecord.MorphersNumber);
+      if (parsedData.countryCode) {
+        morpherCountryCode = parsedData.countryCode;
+      }
+    }
+  }
+  setPhoneValue("editablePhone", morpherPhoneNumber, morpherCountryCode);
+  
   document.getElementById("editableParentsName").value = foundRecord.ParentsName || "";
-  setPhoneValue("editableParentsPhone", foundRecord.ParentsNumber || "");
+  
+  // Handle parent's phone number
+  let parentPhoneNumber = '';
+  let parentCountryCode = 'UG'; // Default fallback
+  
+  if (foundRecord.ParentsNumber) {
+    // Phone number is stored in full international format
+    parentPhoneNumber = foundRecord.ParentsNumber;
+    
+    // Use stored country code if available, otherwise parse from number
+    if (foundRecord.ParentsCountryCode) {
+      parentCountryCode = foundRecord.ParentsCountryCode;
+    } else {
+      // Fallback: parse from number for legacy records (no input ID available)
+      const parsedParentData = parsePhoneNumber(foundRecord.ParentsNumber);
+      if (parsedParentData.countryCode) {
+        parentCountryCode = parsedParentData.countryCode;
+      }
+    }
+  }
+  setPhoneValue("editableParentsPhone", parentPhoneNumber, parentCountryCode);
+  
   document.getElementById("school").value = foundRecord.School || "";
   document.getElementById("class").value = foundRecord.Class || "";
   document.getElementById("residence").value = foundRecord.Residence || "";
@@ -1634,6 +1943,18 @@ function denyIdentity() {
   document.getElementById("instructions").innerText = "Enter your first name and phone number to check for existing records.";
   document.getElementById("instructions").className = "instructions";
 
+  // Reset phone number dropdown to Uganda (keep the number but reset country)
+  if (window.simplePhoneHandler) {
+    const currentPhone = document.getElementById("morphersNumber").value || "";
+    window.simplePhoneHandler.setPhoneNumber("morphersNumber", currentPhone, "UG");
+  }
+  
+  // Also reset the country select element directly to UG
+  const morphersCountrySelect = document.getElementById("morphersNumber_country");
+  if (morphersCountrySelect) {
+    morphersCountrySelect.value = "+256";
+  }
+
   // Show search button
   document.getElementById("searchBtn").style.display = "block";
   
@@ -1734,6 +2055,13 @@ function resetToStep1() {
   document.getElementById("saveBtn").disabled = true;
 }
 
+/*
+ * =====================================================================================
+ * SECTION 11: FORM VALIDATION & DATA PROCESSING
+ * =====================================================================================
+ * Functions for validating form data and processing user inputs
+ */
+
 // Simple phone validation function - Updated to work with simple phone inputs
 function validatePhoneNumber(phoneNumber, countryCode = 'UG', inputId = null) {
   // If we have a simple phone handler instance, use its validation
@@ -1825,35 +2153,40 @@ function generatePhoneVariants(phoneNumber) {
   const variants = new Set();
   let cleanNumber = phoneNumber.replace(/[\s\-\(\)+]/g, '');
   
+  // Parse the phone number to get national number
+  const phoneData = parsePhoneNumber(phoneNumber);
+  const nationalNumber = phoneData.nationalNumber;
+  
+  if (nationalNumber) {
+    // Add the national number (new database format)
+    variants.add(nationalNumber);
+    
+    // Add variants for backward compatibility
+    variants.add('+256' + nationalNumber); // E.164 format (e.g., +256701234567)
+  }
+  
   // If it's an E.164 format (+256...)
   if (phoneNumber.startsWith('+256')) {
-    const nationalNumber = cleanNumber.substring(3); // Remove 256
-    variants.add(nationalNumber); // National format (e.g., 701234567)
-    variants.add('0' + nationalNumber); // With leading zero (e.g., 0701234567)
-    variants.add(cleanNumber); // Full international without + (e.g., 256701234567)
+    const legacyNationalNumber = cleanNumber.substring(3); // Remove 256
+    variants.add(legacyNationalNumber); // National format (e.g., 701234567)
     variants.add(phoneNumber); // Original E.164 format (+256701234567)
   }
   // If it starts with 256 (international without +)
   else if (cleanNumber.startsWith('256')) {
-    const nationalNumber = cleanNumber.substring(3);
-    variants.add(nationalNumber); // National format
-    variants.add('0' + nationalNumber); // With leading zero
-    variants.add(cleanNumber); // International format
+    const legacyNationalNumber = cleanNumber.substring(3);
+    variants.add(legacyNationalNumber); // National format
     variants.add('+' + cleanNumber); // E.164 format
   }
   // If it starts with 0 (Uganda format with leading zero)
   else if (cleanNumber.startsWith('0')) {
-    const nationalNumber = cleanNumber.substring(1);
-    variants.add(nationalNumber); // Without leading zero
-    variants.add(cleanNumber); // With leading zero
-    variants.add('256' + nationalNumber); // International format
-    variants.add('+256' + nationalNumber); // E.164 format
+    const legacyNationalNumber = cleanNumber.substring(1);
+    variants.add(legacyNationalNumber); // Without leading zero
+    variants.add('+256' + legacyNationalNumber); // E.164 format
   }
   // If it's national format without leading zero
   else if (cleanNumber.length === 9) {
     variants.add(cleanNumber); // National format
     variants.add('0' + cleanNumber); // With leading zero
-    variants.add('256' + cleanNumber); // International format
     variants.add('+256' + cleanNumber); // E.164 format
   }
   // For other formats, include as-is
@@ -1863,6 +2196,104 @@ function generatePhoneVariants(phoneNumber) {
   }
   
   return Array.from(variants);
+}
+
+// Parse phone number and extract country code and national number
+// Updated to get country code from the phone input component instead of auto-detecting
+function parsePhoneNumber(phoneNumber, inputId = null) {
+  if (!phoneNumber) return { countryCode: '', nationalNumber: '', fullNumber: '' };
+  
+  let countryCode = '';
+  let cleanNumber = phoneNumber.replace(/[\s\-\(\)]/g, '');
+  
+  // First priority: Get country code from the phone input component if available
+  if (inputId && window.simplePhoneHandler) {
+    const phoneData = window.simplePhoneHandler.getPhoneNumber(inputId);
+    if (phoneData && phoneData.countryCode) {
+      countryCode = phoneData.countryCode;
+      // Use the component's parsed data directly
+      return {
+        countryCode: phoneData.countryCode,
+        nationalNumber: phoneData.nationalNumber || '',
+        fullNumber: phoneData.e164 || cleanNumber
+      };
+    }
+  }
+  
+  // Fallback: Handle specific known formats
+  
+  // Handle E.164 format (+256...)
+  if (cleanNumber.startsWith('+256')) {
+    return {
+      countryCode: 'UG',
+      nationalNumber: cleanNumber.substring(4), // Remove +256
+      fullNumber: cleanNumber // Keep full international format
+    };
+  }
+  
+  // Handle format without + (256...)
+  if (cleanNumber.startsWith('256') && cleanNumber.length === 12) {
+    const fullNumber = '+' + cleanNumber;
+    return {
+      countryCode: 'UG',
+      nationalNumber: cleanNumber.substring(3), // Remove 256
+      fullNumber // +256...
+    };
+  }
+  
+  // Handle national format with leading 0 (0701234567) - assume Uganda
+  if (cleanNumber.startsWith('0') && cleanNumber.length === 10) {
+    const nationalNumber = cleanNumber.substring(1); // Remove leading 0
+    return {
+      countryCode: 'UG',
+      nationalNumber,
+      fullNumber: `+256${nationalNumber}` // Convert to full international
+    };
+  }
+  
+  // Handle national format without leading 0 (701234567) - assume Uganda
+  if (cleanNumber.length === 9 && /^[7]\d{8}$/.test(cleanNumber)) {
+    return {
+      countryCode: 'UG',
+      nationalNumber: cleanNumber,
+      fullNumber: `+256${cleanNumber}` // Convert to full international
+    };
+  }
+  
+  // For other international numbers, we can't reliably auto-detect country code
+  // due to shared calling code prefixes, so we return the number as-is
+  if (cleanNumber.startsWith('+')) {
+    return {
+      countryCode: '', // Unknown country code
+      nationalNumber: cleanNumber.substring(1), // Remove +
+      fullNumber: cleanNumber // Keep full international format
+    };
+  }
+  
+  // Default fallback - assume Uganda for unrecognized formats
+  return {
+    countryCode: 'UG',
+    nationalNumber: cleanNumber,
+    fullNumber: `+256${cleanNumber}` // Assume Uganda
+  };
+}
+
+// Helper function to get calling code from country code
+function getCallingCodeFromCountryCode(countryCode) {
+  if (!countryCode) return '+256'; // Default to Uganda
+  
+  // Find the country in the countries data
+  const country = countriesData.find(c => c.code === countryCode);
+  return country ? country.calling_code : '+256'; // Default to Uganda if not found
+}
+
+// Reconstruct full phone number from country code and national number
+function reconstructPhoneNumber(countryCode, nationalNumber) {
+  if (!nationalNumber) return '';
+  
+  // Use the helper function to get calling code from country code
+  const callingCode = getCallingCodeFromCountryCode(countryCode);
+  return callingCode + nationalNumber;
 }
 
 // Format phone number for database storage - prioritize E.164 format for new records
@@ -2022,6 +2453,13 @@ async function validateIdentity() {
   }
 }
 
+/*
+ * =====================================================================================
+ * SECTION 12: DATA STORAGE & RECORD MANAGEMENT
+ * =====================================================================================
+ * Functions for saving, updating, and managing member records in the database
+ */
+
 // 3️⃣ Save record
 async function saveRecord() {
   const saveBtn = document.getElementById("saveBtn");
@@ -2109,9 +2547,10 @@ async function saveRecord() {
       return;
     }
 
-    // Store phone numbers in E.164 format for new records, keep normalized for legacy compatibility
-    const normalizedPhone = formatPhoneForStorage(number);
-    const normalizedParentsPhone = parentsNumber ? formatPhoneForStorage(parentsNumber) : "";
+    // Parse phone numbers - now storing both full international format AND country codes
+    // Pass input IDs to get country codes from the phone input components
+    const morpherPhoneData = parsePhoneNumber(number, 'editablePhone');
+    const parentPhoneData = parentsNumber ? parsePhoneNumber(parentsNumber, 'editableParentsPhone') : { countryCode: '', nationalNumber: '', fullNumber: '' };
 
     // Use global attendance variable
     const attendance = currentAttendance;
@@ -2123,12 +2562,14 @@ async function saveRecord() {
       if (docSnap.exists()) existingData = docSnap.data();
     }
 
-    // Build payload: use input value if not empty, otherwise keep existing data
+    // Build payload: store both full international format AND country codes
     const payload = {
       Name: name || existingData.Name || "",
-      MorphersNumber: normalizedPhone || existingData.MorphersNumber || "",
+      MorphersNumber: morpherPhoneData.fullNumber || existingData.MorphersNumber || "",
+      MorphersCountryCode: morpherPhoneData.countryCode || existingData.MorphersCountryCode || "UG",
       ParentsName: parentsName || existingData.ParentsName || "",
-      ParentsNumber: normalizedParentsPhone || existingData.ParentsNumber || "",
+      ParentsNumber: parentPhoneData.fullNumber || existingData.ParentsNumber || "",
+      ParentsCountryCode: parentPhoneData.countryCode || existingData.ParentsCountryCode || "",
       School: finalSchoolName || existingData.School || "",
       Class: clazz || existingData.Class || "",
       Residence: residence || existingData.Residence || "",
@@ -2136,6 +2577,8 @@ async function saveRecord() {
       attendance: attendance || existingData.attendance || {},
       lastUpdated: Timestamp.now()
     };
+
+    console.log("📤 Saving payload:", payload);
 
     if (existingDocId) {
       const docRef = doc(db, "morphers", existingDocId);
@@ -2175,6 +2618,18 @@ function resetForm() {
   document.getElementById("name").value = "";
   document.getElementById("morphersNumber").value = "";
   
+  
+  // Reset phone number dropdowns to Uganda
+  if (window.simplePhoneHandler) {
+    window.simplePhoneHandler.setPhoneNumber("morphersNumber", "", "UG");
+  }
+  
+  // Also reset the country select element directly to UG
+  const morphersCountrySelect = document.getElementById("morphersNumber_country");
+  if (morphersCountrySelect) {
+    morphersCountrySelect.value = "+256";
+  }
+  
   // Clear all editable fields
   document.getElementById("editableName").value = "";
   document.getElementById("editablePhone").value = "";
@@ -2184,6 +2639,22 @@ function resetForm() {
   document.getElementById("class").value = "";
   document.getElementById("residence").value = "";
   setCellValue("");
+  
+  // Reset editable phone number dropdowns to Uganda
+  if (window.simplePhoneHandler) {
+    window.simplePhoneHandler.setPhoneNumber("editablePhone", "", "UG");
+    window.simplePhoneHandler.setPhoneNumber("editableParentsPhone", "", "UG");
+  }
+  
+  // Also reset the country select elements directly to UG
+  const editablePhoneCountrySelect = document.getElementById("editablePhone_country");
+  const editableParentsPhoneCountrySelect = document.getElementById("editableParentsPhone_country");
+  if (editablePhoneCountrySelect) {
+    editablePhoneCountrySelect.value = "+256";
+  }
+  if (editableParentsPhoneCountrySelect) {
+    editableParentsPhoneCountrySelect.value = "+256";
+  }
   
   // Clear all validation state classes
   clearAllValidationStates();
@@ -2277,6 +2748,13 @@ function clearAllValidationStates() {
   console.log('✅ All validation states cleared');
 }
 
+/*
+ * =====================================================================================
+ * SECTION 13: GLOBAL FUNCTION EXPORTS
+ * =====================================================================================
+ * Making internal functions accessible globally for HTML event handlers
+ */
+
 // Make functions globally accessible
 window.searchForRecord = searchForRecord;
 window.saveRecord = saveRecord;
@@ -2295,23 +2773,30 @@ window.autoFocusToField = autoFocusToField;
 window.validateAndFocusFirstError = validateAndFocusFirstError;
 window.matchesMultipleNames = matchesMultipleNames;
 
+/*
+ * =====================================================================================
+ * SECTION 14: APPLICATION INITIALIZATION
+ * =====================================================================================
+ * Event handlers and initialization logic for starting the application
+ */
+
 // Debug: End of script file
 console.log('📝 End of scripts.js reached - ready for initialization');
 
 // Main DOM Content Loaded Event Handler - Ensure Firebase modules are loaded first
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', async function() {
   console.log('🎯 DOM Content Loaded event fired - Checking for Firebase modules');
   
   // Check if Firebase modules are available
   if (window.firebaseApp && window.firebaseFirestore) {
     console.log('✅ Firebase modules ready, initializing app');
-    initializeApp();
+    await initializeApp();
   } else {
     console.log('⏳ Firebase modules not ready, waiting for firebaseReady event');
     // Wait for Firebase modules to load
-    window.addEventListener('firebaseReady', () => {
+    window.addEventListener('firebaseReady', async () => {
       console.log('✅ Firebase modules loaded via event, initializing app');
-      initializeApp();
+      await initializeApp();
     });
   }
 });
@@ -2323,18 +2808,20 @@ if (document.readyState === 'loading') {
   // Document is still loading, DOMContentLoaded will handle it
   console.log('⏳ Document still loading, waiting for DOMContentLoaded');
 } else {
-  // Document already loaded
-  console.log('📋 Document already loaded, checking Firebase modules');
-  if (window.firebaseApp && window.firebaseFirestore) {
-    console.log('✅ Firebase modules ready, initializing app immediately');
-    initializeApp();
-  } else {
-    console.log('⏳ Firebase modules not ready, waiting for firebaseReady event');
-    window.addEventListener('firebaseReady', () => {
-      console.log('✅ Firebase modules loaded via event, initializing app');
-      initializeApp();
-    });
-  }
+  // Document already loaded - use IIFE for async support
+  (async () => {
+    console.log('📋 Document already loaded, checking Firebase modules');
+    if (window.firebaseApp && window.firebaseFirestore) {
+      console.log('✅ Firebase modules ready, initializing app immediately');
+      await initializeApp();
+    } else {
+      console.log('⏳ Firebase modules not ready, waiting for firebaseReady event');
+      window.addEventListener('firebaseReady', async () => {
+        console.log('✅ Firebase modules loaded via event, initializing app');
+        await initializeApp();
+      });
+    }
+  })();
 }
 
 // Debug: End of script file
