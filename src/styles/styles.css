@@ -1485,6 +1485,23 @@ button:not(:first-of-type):active:not(:disabled) {
     min-height: 48px;
   }
   
+  /* Confirmation buttons mobile optimization */
+  .confirmation-buttons {
+    flex-direction: column;
+    gap: 12px;
+    align-items: center;
+    margin-top: 20px;
+  }
+  
+  .confirm-btn, .deny-btn {
+    width: 100%;
+    max-width: 280px;
+    min-height: 48px;
+    min-width: auto; /* Override desktop min-width */
+    padding: 14px 20px;
+    font-size: 1em;
+  }
+  
   /* Step indicator mobile optimization */
   .step-indicator {
     flex-direction: row;
@@ -1768,6 +1785,23 @@ button:not(:first-of-type):active:not(:disabled) {
     padding: 12px 16px;
     font-size: 15px;
   }
+  
+  /* Confirmation buttons for smaller mobile screens */
+  .confirmation-buttons {
+    flex-direction: column;
+    gap: 10px;
+    align-items: center;
+    margin-top: 16px;
+  }
+  
+  .confirm-btn, .deny-btn {
+    width: 100%;
+    max-width: 260px;
+    min-height: 44px;
+    min-width: auto; /* Override desktop min-width */
+    padding: 12px 16px;
+    font-size: 0.95em;
+  }
 }
 
 /* Ultra-small devices (phones, 360px and down) */
@@ -1935,6 +1969,42 @@ button:not(:first-of-type):active:not(:disabled) {
   
   .security-notice small {
     font-size: 0.75em;
+  }
+  
+  /* Confirmation buttons for ultra-small screens */
+  .confirmation-buttons {
+    flex-direction: column;
+    gap: 8px;
+    align-items: center;
+    margin-top: 14px;
+  }
+  
+  .confirm-btn, .deny-btn {
+    width: 100%;
+    max-width: 240px;
+    min-height: 42px;
+    min-width: auto; /* Override desktop min-width */
+    padding: 10px 14px;
+    font-size: 0.9em;
+    border-radius: 6px;
+  }
+  
+  /* No record options for ultra-small screens */
+  .no-record-options {
+    flex-direction: column;
+    gap: 8px;
+    align-items: center;
+    margin-top: 14px;
+  }
+  
+  .search-again-btn, .create-new-btn {
+    width: 100%;
+    max-width: 240px;
+    min-height: 42px;
+    min-width: auto;
+    padding: 10px 14px;
+    font-size: 0.9em;
+    border-radius: 6px;
   }
 }
 
