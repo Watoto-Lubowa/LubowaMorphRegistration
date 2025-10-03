@@ -469,6 +469,9 @@ async function loadDashboardStats() {
     serviceDistributionPicker.value = today;
     await createServiceDistributionChart(today);
     
+    // Load force update flow state
+    await loadForceUpdateFlowState();
+    
     // Add date picker event listeners
     serviceDistributionPicker.addEventListener('change', async (e) => {
       await createServiceDistributionChart(e.target.value);
@@ -1060,6 +1063,68 @@ function handleCSVFileInput(event) {
   }
 }
 
+/*
+ * =====================================================================================
+ * SECTION: FORCE UPDATE FLOW TOGGLE
+ * =====================================================================================
+ * Manage the forceUpdateFlow configuration setting
+ */
+
+// Load the current forceUpdateFlow state from Firestore
+async function loadForceUpdateFlowState() {
+  try {
+    const { doc, getDoc } = window.firebaseFirestore;
+    const configDocRef = doc(db, "config", "settings");
+    const configDoc = await getDoc(configDocRef);
+    
+    const forceUpdateToggle = document.getElementById('forceUpdateToggle');
+    const statusText = document.getElementById('forceUpdateStatusText');
+    
+    if (configDoc.exists()) {
+      const forceUpdate = configDoc.data().forceUpdateFlow || false;
+      if (forceUpdateToggle) forceUpdateToggle.checked = forceUpdate;
+      if (statusText) statusText.textContent = forceUpdate ? 'ON' : 'OFF';
+    } else {
+      // Default to true if config doesn't exist
+      if (forceUpdateToggle) forceUpdateToggle.checked = true;
+      if (statusText) statusText.textContent = 'ON';
+    }
+  } catch (error) {
+    console.error('Error loading force update flow state:', error);
+    showToast('Error loading configuration', 'error');
+  }
+}
+
+// Toggle the forceUpdateFlow setting
+async function toggleForceUpdateFlow() {
+  try {
+    const { doc, setDoc } = window.firebaseFirestore;
+    const forceUpdateToggle = document.getElementById('forceUpdateToggle');
+    const statusText = document.getElementById('forceUpdateStatusText');
+    const newValue = forceUpdateToggle.checked;
+    
+    // Update Firestore
+    const configDocRef = doc(db, "config", "settings");
+    await setDoc(configDocRef, { forceUpdateFlow: newValue }, { merge: true });
+    
+    // Update UI
+    if (statusText) statusText.textContent = newValue ? 'ON' : 'OFF';
+    
+    showToast(
+      newValue 
+        ? 'Force Info Update Flow is now ON - users will update their info on every check-in' 
+        : 'Force Info Update Flow is now OFF - users can quickly check-in without updating info',
+      'success'
+    );
+  } catch (error) {
+    console.error('Error toggling force update flow:', error);
+    showToast('Error updating configuration', 'error');
+    // Revert toggle on error
+    const forceUpdateToggle = document.getElementById('forceUpdateToggle');
+    if (forceUpdateToggle) forceUpdateToggle.checked = !forceUpdateToggle.checked;
+  }
+}
+
 // Make functions globally accessible
 window.signInWithPassword = signInWithPassword;
 window.resetPassword = resetPassword;
@@ -1068,6 +1133,8 @@ window.downloadAll = downloadAll;
 window.handleCSVFileInput = handleCSVFileInput;
 window.loadSampleData = loadSampleData;
 window.clearAllData = clearAllData;
+window.toggleForceUpdateFlow = toggleForceUpdateFlow;
+window.loadForceUpdateFlowState = loadForceUpdateFlowState;
 
 } // End of initializeAdmin function
 

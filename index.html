@@ -152,6 +152,18 @@
         <strong>Parent's Number:</strong> <span id="displayParentsPhone"></span>
       </div>
     </div>
+    
+    <!-- Quick check-in service display (shown when forceUpdateFlow is false) -->
+    <div class="service-display hidden" id="quickCheckInService">
+      <div class="service-info">
+        <div class="service-icon">📅</div>
+        <div class="service-details">
+          <strong>Current Service:</strong>
+          <span id="confirmServiceName" class="current-service">Detecting...</span>
+        </div>
+      </div>
+    </div>
+    
     <p class="confirmation-text">Is this you?</p>
     <div class="confirmation-buttons">
       <button type="button" id="confirmBtn" class="confirm-btn">Yes, that's me</button>
@@ -326,7 +338,7 @@
   window.dispatchEvent(new CustomEvent('firebaseReady'));
 </script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/libphonenumber-js/1.10.44/libphonenumber-js.min.js"></script>
-<script src="config/config.local.js"></script>
+<script src="config/config.js"></script>
 <script src="src/scripts/phone-dropdown.js"></script>
 <script src="src/scripts/scripts.js"></script>
 </body>
