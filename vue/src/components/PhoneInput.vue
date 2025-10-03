@@ -1,23 +1,24 @@
 <template>
-  <div class="space-y-2">
-    <label :for="id" class="flex items-center gap-2 text-sm font-medium text-gray-700">
+  <div class="field">
+    <label :for="id" style="display: block; margin-bottom: 8px; font-weight: 600; color: #555; font-size: 0.95em; text-transform: uppercase; letter-spacing: 0.5px;">
       <span>📱</span>
       <span>Phone Number</span>
+      <span v-if="required" class="required" style="color: #e74c3c; margin-left: 2px;">*</span>
     </label>
     
-    <div class="flex gap-2">
+    <div style="display: flex; gap: 10px;">
       <!-- Country Code Selector -->
       <select
         v-model="selectedCountryCode"
         @change="handleCountryChange"
-        class="w-32 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+        style="width: 180px; padding: 15px 20px; border: 2px solid #e1e5e9; border-radius: 10px; font-size: 1em; transition: all 0.3s ease; background: #fafafa; outline: none; color: #333;"
       >
         <option
           v-for="country in [...countries].sort((a, b) => a.name.localeCompare(b.name))"
           :key="country.code"
           :value="country.code"
         >
-          {{ country.calling_code }} {{ country.name }}
+           {{ country.name }} ({{ country.calling_code }})
         </option>
       </select>
       
@@ -30,13 +31,14 @@
         :required="required"
         @input="handlePhoneInput"
         @blur="handleBlur"
-        class="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all"
-        :class="{ 'border-red-500': hasError }"
+        class="form-field"
+        :class="{ 'field-error': hasError }"
+        style="flex: 1;"
       />
     </div>
     
-    <p v-if="helpText" class="text-xs text-gray-500">{{ helpText }}</p>
-    <p v-if="errorMessage" class="text-xs text-red-500">{{ errorMessage }}</p>
+    <p v-if="helpText" class="field-help" style="display: block; margin-top: 5px; font-size: 0.85em; color: #777; font-style: italic; transition: all 0.3s ease;">{{ helpText }}</p>
+    <p v-if="errorMessage" style="margin-top: 5px; font-size: 0.85em; color: #e74c3c; font-weight: 500;">{{ errorMessage }}</p>
   </div>
 </template>
 
@@ -48,7 +50,7 @@ import type { Country } from '@/types'
 
 interface Props {
   id?: string
-  modelValue: string
+  modelValue?: string
   countryCode?: string
   placeholder?: string
   required?: boolean
@@ -57,6 +59,7 @@ interface Props {
 
 const props = withDefaults(defineProps<Props>(), {
   id: 'phone',
+  modelValue: '',
   countryCode: 'UG',
   placeholder: '7XX XXX XXX',
   required: false,
@@ -71,7 +74,7 @@ const emit = defineEmits<{
 
 const countries = ref<Country[]>([])
 const selectedCountryCode = ref(props.countryCode)
-const phoneValue = ref(props.modelValue)
+const phoneValue = ref(props.modelValue || '')
 const hasError = ref(false)
 const errorMessage = ref('')
 
@@ -95,6 +98,11 @@ function handlePhoneInput() {
 }
 
 function handleBlur() {
+  // Remove the beginning zero if present
+  if (phoneValue.value.startsWith('0')) {
+    phoneValue.value = phoneValue.value.slice(1)
+    emit('update:modelValue', phoneValue.value)
+  }
   validatePhoneNumber()
 }
 
@@ -112,7 +120,7 @@ function validatePhoneNumber() {
 }
 
 watch(() => props.modelValue, (newVal) => {
-  phoneValue.value = newVal
+  phoneValue.value = newVal || ''
 })
 
 watch(() => props.countryCode, (newVal) => {

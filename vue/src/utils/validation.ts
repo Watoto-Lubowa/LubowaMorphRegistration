@@ -140,47 +140,32 @@ export function matchesMultipleNames(searchInput: string, storedName: string): b
  * @param phoneNumber - Phone number to generate variants for
  * @returns Array of phone number variants
  */
-export function generatePhoneVariants(phoneNumber: string): string[] {
+export function generatePhoneVariants(phoneNumber: string, countryCallingCode: string): string[] {
   if (!phoneNumber) return []
   
   const variants = new Set<string>()
+  // Clean number by removing spaces, dashes, parentheses, plus signs
   const cleanNumber = phoneNumber.replace(/[\s\-\(\)+]/g, '')
-  
-  try {
-    // Try parsing with libphonenumber-js
-    const parsed = parsePhoneNumber(phoneNumber, 'UG')
-    if (parsed) {
-      const nationalNumber = parsed.nationalNumber
-      
-      // Add national number (new format)
-      variants.add(nationalNumber)
-      
-      // Add E.164 format
-      variants.add(parsed.number)
-      
-      // Add variants for backward compatibility
-      variants.add(`+256${nationalNumber}`)
-    }
-  } catch {
-    // Manual parsing for edge cases
-  }
   
   // E.164 format (+256...)
   if (phoneNumber.startsWith('+256')) {
     const nationalNumber = cleanNumber.substring(3)
     variants.add(nationalNumber)
+    variants.add(`0${nationalNumber}`)
     variants.add(phoneNumber)
   }
   // Format without + (256...)
   else if (cleanNumber.startsWith('256')) {
     const nationalNumber = cleanNumber.substring(3)
     variants.add(nationalNumber)
+    variants.add(`0${nationalNumber}`)
     variants.add(`+${cleanNumber}`)
   }
   // Uganda format with leading 0 (0701234567)
   else if (cleanNumber.startsWith('0')) {
     const nationalNumber = cleanNumber.substring(1)
     variants.add(nationalNumber)
+    variants.add(cleanNumber)
     variants.add(`+256${nationalNumber}`)
   }
   // National format without leading 0 (701234567)
@@ -196,6 +181,93 @@ export function generatePhoneVariants(phoneNumber: string): string[] {
   }
   
   return Array.from(variants)
+}
+
+/**
+ * Format phone number for display
+ * Uganda numbers get 0 prefix, others show full international format
+ * 
+ * @param phoneNumber - Phone number to format
+ * @param countryCode - Country code (e.g., 'UG', 'KE')
+ * @returns Formatted phone number for display
+ */
+export function formatPhoneForDisplay(phoneNumber: string, countryCode: string = 'UG'): string {
+  if (!phoneNumber) return ''
+  
+  const cleanNumber = phoneNumber.replace(/[\s\-\(\)]/g, '')
+  
+  if (countryCode === 'UG') {
+    // For Ugandan numbers, remove the calling code and show with 0 prefix
+    if (cleanNumber.startsWith('+256')) {
+      return '0' + cleanNumber.substring(4) // +256773491676 -> 0773491676
+    }
+    if (cleanNumber.startsWith('256')) {
+      return '0' + cleanNumber.substring(3) // 256773491676 -> 0773491676
+    }
+    if (cleanNumber.length === 9 && /^[7]\d{8}$/.test(cleanNumber)) {
+      return '0' + cleanNumber // 773491676 -> 0773491676
+    }
+    if (cleanNumber.startsWith('0')) {
+      return cleanNumber // 0773491676 -> 0773491676
+    }
+  } else {
+    // For non-Ugandan numbers, show full international format
+    if (!cleanNumber.startsWith('+')) {
+      try {
+        const phoneNumberObj = parsePhoneNumber(cleanNumber, countryCode as any)
+        return phoneNumberObj ? phoneNumberObj.formatInternational() : cleanNumber
+      } catch {
+        return cleanNumber
+      }
+    }
+    return cleanNumber // Already has + prefix
+  }
+  
+  // Fallback
+  return cleanNumber
+}
+
+/**
+ * Format phone number for database storage (E.164 format)
+ * Prioritizes E.164 format for consistency
+ * 
+ * @param phoneNumber - Phone number to format
+ * @param countryCode - Country code (default 'UG')
+ * @returns Phone number in E.164 format (+256...)
+ */
+export function formatPhoneForStorage(phoneNumber: string, countryCode: string = 'UG'): string {
+  if (!phoneNumber) return ''
+  
+  // If it's already in E.164 format, keep it
+  if (phoneNumber.startsWith('+') && phoneNumber.length >= 10) {
+    return phoneNumber
+  }
+  
+  // Otherwise, try to convert to E.164 format
+  const cleanNumber = phoneNumber.replace(/[\s\-\(\)+]/g, '')
+  
+  // If it starts with 256, add the +
+  if (cleanNumber.startsWith('256') && cleanNumber.length === 12) {
+    return '+' + cleanNumber
+  }
+  
+  // If it starts with 0 (Uganda format), convert to E.164
+  if (cleanNumber.startsWith('0') && cleanNumber.length === 10) {
+    return '+256' + cleanNumber.substring(1)
+  }
+  
+  // If it's 9 digits (national format), convert to E.164
+  if (cleanNumber.length === 9 && /^[7]\d{8}$/.test(cleanNumber)) {
+    return '+256' + cleanNumber
+  }
+  
+  // For other international numbers, use libphonenumber-js
+  try {
+    const phoneNumberObj = parsePhoneNumber(cleanNumber, countryCode as any)
+    return phoneNumberObj ? phoneNumberObj.format('E.164') : cleanNumber
+  } catch {
+    return cleanNumber
+  }
 }
 
 /**

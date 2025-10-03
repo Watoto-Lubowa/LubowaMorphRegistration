@@ -18,7 +18,7 @@ import type { MemberData, SearchResult, AttendanceRecord } from '@/types'
 import { useUIStore } from './ui'
 import { ERROR_MESSAGES } from '@/config'
 import { autoPopulateAttendance } from '@/utils/attendance'
-import { generatePhoneVariants, matchesMultipleNames } from '@/utils/validation'
+import { generatePhoneVariants, matchesMultipleNames, formatPhoneForStorage } from '@/utils/validation'
 
 export const useMembersStore = defineStore('members', () => {
   const members = ref<MemberData[]>([])
@@ -28,7 +28,7 @@ export const useMembersStore = defineStore('members', () => {
   const searchAttempts = ref<number>(0) // Track search attempts
   const currentAttendance = ref<AttendanceRecord>({}) // Current attendance record
 
-  async function searchMember(firstName: string, phoneNumber: string) {
+  async function searchMember(firstName: string, phoneNumber: string, countryCallingCode: string): Promise<SearchResult> {
     const uiStore = useUIStore()
     
     // Increment search attempts
@@ -42,7 +42,7 @@ export const useMembersStore = defineStore('members', () => {
       }
 
       // Perform progressive search matching original implementation
-      const searchResult = await performProgressiveSearch(firstName, phoneNumber)
+      const searchResult = await performProgressiveSearch(firstName, phoneNumber, countryCallingCode)
       
       if (searchResult.found && searchResult.record && searchResult.docId) {
         // Update store state
@@ -62,7 +62,8 @@ export const useMembersStore = defineStore('members', () => {
   }
 
   // Progressive search implementation matching original scripts.js
-  async function performProgressiveSearch(firstName: string, phoneNumber: string): Promise<SearchResult> {
+  async function performProgressiveSearch(firstName: string, phoneNumber: string, countryCallingCode: string): Promise<SearchResult> {
+    // Normalize phone number by removing spaces
     const normalizedPhone = phoneNumber.replace(/\s+/g, '')
     console.log('📞 Normalized phone:', normalizedPhone)
     console.log('🔍 Starting progressive search...')
@@ -72,7 +73,7 @@ export const useMembersStore = defineStore('members', () => {
       const searchName = firstName.substring(0, i)
       console.log(`🔎 Searching with name: "${searchName}"`)
       
-      const result = await searchWithName(searchName, normalizedPhone)
+      const result = await searchWithName(searchName, normalizedPhone, countryCallingCode)
       
       if (result.found) {
         searchResult.value = result
@@ -88,7 +89,7 @@ export const useMembersStore = defineStore('members', () => {
   }
 
   // Search with a specific name and phone combination
-  async function searchWithName(searchName: string, normalizedPhone: string): Promise<SearchResult> {
+  async function searchWithName(searchName: string, normalizedPhone: string, countryCallingCode: string): Promise<SearchResult> {
     try {
       const { db } = getFirebaseInstances()
       if (!db) {
@@ -98,14 +99,14 @@ export const useMembersStore = defineStore('members', () => {
       const morphersCollection = collection(db, 'morphers')
       
       // First try: compound query with name "starts with" filter
-      const compoundResult = await searchWithCompoundQuery(morphersCollection, searchName, normalizedPhone)
+      const compoundResult = await searchWithCompoundQuery(morphersCollection, searchName, normalizedPhone, countryCallingCode)
       if (compoundResult.found) {
         return compoundResult
       }
 
       // Second try: phone-only search with enhanced name matching
       console.log(`🔄 No "starts with" match for "${searchName}", trying "contains" search...`)
-      const phoneResult = await searchWithPhoneOnly(morphersCollection, searchName, normalizedPhone)
+      const phoneResult = await searchWithPhoneOnly(morphersCollection, searchName, normalizedPhone, countryCallingCode)
       
       return phoneResult
       
@@ -123,8 +124,8 @@ export const useMembersStore = defineStore('members', () => {
   }
 
   // Search using compound query (phone + name starts with)
-  async function searchWithCompoundQuery(morphersCollection: any, searchName: string, normalizedPhone: string): Promise<SearchResult> {
-    const phoneVariants = generatePhoneVariants(normalizedPhone)
+  async function searchWithCompoundQuery(morphersCollection: any, searchName: string, normalizedPhone: string, countryCallingCode: string): Promise<SearchResult> {
+    const phoneVariants = generatePhoneVariants(normalizedPhone, countryCallingCode)
     console.log('📞 Searching with phone variants:', phoneVariants)
     
     if (phoneVariants.length === 0) {
@@ -167,8 +168,8 @@ export const useMembersStore = defineStore('members', () => {
   }
 
   // Search using phone only with enhanced name matching
-  async function searchWithPhoneOnly(morphersCollection: any, searchName: string, normalizedPhone: string): Promise<SearchResult> {
-    const phoneVariants = generatePhoneVariants(normalizedPhone)
+  async function searchWithPhoneOnly(morphersCollection: any, searchName: string, normalizedPhone: string, countryCallingCode: string): Promise<SearchResult> {
+    const phoneVariants = generatePhoneVariants(normalizedPhone, countryCallingCode)
     console.log('📞 Phone-only search with variants:', phoneVariants)
     
     if (phoneVariants.length === 0) {
@@ -219,8 +220,19 @@ export const useMembersStore = defineStore('members', () => {
       // Use currentMemberId if available and no docId provided
       const targetDocId = docId || currentMemberId.value
       
-      const payload = {
+      // Format phone numbers for storage (E.164 format)
+      const formattedData = {
         ...memberData,
+        MorphersNumber: memberData.MorphersNumber 
+          ? formatPhoneForStorage(memberData.MorphersNumber, memberData.MorphersCountryCode || 'UG')
+          : '',
+        ParentsNumber: memberData.ParentsNumber
+          ? formatPhoneForStorage(memberData.ParentsNumber, memberData.ParentsCountryCode || 'UG')
+          : ''
+      }
+      
+      const payload = {
+        ...formattedData,
         attendance: currentAttendance.value, // Include current attendance
         lastUpdated: Timestamp.now()
       }

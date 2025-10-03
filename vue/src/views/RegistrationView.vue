@@ -1,260 +1,278 @@
 <template>
-  <div class="min-h-screen bg-gradient-to-br from-primary-500 to-secondary-500 p-4">
+  <div class="min-h-screen">
     <!-- Login Section -->
     <div v-if="!isAuthenticated">
       <LoginForm @success="handleLoginSuccess" />
     </div>
 
     <!-- Registration Form -->
-    <div v-else class="max-w-4xl mx-auto">
-      <div class="bg-white rounded-2xl shadow-2xl p-8 animate-fadeInUp">
-        <!-- Header -->
-        <div class="flex justify-between items-center mb-8">
-          <div>
-            <h1 class="text-3xl font-bold text-gray-800 mb-2">
-              📋 Member Registration
-            </h1>
-            <p class="text-gray-600">Lubowa Morph Registration System</p>
+    <div v-else>
+      <div class="main-container">
+        <!-- Header matching original -->
+        <h2>Lubowa Morph Registration</h2>
+        
+        <!-- Step Indicator matching original -->
+        <div class="step-indicator">
+          <div class="step" :class="{ active: currentStep === 1, completed: currentStep > 1 }" id="step1">
+            <span class="step-number">1</span>
+            <span class="step-text">Identify</span>
           </div>
-          <button
-            @click="handleSignOut"
-            class="px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg transition-colors"
-          >
-            🚪 Sign Out
-          </button>
+          <div class="step" :class="{ active: currentStep === 2, completed: currentStep > 2 }" id="step2">
+            <span class="step-number">2</span>
+            <span class="step-text">Complete</span>
+          </div>
+        </div>
+        
+        <!-- Instructions matching original -->
+        <div class="instructions" :class="{ 'step2': currentStep === 2 }">
+          {{ instructionText }}
+        </div>
+        
+        <!-- Record Message matching original -->
+        <div id="recordMessage" :class="recordMessageClassComputed" v-if="recordMessageText">
+          {{ recordMessageText }}
         </div>
 
-        <!-- Search Section -->
-        <div class="bg-gradient-to-r from-primary-50 to-secondary-50 rounded-xl p-6 mb-6">
-          <h2 class="text-xl font-semibold mb-4">🔍 Search Existing Member</h2>
+        <!-- Sign Out Button -->
+        <button
+          @click="handleSignOut"
+          class="btn-secondary"
+          style="position: absolute; top: 20px; right: 20px; min-width: auto; padding: 12px 20px; font-size: 0.9em;"
+        >
+          🚪 Sign Out
+        </button>
+
+        <!-- Identity Section matching original -->
+        <div v-if="!searchResult.found && !showForm" class="form-section" id="identitySection">
+          <div class="field">
+            <label for="name">
+              <span id="nameLabel">First Name</span>
+              <span class="required">*</span>
+            </label>
+            <input 
+              type="text" 
+              id="name" 
+              v-model="searchForm.firstName"
+              required 
+              aria-describedby="nameHelp"
+            >
+            <small id="nameHelp" class="field-help">Enter your first name only</small>
+          </div>
           
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-            <div>
-              <label for="search-firstname" class="flex items-center gap-2 text-sm font-medium text-gray-700 mb-2">
-                <span>👤</span>
-                <span>First Name</span>
-              </label>
-              <input
-                id="search-firstname"
-                v-model="searchForm.firstName"
-                type="text"
-                placeholder="Enter first name"
-                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-              />
+          <PhoneInput
+            id="morphersNumber"
+            v-model="searchForm.phoneNumber"
+            :country-code="searchForm.countryCode"
+            @update:countryCode="searchForm.countryCode = $event"
+            placeholder="Enter phone number (e.g., 701234567)"
+            required
+            help-text="Use your number or one of your parents'. Don't start with 0!"
+          />
+          
+          <div class="search-button-container">
+            <button 
+              type="button" 
+              id="searchBtn" 
+              @click="handleSearch"
+              :disabled="!canSearch || isLoading"
+              class="search-btn"
+              :class="{ loading: isLoading }"
+            >
+              <span v-if="!isLoading" class="btn-text">🔍 Check My Info</span>
+              <span v-else class="btn-loading">Searching...</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Confirmation Section matching original -->
+        <div v-if="searchResult.found && !showForm" class="form-section" id="confirmationSection">
+          <h3 style="text-align: center;">Confirm Your Identity</h3>
+          <div class="identity-display">
+            <div class="identity-info">
+              <strong>Name:</strong> <span id="displayName">{{ searchResult.record?.Name }}</span>
+            </div>
+            <div class="identity-info">
+              <strong>Phone:</strong> <span id="displayPhone">{{ formattedMorphersPhone }}</span>
+            </div>
+            <div class="identity-info">
+              <strong>Parent's Number:</strong> <span id="displayParentsPhone">{{ formattedParentsPhone }}</span>
+            </div>
+          </div>
+          <p class="confirmation-text">Is this you?</p>
+          <div class="confirmation-buttons">
+            <button type="button" @click="editMember" class="confirm-btn">Yes, that's me</button>
+            <button type="button" @click="clearSearch" class="deny-btn">No, search again</button>
+            <button type="button" v-if="canCreateNew" @click="createNewMember" style="display: none;" class="create-new-btn">➕ Create New Record</button>
+          </div>
+        </div>
+
+        <!-- No Record Found Section matching original -->
+        <div v-if="!searchResult.found && searchAttempts > 0 && !isLoading && !showForm" class="form-section" id="noRecordSection">
+          <h3>❌ No Record Found</h3>
+          <div class="no-record-message">
+            <p>Hmm, we couldn't find you.</p>
+            <div class="search-details">
+              <p id="searchedInfo" class="searched-info">
+                We searched for <strong>"{{ searchForm.firstName }}"</strong> with the phone number provided.
+              </p>
+            </div>
+            <span id="note">
+              <p>What would you like to do?</p>
+              <p><strong>Note:</strong> You can try searching again or create a new record.</p>
+            </span>
+          </div>
+          <div class="no-record-options">
+            <button type="button" @click="clearSearch" class="search-again-btn">🔍 Search Again</button>
+            <button type="button" @click="createNewMember" class="create-new-btn">➕ Make a New Record</button>
+          </div>
+        </div>
+
+        <!-- Form Completion Section matching original -->
+        <div v-if="showForm" class="form-section" id="completionSection">
+          <h3>Register Your Attendance</h3>
+          <p class="section-description">Update your details if you need to.</p>
+          
+          <!-- All Editable Information -->
+          <div class="editable-info">
+            <h4>👤 Personal Information</h4>
+            
+            <div class="field">
+              <label for="editableName">Full Name <span class="required">*</span></label>
+              <input 
+                type="text" 
+                id="editableName" 
+                v-model="memberForm.Name"
+                required
+              >
+              <small class="field-help">Your complete full name</small>
             </div>
             
             <PhoneInput
-              v-model="searchForm.phoneNumber"
-              v-model:country-code="searchForm.countryCode"
+              id="editablePhone"
+              v-model="memberForm.MorphersNumber"
+              :country-code="memberForm.MorphersCountryCode"
+              @update:countryCode="memberForm.MorphersCountryCode = $event"
+              placeholder="Enter phone number (e.g., 701234567)"
+              required
+              help-text="Your phone number (e.g., 701234567). Don't start with 0!"
+            />
+            
+            <div class="field">
+              <label for="editableParentsName">Parent's Name <span class="required">*</span></label>
+              <input 
+                type="text" 
+                id="editableParentsName" 
+                v-model="memberForm.ParentsName"
+                required
+              >
+              <small class="field-help">Use your family name if you're not sure.</small>
+            </div>
+            
+            <PhoneInput
+              id="editableParentsPhone"
+              v-model="memberForm.ParentsNumber"
+              :country-code="memberForm.ParentsCountryCode"
+              @update:countryCode="memberForm.ParentsCountryCode = $event"
+              placeholder="Enter phone number (e.g., 701234567)"
+              required
+              help-text="Use your own again if you're not sure. Don't start with 0!"
             />
           </div>
-
-          <button
-            @click="handleSearch"
-            :disabled="!canSearch || isLoading"
-            class="w-full bg-primary-500 hover:bg-primary-600 text-white font-semibold py-3 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <span v-if="!isLoading">🔍 Search Member</span>
-            <span v-else>⏳ Searching...</span>
-          </button>
-        </div>
-
-        <!-- Results / Form Section -->
-        <div v-if="searchResult.found" class="mb-6">
-          <div class="bg-green-50 border border-green-200 rounded-lg p-4">
-            <h3 class="text-lg font-semibold text-green-800 mb-2">
-              ✅ Member Found
-            </h3>
-            <p class="text-green-700">
-              {{ searchResult.record?.Name }} - 
-              {{ searchResult.record?.MorphersNumber }}
-            </p>
-            <div class="mt-4 flex gap-2">
-              <button
-                @click="editMember"
-                class="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors"
+              
+          <!-- Additional Information Fields -->
+          <div class="editable-info">
+            <h4>📖 School & Other Details</h4>
+            <div class="field" id="schoolField">
+              <label for="school">School <span class="required">*</span></label>
+              <input 
+                type="text" 
+                id="school" 
+                v-model="memberForm.School"
+                required
               >
-                ✏️ Edit
-              </button>
-              <button
-                @click="clearSearch"
-                class="px-4 py-2 bg-gray-500 hover:bg-gray-600 text-white rounded-lg transition-colors"
+              <small class="field-help"><strong>Enter your school's full name (NO ABBREVIATIONS). Example: "Sicomoro International Christian School" not "SICS".</strong>
+              If you're not in school, enter "Not in School".
+              </small>
+            </div>
+            <div class="field" id="classField">
+              <label for="class">Class <span class="required">*</span></label>
+              <input 
+                type="text" 
+                id="class" 
+                v-model="memberForm.Class"
+                required
               >
-                🔄 New Search
-              </button>
+              <small class="field-help">
+                e.g., S1 (Senior 1), Y2 (Year 2), G3 (Grade 3), etc.
+                If you're not in school, enter "Not in School".
+              </small>
+            </div>
+            <div class="field" id="residenceField">
+              <label for="residence">Residence <span class="required">*</span></label>
+              <input 
+                type="text" 
+                id="residence" 
+                v-model="memberForm.Residence"
+                required
+              >
+              <small class="field-help">Where do you stay?</small>
+            </div>
+            <div class="field" id="cellField">
+              <label for="cell">In Cell? <span class="required">*</span></label>
+              <div class="radio-group" aria-required="true">
+                <label class="radio-option" style="display: inherit;">
+                  <input 
+                    type="radio" 
+                    name="cell" 
+                    value="1" 
+                    id="cellYes" 
+                    v-model="memberForm.Cell"
+                    required
+                  >
+                  <span class="radio-label">Yes</span>
+                </label>
+                <label class="radio-option" style="display: inherit;">
+                  <input 
+                    type="radio" 
+                    name="cell" 
+                    value="0" 
+                    id="cellNo" 
+                    v-model="memberForm.Cell"
+                    required
+                  >
+                  <span class="radio-label">No</span>
+                </label>
+              </div>
+              <small class="field-help">Are you in a Morph cell?</small>
             </div>
           </div>
-        </div>
-
-        <!-- No Record Found Section -->
-        <div v-else-if="!searchResult.found && searchAttempts > 0 && !isLoading" class="mb-6">
-          <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-            <h3 class="text-lg font-semibold text-yellow-800 mb-2">
-              🔍 No Record Found
-            </h3>
-            <p class="text-yellow-700 mb-4">
-              We couldn't find any existing records for "{{ searchForm.firstName }}" with the phone number provided.
-            </p>
-            <div class="flex gap-2">
-              <button
-                @click="clearSearch"
-                class="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors"
-              >
-                🔄 Search Again
-              </button>
-              <button
-                v-if="canCreateNew"
-                @click="createNewMember"
-                class="px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg transition-colors"
-              >
-                ➕ Create New Record
-              </button>
-            </div>
-            <p v-if="!canCreateNew" class="text-xs text-yellow-600 mt-2">
-              💡 Search again to enable "Create New Record" option
-            </p>
-          </div>
-        </div>
-
-        <!-- Member Form -->
-        <div v-if="showForm" class="space-y-6">
-          <h3 class="text-xl font-semibold">{{ editMode ? '✏️ Edit Member' : '➕ New Member' }}</h3>
           
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <!-- Child Information -->
-            <div class="space-y-4">
-              <h4 class="text-lg font-medium text-gray-800 border-b pb-2">👶 Child Information</h4>
-              
-              <div>
-                <label for="member-name" class="text-sm font-medium text-gray-700 mb-2 block">Full Name *</label>
-                <input
-                  id="member-name"
-                  v-model="memberForm.Name"
-                  type="text"
-                  required
-                  placeholder="Enter first and last name"
-                  class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
-                />
-              </div>
-
-              <PhoneInput
-                v-model="memberForm.MorphersNumber!"
-                v-model:country-code="memberForm.MorphersCountryCode"
-                help-text="Child's phone number"
-              />
-
-              <div>
-                <label for="school" class="text-sm font-medium text-gray-700 mb-2 block">School *</label>
-                <input
-                  id="school"
-                  v-model="memberForm.School"
-                  type="text"
-                  required
-                  placeholder="Enter school name"
-                  class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
-                />
-              </div>
-
-              <div>
-                <label for="class" class="text-sm font-medium text-gray-700 mb-2 block">Class/Grade *</label>
-                <input
-                  id="class"
-                  v-model="memberForm.Class"
-                  type="text"
-                  required
-                  placeholder="Enter class or grade"
-                  class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
-                />
+          <!-- Service Attendance -->
+          <div class="attendance-section">
+            <h4>📅 Service Attendance</h4>
+            <div class="attendance-input">
+              <label for="attendanceDate">Date:</label>
+              <input 
+                type="date" 
+                id="attendanceDate" 
+                :value="new Date().toISOString().split('T')[0]"
+                readonly
+              >
+              <div class="service-detection">
+                <span class="service-label">Current Service:</span>
+                <span id="currentService" class="current-service">{{ currentServiceText }}</span>
               </div>
             </div>
-
-            <!-- Parent/Guardian Information -->
-            <div class="space-y-4">
-              <h4 class="text-lg font-medium text-gray-800 border-b pb-2">👨‍👩‍👧‍👦 Parent/Guardian Information</h4>
-              
-              <div>
-                <label for="parent-name" class="text-sm font-medium text-gray-700 mb-2 block">Parent's Name</label>
-                <input
-                  id="parent-name"
-                  v-model="memberForm.ParentsName"
-                  type="text"
-                  placeholder="Enter parent's name"
-                  class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
-                />
-              </div>
-
-              <PhoneInput
-                id="parent-phone"
-                v-model="memberForm.ParentsNumber!"
-                v-model:country-code="memberForm.ParentsCountryCode"
-                help-text="Parent's phone number"
-              />
-
-              <div>
-                <label for="residence" class="text-sm font-medium text-gray-700 mb-2 block">Residence *</label>
-                <input
-                  id="residence"
-                  v-model="memberForm.Residence"
-                  type="text"
-                  required
-                  placeholder="Enter residence/location"
-                  class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
-                />
-              </div>
-
-              <fieldset>
-                <legend class="text-sm font-medium text-gray-700 mb-2">In Cell? *</legend>
-                <div class="flex gap-4">
-                  <label class="flex items-center">
-                    <input
-                      v-model="memberForm.Cell"
-                      type="radio"
-                      name="cell"
-                      value="1"
-                      class="mr-2"
-                    />
-                    <span>Yes</span>
-                  </label>
-                  <label class="flex items-center">
-                    <input
-                      v-model="memberForm.Cell"
-                      type="radio"
-                      name="cell"
-                      value="0"
-                      class="mr-2"
-                    />
-                    <span>No</span>
-                  </label>
-                </div>
-              </fieldset>
-            </div>
           </div>
-
-          <!-- Notes -->
-          <div>
-            <label for="notes" class="text-sm font-medium text-gray-700 mb-2 block">Notes</label>
-            <textarea
-              id="notes"
-              v-model="memberForm.notes"
-              rows="3"
-              placeholder="Any additional notes..."
-              class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
-            ></textarea>
-          </div>
-
-          <div class="flex gap-4">
-            <button
+          
+          <div class="button-container">
+            <button 
               @click="handleSave"
               :disabled="isLoading || !isFormValid"
-              class="flex-1 bg-green-500 hover:bg-green-600 text-white font-semibold py-3 rounded-lg transition-all disabled:opacity-50"
+              :class="{ loading: isLoading }"
             >
-              💾 {{ editMode ? 'Update Member' : 'Save Member' }}
-            </button>
-            <button
-              @click="cancelEdit"
-              class="px-6 bg-gray-500 hover:bg-gray-600 text-white font-semibold py-3 rounded-lg transition-all"
-            >
-              ❌ Cancel
+              <span v-if="!isLoading" class="btn-text">✅ Done</span>
+              <span v-else class="btn-loading">Submitting...</span>
             </button>
           </div>
         </div>
@@ -264,13 +282,15 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useAuthStore } from '@/stores/auth'
 import { useMembersStore } from '@/stores/members'
+import { getCallingCodeByCountryCode, loadCountriesData } from '@/utils/countries'
 import { useUIStore } from '@/stores/ui'
 import LoginForm from '@/components/LoginForm.vue'
 import PhoneInput from '@/components/PhoneInput.vue'
+import { formatPhoneForDisplay } from '@/utils/validation'
 import type { MemberData } from '@/types'
 
 const authStore = useAuthStore()
@@ -305,6 +325,34 @@ const editMode = ref(false)
 const showForm = ref(false)
 const currentDocId = ref<string>()
 
+// Step indicator and UI state
+const currentStep = ref(1)
+const countries = ref<any[]>([])
+const currentServiceText = ref('Main Service')
+
+// Load countries data
+onMounted(() => {
+  countries.value = loadCountriesData()
+})
+
+// Watch showForm to update current step
+watch(showForm, (newValue) => {
+  if (newValue) {
+    currentStep.value = 2
+  } else {
+    currentStep.value = 1
+  }
+})
+
+// Computed properties for UI text
+const instructionText = computed(() => {
+  if (currentStep.value === 1) {
+    return "Type your name and number to see if you're already registered."
+  } else {
+    return "Update your details if you need to."
+  }
+})
+
 const canSearch = computed(() => {
   return searchForm.value.firstName.length >= 2 && searchForm.value.phoneNumber.length >= 7
 })
@@ -326,6 +374,53 @@ const isFormValid = computed(() => {
   )
 })
 
+// Record message computed properties
+const recordMessageText = computed(() => {
+  if (searchResult.value.found && !showForm.value) {
+    return '✅ Identity confirmed! Complete the missing fields below.'
+  } else if (showForm.value && editMode.value) {
+    return '✅ Identity confirmed! Complete the missing fields below.'
+  } else if (showForm.value && !editMode.value) {
+    return '🆕 New record — complete your registration below.'
+  } else if (!searchResult.value.found && searchAttempts.value > 0 && !isLoading.value && !showForm.value) {
+    return '❌ No existing record found.'
+  }
+  return ''
+})
+
+const recordMessageClassComputed = computed(() => {
+  if (searchResult.value.found || (showForm.value && editMode.value)) {
+    return 'confirmed'
+  } else if (showForm.value && !editMode.value) {
+    return 'new'
+  } else if (!searchResult.value.found && searchAttempts.value > 0) {
+    return 'error'
+  }
+  return ''
+})
+
+// Computed properties for formatted phone display in confirmation section
+const formattedMorphersPhone = computed(() => {
+  if (searchResult.value.record?.MorphersNumber) {
+    return formatPhoneForDisplay(
+      searchResult.value.record.MorphersNumber,
+      searchResult.value.record.MorphersCountryCode || 'UG'
+    )
+  }
+  return ''
+})
+
+const formattedParentsPhone = computed(() => {
+  if (searchResult.value.record?.ParentsNumber) {
+    return formatPhoneForDisplay(
+      searchResult.value.record.ParentsNumber,
+      searchResult.value.record.ParentsCountryCode || 'UG'
+    )
+  }
+  return ''
+})
+
+
 function handleLoginSuccess() {
   uiStore.success('Welcome! You are now signed in.')
 }
@@ -334,10 +429,18 @@ async function handleSearch() {
   if (!canSearch.value) return
   
   uiStore.setLoading(true)
+
+  const countryCallingCode = getCallingCodeByCountryCode(searchForm.value.countryCode)
+
+  const fullPhoneNumber = searchForm.value.countryCode
+    ? `${countryCallingCode}${searchForm.value.phoneNumber}`
+    : searchForm.value.phoneNumber
+
   try {
     await membersStore.searchMember(
       searchForm.value.firstName,
-      searchForm.value.phoneNumber
+      fullPhoneNumber,
+      countryCallingCode
     )
     
     if (!searchResult.value.found) {
@@ -427,3 +530,21 @@ async function handleSignOut() {
   await authStore.signOutUser()
 }
 </script>
+
+<style scoped>
+/* Fade transition */
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.5s ease-in-out;
+}
+
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+}
+
+.fade-enter-to,
+.fade-leave-from {
+  opacity: 1;
+}
+</style>

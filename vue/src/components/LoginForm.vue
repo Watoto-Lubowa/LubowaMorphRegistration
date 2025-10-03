@@ -1,84 +1,76 @@
 <template>
-  <div class="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary-500 to-secondary-500 p-4">
-    <div class="w-full max-w-md bg-white rounded-2xl shadow-2xl p-8 animate-fadeInUp">
-      <div class="text-center mb-8">
-        <div class="text-6xl mb-4">{{ icon }}</div>
-        <h1 class="text-3xl font-bold text-gray-800 mb-2">Welcome</h1>
-        <p class="text-gray-600">{{ subtitle }}</p>
+  <!-- Login Section matching original index.html -->
+  <div class="login-section">
+    <div class="login-container">
+      <div class="login-header">
+        <h1>Welcome</h1>
+        <p class="login-subtitle">Lubowa Morph Registration System</p>
       </div>
-
-      <div class="bg-gray-50 rounded-xl p-6 mb-6">
-        <div class="text-4xl text-center mb-4">👤</div>
-        <h2 class="text-xl font-semibold text-center mb-2">Sign In to Continue</h2>
-        <p class="text-gray-600 text-center text-sm mb-6">
-          Please sign in to access the {{ isAdmin ? 'admin panel' : 'registration system' }}
-        </p>
-
-        <form @submit.prevent="handleSignIn" class="space-y-4">
-          <div>
-            <label for="email" class="flex items-center gap-2 text-sm font-medium text-gray-700 mb-2">
-              <span>📧</span>
-              <span>Email Address</span>
+      
+      <div class="login-card">
+        <div class="login-icon">👤</div>
+        <h2>Sign In to Continue</h2>
+        <p class="login-description">Please sign in to access the registration system</p>
+        
+        <form @submit.prevent="handleSignIn">
+          <div class="field email-field">
+            <label for="userEmail">
+              <span class="field-icon">📧</span>
+              <span class="field-text">Email Address</span>
             </label>
-            <input
-              id="email"
+            <input 
+              type="email" 
+              id="userEmail" 
               v-model="email"
-              type="email"
+              placeholder="your@email.com" 
               required
-              placeholder="your@email.com"
-              class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all"
-            />
-            <p class="text-xs text-gray-500 mt-1">Enter your authorized email address</p>
+            >
+            <small class="field-help">Enter your authorized email address</small>
           </div>
-
-          <div>
-            <label for="password" class="flex items-center gap-2 text-sm font-medium text-gray-700 mb-2">
-              <span>🔐</span>
-              <span>Password</span>
-            </label>
-            <input
-              id="password"
-              v-model="password"
-              type="password"
-              required
-              placeholder="••••••••••"
-              class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all"
-            />
-            <p class="text-xs text-gray-500 mt-1">Enter your password</p>
-          </div>
-
-          <button
-            type="submit"
-            :disabled="isLoading"
-            class="w-full bg-gradient-to-r from-primary-500 to-primary-600 hover:from-primary-600 hover:to-primary-700 text-white font-semibold py-3 px-6 rounded-lg transition-all duration-300 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
-          >
-            <span v-if="!isLoading" class="flex items-center justify-center gap-2">
-              <span>🚀</span>
-              <span>Sign In</span>
-            </span>
-            <span v-else class="flex items-center justify-center gap-2">
-              <svg class="animate-spin h-5 w-5" viewBox="0 0 24 24">
-                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"></circle>
-                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-              </svg>
-              <span>Signing In...</span>
-            </span>
-          </button>
           
-          <button
-            type="button"
-            @click="handlePasswordReset"
-            :disabled="isLoading || !email"
-            class="w-full text-primary-600 hover:text-primary-700 font-medium py-2 px-4 text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            Forgot Password?
-          </button>
+          <div class="field password-field">
+            <label for="userPassword">
+              <span class="field-icon">🔐</span>
+              <span class="field-text">Password</span>
+            </label>
+            <input 
+              type="password" 
+              id="userPassword" 
+              v-model="password"
+              placeholder="••••••••••" 
+              required
+            >
+            <small class="field-help">Enter your password</small>
+          </div>
+          
+          <div class="button-container">
+            <button 
+              type="submit"
+              :disabled="isLoading"
+              :class="{ loading: isLoading }"
+            >
+              <span v-if="!isLoading" class="btn-text">🚀 Sign In</span>
+              <span v-else class="btn-loading">Signing in...</span>
+            </button>
+          </div>
+          
+          <div class="login-options">
+            <button 
+              type="button"
+              @click="handlePasswordReset"
+              :disabled="isLoading || !email"
+              class="link-btn"
+            >
+              Forgot Password?
+            </button>
+          </div>
+          
+          <div class="security-notice" style="text-align: center; margin-top: 20px;">
+            <small style="color: #666; font-size: 0.85em;">🔒 Your session will expire when you close your browser for security.</small>
+          </div>
+          
+          <!-- Status messages will be shown via ToastContainer from UIStore -->
         </form>
-      </div>
-
-      <div class="text-center text-sm text-gray-600">
-        <p>© 2025 Lubowa Morph Registration</p>
-        <p class="mt-1">Secure & Confidential</p>
       </div>
     </div>
   </div>
