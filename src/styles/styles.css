@@ -528,6 +528,58 @@ body {
   margin-left: 16px;
 }
 
+/* Service Display for Quick Check-in */
+.service-display {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  padding: 20px 28px;
+  border-radius: 12px;
+  margin: 20px auto;
+  max-width: 500px;
+  min-width: 300px;
+  width: fit-content;
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+  transition: all 0.3s ease;
+}
+
+.service-display:hover {
+  box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+  transform: translateY(-2px);
+}
+
+.service-info {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 15px;
+  color: white;
+}
+
+.service-icon {
+  font-size: 2em;
+  line-height: 1;
+}
+
+.service-details {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 5px;
+}
+
+.service-details strong {
+  color: white;
+  font-weight: 600;
+  font-size: 0.95em;
+  opacity: 0.9;
+}
+
+.service-details .current-service {
+  color: white;
+  font-weight: 700;
+  font-size: 1.2em;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
 .confirmation-text {
   margin: 20px 0 15px 0;
   font-weight: 600;

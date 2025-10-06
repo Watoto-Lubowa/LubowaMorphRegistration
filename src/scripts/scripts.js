@@ -733,6 +733,14 @@ function setupEventListeners() {
   if (confirmBtn) confirmBtn.addEventListener("click", () => window.confirmIdentity && window.confirmIdentity());
   if (denyBtn) denyBtn.addEventListener("click", () => window.denyIdentity && window.denyIdentity());
   
+  // Create new record button in confirmation section
+  const confirmCreateNewBtn = document.getElementById("confirmCreateNewBtn");
+  if (confirmCreateNewBtn) {
+    confirmCreateNewBtn.addEventListener("click", function() {
+      if (window.showNewRecordSection) window.showNewRecordSection();
+    });
+  }
+  
   // No record section button handlers
   if (searchAgainBtn) {
     searchAgainBtn.addEventListener("click", function() {
@@ -1378,7 +1386,7 @@ function handleSearchButtonClick(event) {
  * Functions for managing UI sections, transitions, and form states
  */
 
-function showConfirmationSection(found) {
+async function showConfirmationSection(found) {
   if (!found) {
     console.error('No record data provided to showConfirmationSection');
     return;
@@ -1399,6 +1407,45 @@ function showConfirmationSection(found) {
   }
   
   try {
+    // Check the forceUpdateFlow configuration to decide whether to show service
+    let forceUpdateFlow = true; // Default to true
+    try {
+      const { doc, getDoc } = window.firebaseFirestore;
+      const configDocRef = doc(db, "config", "settings");
+      const configDoc = await getDoc(configDocRef);
+      
+      if (configDoc.exists()) {
+        forceUpdateFlow = configDoc.data().forceUpdateFlow !== false;
+      }
+    } catch (error) {
+      console.error('Error checking forceUpdateFlow config:', error);
+    }
+    
+    // Show/hide quick check-in service display based on config
+    const quickCheckInService = document.getElementById("quickCheckInService");
+    if (quickCheckInService) {
+      if (!forceUpdateFlow) {
+        // Show service display for quick check-in
+        quickCheckInService.classList.remove("hidden");
+        
+        // Update service display
+        const confirmServiceName = document.getElementById("confirmServiceName");
+        const service = getCurrentService();
+        if (confirmServiceName) {
+          if (service) {
+            confirmServiceName.textContent = getServiceText(service);
+            confirmServiceName.className = "current-service active";
+          } else {
+            confirmServiceName.textContent = "No service currently";
+            confirmServiceName.className = "current-service inactive";
+          }
+        }
+      } else {
+        // Hide service display for standard flow
+        quickCheckInService.classList.add("hidden");
+      }
+    }
+    
     // Update message
     const recordMessage = document.getElementById("recordMessage");
     if (recordMessage) {
@@ -1518,17 +1565,22 @@ function showNewRecordSection() {
   existingDocId = null;
   foundRecord = null;
   
-  // Smooth transition from no record section to completion section
+  // Get both potential source sections
   const noRecordSection = document.getElementById("noRecordSection");
+  const confirmationSection = document.getElementById("confirmationSection");
   const completionSection = document.getElementById("completionSection");
   
-  if (noRecordSection && completionSection) {
-    // Start transition out of no record section
-    noRecordSection.classList.add("transitioning-out");
+  // Determine which section is currently visible
+  const sourceSection = !noRecordSection?.classList.contains("hidden") ? noRecordSection : 
+                        !confirmationSection?.classList.contains("hidden") ? confirmationSection : null;
+  
+  if (sourceSection && completionSection) {
+    // Start transition out of the source section (either noRecord or confirmation)
+    sourceSection.classList.add("transitioning-out");
     
     setTimeout(() => {
-      noRecordSection.classList.add("hidden");
-      noRecordSection.classList.remove("transitioning-out");
+      sourceSection.classList.add("hidden");
+      sourceSection.classList.remove("transitioning-out");
       
       // Show completion section with transition
       showCompletionSection(true);
@@ -1540,6 +1592,7 @@ function showNewRecordSection() {
       }, 400);
     }, 400);
   } else {
+    // Fallback - just show completion section without transition
     showCompletionSection(true);
   }
 }
@@ -1861,9 +1914,98 @@ function clearAllAttendance() {
   currentAttendance = {};
 }
 
-function confirmIdentity() {
+async function confirmIdentity() {
   if (!foundRecord) return;
   
+  // Check the forceUpdateFlow configuration
+  try {
+    const { doc, getDoc } = window.firebaseFirestore;
+    const configDocRef = doc(db, "config", "settings");
+    const configDoc = await getDoc(configDocRef);
+    
+    let forceUpdateFlow = true; // Default to true
+    if (configDoc.exists()) {
+      forceUpdateFlow = configDoc.data().forceUpdateFlow !== false; // If not explicitly false, default to true
+    }
+    
+    if (!forceUpdateFlow) {
+      // Quick check-in flow - save attendance directly
+      await handleQuickCheckIn();
+    } else {
+      // Standard flow - proceed to completion section
+      handleStandardFlow();
+    }
+  } catch (error) {
+    console.error('Error checking forceUpdateFlow config:', error);
+    // On error, default to standard flow
+    handleStandardFlow();
+  }
+}
+
+// Handle quick check-in without going to completion section
+async function handleQuickCheckIn() {
+  if (!foundRecord) return;
+  
+  const confirmBtn = document.getElementById("confirmBtn");
+  
+  // Show loading state
+  if (confirmBtn) {
+    confirmBtn.disabled = true;
+    confirmBtn.classList.add('loading');
+  }
+  
+  try {
+    // Get current service
+    const service = getCurrentService();
+    
+    // Prepare attendance update (only if there's an active service)
+    const now = new Date();
+    const dateStr = `${now.getDate().toString().padStart(2, '0')}_${(now.getMonth() + 1).toString().padStart(2, '0')}_${now.getFullYear()}`;
+    
+    // Create payload - always update lastUpdated, but only update attendance if there's a service
+    const payload = {
+      lastUpdated: Timestamp.now()
+    };
+    
+    // Only add attendance if there's an active service
+    if (service) {
+      const updatedAttendance = {
+        ...(foundRecord.attendance || {}),
+        [dateStr]: service
+      };
+      payload.attendance = updatedAttendance;
+    }
+    
+    // Save to Firestore
+    const docRef = doc(db, "morphers", existingDocId);
+    await updateDoc(docRef, payload);
+    
+    // Show success message
+    if (service) {
+      const serviceText = getServiceText(service);
+      showToast(`Success! You have attended ${serviceText}`, "success");
+    } else {
+      showToast(`Success! Your record has been confirmed.`, "success");
+    }
+    
+    // Reset form after successful save
+    setTimeout(() => {
+      resetForm();
+    }, 2000);
+    
+  } catch (error) {
+    console.error("Quick check-in error:", error);
+    showToast("Oops! Something went wrong. Please try again or ask a leader for help.", "error");
+  } finally {
+    if (confirmBtn) {
+      confirmBtn.disabled = false;
+      confirmBtn.classList.remove('loading');
+    }
+  }
+}
+
+// Handle standard flow with completion section
+function handleStandardFlow() {
   // Update message
   document.getElementById("recordMessage").innerText = "✅ Identity confirmed! Complete the missing fields below.";
   document.getElementById("recordMessage").className = "confirmed";
@@ -1934,6 +2076,7 @@ function denyIdentity() {
   
   // Keep input values preserved - DO NOT clear them
   // Users want to search again with same or modified values
+  // This includes preserving the selected country code
   
   // Reset message
   document.getElementById("recordMessage").innerText = "";
@@ -1942,18 +2085,6 @@ function denyIdentity() {
   // Reset instructions
   document.getElementById("instructions").innerText = "Enter your first name and phone number to check for existing records.";
   document.getElementById("instructions").className = "instructions";
-
-  // Reset phone number dropdown to Uganda (keep the number but reset country)
-  if (window.simplePhoneHandler) {
-    const currentPhone = document.getElementById("morphersNumber").value || "";
-    window.simplePhoneHandler.setPhoneNumber("morphersNumber", currentPhone, "UG");
-  }
-  
-  // Also reset the country select element directly to UG
-  const morphersCountrySelect = document.getElementById("morphersNumber_country");
-  if (morphersCountrySelect) {
-    morphersCountrySelect.value = "+256";
-  }
 
   // Show search button
   document.getElementById("searchBtn").style.display = "block";
@@ -1994,21 +2125,27 @@ function resetToStep1() {
   document.getElementById("instructions").innerText = "Enter your first name and phone number to check for existing records.";
   document.getElementById("instructions").className = "instructions";
   
-  // Smooth transition from completion section back to identity section
+  // Smooth transition from any active section back to identity section
   const completionSection = document.getElementById("completionSection");
+  const confirmationSection = document.getElementById("confirmationSection");
   const identitySection = document.getElementById("identitySection");
+  const noRecordSection = document.getElementById("noRecordSection");
   
-  if (completionSection && identitySection && !completionSection.classList.contains("hidden")) {
-    // Start transition out of completion section
-    completionSection.classList.add("transitioning-out");
+  // Determine which section is currently visible
+  const activeSection = !completionSection.classList.contains("hidden") ? completionSection :
+                        !confirmationSection.classList.contains("hidden") ? confirmationSection : null;
+  
+  if (activeSection && identitySection) {
+    // Start transition out of active section
+    activeSection.classList.add("transitioning-out");
     
     setTimeout(() => {
-      completionSection.classList.add("hidden");
-      completionSection.classList.remove("transitioning-out");
+      activeSection.classList.add("hidden");
+      activeSection.classList.remove("transitioning-out");
       
-      // Hide other sections
-      document.getElementById("confirmationSection").classList.add("hidden");
-      const noRecordSection = document.getElementById("noRecordSection");
+      // Hide all other sections
+      completionSection.classList.add("hidden");
+      confirmationSection.classList.add("hidden");
       if (noRecordSection) {
         noRecordSection.classList.add("hidden");
       }
@@ -2025,18 +2162,17 @@ function resetToStep1() {
     }, 400);
   } else {
     // Hide all sections except identity (fallback for immediate reset)
-    document.getElementById("confirmationSection").classList.add("hidden");
-    document.getElementById("completionSection").classList.add("hidden");
+    confirmationSection.classList.add("hidden");
+    completionSection.classList.add("hidden");
     
     // Hide no record section if it exists
-    const noRecordSection = document.getElementById("noRecordSection");
     if (noRecordSection) {
       noRecordSection.classList.add("hidden");
     }
     
     // Make sure identity section is visible and enabled
-    document.getElementById("identitySection").classList.remove("hidden");
-    document.getElementById("identitySection").classList.remove("disabled");
+    identitySection.classList.remove("hidden");
+    identitySection.classList.remove("disabled");
   }
   
   // Enable identity section
