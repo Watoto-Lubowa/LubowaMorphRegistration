@@ -49,9 +49,10 @@
           🚪 Sign Out
         </button>
 
-        <!-- Identity Section matching original -->
+        <!-- Identity Section / No Record Found Section / Confirmation Section -->
         <Transition name="section-fade" mode="out-in">
-          <div v-if="!searchResult.found && !showForm" class="form-section" id="identitySection" key="identity">
+          <!-- Identity Section (show for initial search, while loading, or after clicking search again) -->
+          <div v-if="(!searchResult.found && !showForm) && (searchAttempts === 0 || isLoading || isSearchingAgain)" class="form-section" id="identitySection" key="identity">
             <div class="field">
               <label for="name">
                 <span id="nameLabel">First Name</span>
@@ -96,11 +97,30 @@
               </button>
             </div>
           </div>
-        </Transition>
 
-        <!-- Confirmation Section matching original -->
-        <Transition name="section-fade" mode="out-in">
-          <div v-if="searchResult.found && !showForm" class="form-section" id="confirmationSection" key="confirmation">
+          <!-- No Record Found Section (replaces identity section ONLY after unsuccessful search completes) -->
+          <div v-else-if="!searchResult.found && searchAttempts > 0 && !isLoading && !showForm" class="form-section" id="noRecordSection" key="no-record">
+            <h3>❌ No Record Found</h3>
+            <div class="no-record-message">
+              <p>Hmm, we couldn't find you.</p>
+              <div class="search-details">
+                <p id="searchedInfo" class="searched-info">
+                  We searched for <strong>"{{ searchForm.firstName }}"</strong> with the phone number <strong>"{{ fullPhoneNumber }}"</strong>.
+                </p>
+              </div>
+              <span id="note" v-if="canCreateNew">
+                <p>What would you like to do?</p>
+                <p><strong>Note:</strong> You can try searching again or create a new record.</p>
+              </span>
+            </div>
+            <div class="no-record-options">
+              <button type="button" @click="searchAgain" class="search-again-btn">🔍 Search Again</button>
+              <button type="button" v-if="canCreateNew" @click="createNewMember" class="create-new-btn">➕ Make a New Record</button>
+            </div>
+          </div>
+
+          <!-- Confirmation Section (replaces identity section after successful search) -->
+          <div v-else-if="searchResult.found && !showForm" class="form-section" id="confirmationSection" key="confirmation">
             <h3 style="text-align: center;">Confirm Your Identity</h3>
             <div class="identity-display">
               <div class="identity-info">
@@ -113,34 +133,32 @@
                 <strong>Parent's Number:</strong> <span id="displayParentsPhone">{{ formattedParentsPhone }}</span>
               </div>
             </div>
+            
+            <!-- Quick check-in service display (shown when forceUpdateFlow is false) -->
+            <div v-if="!forceUpdateFlow" class="service-display" id="quickCheckInService">
+              <div class="service-info">
+                <div class="service-icon">🗓️</div>
+                <div class="service-details">
+                  <strong>Current Service:</strong>
+                  <span 
+                    id="confirmServiceName" 
+                    class="current-service"
+                    :class="{ 'no-service': currentService === null }"
+                  >
+                    {{ currentService === null ? 'No service currently' : currentServiceText }}
+                  </span>
+                </div>
+              </div>
+            </div>
+            
             <p class="confirmation-text">Is this you?</p>
             <div class="confirmation-buttons">
-              <button type="button" @click="editMember" class="confirm-btn">Yes, that's me</button>
-              <button type="button" @click="clearSearch" class="deny-btn">No, search again</button>
+              <!-- Quick check-in button (only when forceUpdateFlow is false) -->
+              <button v-if="!forceUpdateFlow && currentService" type="button" @click="handleQuickCheckIn" class="confirm-btn">Yes, that's me</button>
+              <!-- Regular "update info" button (when forceUpdateFlow is true OR no service detected) -->
+              <button v-else type="button" @click="editMember" class="confirm-btn">Yes, that's me</button>
+              <button type="button" @click="searchAgain" class="deny-btn">No, search again</button>
               <button type="button" v-if="canCreateNew" @click="createNewMember" class="create-new-btn">➕ Create New Record</button>
-            </div>
-          </div>
-        </Transition>
-
-        <!-- No Record Found Section matching original -->
-        <Transition name="section-fade" mode="out-in">
-          <div v-if="!searchResult.found && searchAttempts > 0 && !isLoading && !showForm" class="form-section" id="noRecordSection" key="no-record">
-            <h3>❌ No Record Found</h3>
-            <div class="no-record-message">
-              <p>Hmm, we couldn't find you.</p>
-              <div class="search-details">
-                <p id="searchedInfo" class="searched-info">
-                  We searched for <strong>"{{ searchForm.firstName }}"</strong> with the phone number provided.
-                </p>
-              </div>
-              <span id="note">
-                <p>What would you like to do?</p>
-                <p><strong>Note:</strong> You can try searching again or create a new record.</p>
-              </span>
-            </div>
-            <div class="no-record-options">
-              <button type="button" @click="clearSearch" class="search-again-btn">🔍 Search Again</button>
-              <button type="button" @click="createNewMember" class="create-new-btn">➕ Make a New Record</button>
             </div>
           </div>
         </Transition>
@@ -161,21 +179,21 @@
                 type="text" 
                 id="editableName" 
                 v-model="memberForm.Name"
-                @blur="formFieldsTouched.name = true"
+                @blur="handleFullNameBlur"
                 :class="{
-                  'field-error': formFieldsTouched.name && !memberForm.Name?.trim(),
-                  'field-valid': formFieldsTouched.name && memberForm.Name?.trim() && memberForm.Name.trim().length >= 2
+                  'field-error': formFieldsTouched.name && (!memberForm.Name?.trim() || !validateFullName(memberForm.Name || '')),
+                  'field-valid': formFieldsTouched.name && memberForm.Name?.trim() && validateFullName(memberForm.Name)
                 }"
                 required
               >
-              <small class="field-help">Your complete full name</small>
+              <small class="field-help">Your complete full name (first and last name)</small>
             </div>
             
             <PhoneInput
               id="editablePhone"
-              v-model="editableMorphersPhone"
+              v-model="memberForm.MorphersNumber"
               :country-code="memberForm.MorphersCountryCode"
-              @update:countryCode="memberForm.MorphersCountryCode = $event"
+              @update:countryCode="memberForm.MorphersCountryCode = $event; formFieldsTouched.morphersNumber = true"
               placeholder="Enter phone number (e.g., 701234567)"
               required
               help-text="Your phone number (e.g., 701234567). Don't start with 0!"
@@ -199,9 +217,9 @@
             
             <PhoneInput
               id="editableParentsPhone"
-              v-model="editableParentsPhone"
+              v-model="memberForm.ParentsNumber"
               :country-code="memberForm.ParentsCountryCode"
-              @update:countryCode="memberForm.ParentsCountryCode = $event"
+              @update:countryCode="memberForm.ParentsCountryCode = $event; formFieldsTouched.parentsNumber = true"
               placeholder="Enter phone number (e.g., 701234567)"
               required
               help-text="Use your own again if you're not sure. Don't start with 0!"
@@ -272,6 +290,7 @@
                     value="1" 
                     id="cellYes" 
                     v-model="memberForm.Cell"
+                    @change="formFieldsTouched.cell = true"
                     required
                   >
                   <span class="radio-label">Yes</span>
@@ -283,6 +302,7 @@
                     value="0" 
                     id="cellNo" 
                     v-model="memberForm.Cell"
+                    @change="formFieldsTouched.cell = true"
                     required
                   >
                   <span class="radio-label">No</span>
@@ -336,42 +356,22 @@ import { getCallingCodeByCountryCode, loadCountriesData } from '@/utils/countrie
 import { useUIStore } from '@/stores/ui'
 import LoginForm from '@/components/LoginForm.vue'
 import PhoneInput from '@/components/PhoneInput.vue'
-import { formatPhoneForDisplay, validateAndNormalizeSchoolName } from '@/utils/validation'
+import { 
+  formatPhoneForDisplay, 
+  validateAndNormalizeSchoolName,
+  validateFullName,
+  suggestFullName,
+  autoFocusToField
+} from '@/utils/validation'
 import type { MemberData } from '@/types'
 
-const initialMorphersCountryCallingCode = '+256' // Uganda's calling code
-const initialParentsCountryCallingCode = '+256' // Uganda's calling code
-
-// Computed property for editable Morphers phone (without country code prefix)
-const editableMorphersPhone = computed({
-  get() {
-    // Return the phone number as-is since it's already formatted without country code
-    return memberForm.value.MorphersNumber || ''
-  },
-  set(val: string) {
-    // Store the phone number without the country code prefix
-    memberForm.value.MorphersNumber = val
-  }
-})
-
-// Computed property for editable Parents phone (without country code prefix)
-const editableParentsPhone = computed({
-  get() {
-    // Return the phone number as-is since it's already formatted without country code
-    return memberForm.value.ParentsNumber || ''
-  },
-  set(val: string) {
-    // Store the phone number without the country code prefix
-    memberForm.value.ParentsNumber = val
-  }
-})
 
 const authStore = useAuthStore()
 const membersStore = useMembersStore()
 const uiStore = useUIStore()
 
 const { isAuthenticated } = storeToRefs(authStore)
-const { searchResult, searchAttempts } = storeToRefs(membersStore)
+const { searchResult, searchAttempts, forceUpdateFlow } = storeToRefs(membersStore)
 const { isLoading } = storeToRefs(uiStore)
 
 const searchForm = ref({
@@ -401,14 +401,18 @@ const memberForm = ref<Partial<MemberData>>({
 const editMode = ref(false)
 const showForm = ref(false)
 const currentDocId = ref<string>()
+const isSearchingAgain = ref(false) // Track when returning to search from confirmation
 
-// Form field touched states for validation
+// Form field touched states for validation (matching original scripts.js)
 const formFieldsTouched = ref({
   name: false,
+  morphersNumber: false,
   parentsName: false,
+  parentsNumber: false,
   school: false,
   class: false,
-  residence: false
+  residence: false,
+  cell: false
 })
 
 // School validation state
@@ -465,13 +469,16 @@ function updateCurrentServiceDisplay() {
   noService.value = currentService.value === null || false
 }
 
-// Load countries data
-onMounted(() => {
+// Load countries data and force update flow state
+onMounted(async () => {
   countries.value = loadCountriesData()
   // Update service display on mount
   updateCurrentServiceDisplay()
   // Set up interval to update every minute
   setInterval(updateCurrentServiceDisplay, 60000)
+  
+  // Load force update flow state
+  await membersStore.loadForceUpdateFlowState()
 })
 
 // Watch showForm to update current step
@@ -496,10 +503,33 @@ const canSearch = computed(() => {
   return trimmedFirstName.value.length >= 2 && searchForm.value.phoneNumber.length >= 7
 })
 
+const fullPhoneNumber = computed(() => {
+  const countryCallingCode = getCallingCodeByCountryCode(searchForm.value.countryCode)
+  return searchForm.value.countryCode
+    ? `${countryCallingCode}${searchForm.value.phoneNumber}`
+    : searchForm.value.phoneNumber
+})
+
 function handleNameBlur() {
   // mark as touched and trim the value for consistency
   nameTouched.value = true
   searchForm.value.firstName = searchForm.value.firstName.trim()
+}
+
+function handleFullNameBlur() {
+  formFieldsTouched.value.name = true
+  
+  if (memberForm.value.Name) {
+    memberForm.value.Name = memberForm.value.Name.trim()
+    
+    // Validate full name (must have at least first + last name)
+    if (!validateFullName(memberForm.value.Name)) {
+      const suggestion = suggestFullName(memberForm.value.Name)
+      if (suggestion) {
+        uiStore.warning(suggestion)
+      }
+    }
+  }
 }
 
 function handleSchoolBlur() {
@@ -548,18 +578,20 @@ const recordMessageText = computed(() => {
     return '✅ Identity confirmed! Complete the missing fields below.'
   } else if (showForm.value && !editMode.value) {
     return '🆕 New record — complete your registration below.'
-  } else if (!searchResult.value.found && searchAttempts.value > 0 && !isLoading.value && !showForm.value) {
+  } else if (!searchResult.value.found && searchAttempts.value > 0 && !isLoading.value && !showForm.value && !isSearchingAgain.value) {
     return '❌ No existing record found.'
   }
   return ''
 })
 
 const recordMessageClassComputed = computed(() => {
-  if (searchResult.value.found || (showForm.value && editMode.value)) {
-    return 'confirmed'
-  } else if (showForm.value && !editMode.value) {
+  if (showForm.value && !editMode.value) {
     return 'new'
-  } else if (!searchResult.value.found && searchAttempts.value > 0) {
+  }
+  else if (searchResult.value.found || (showForm.value && editMode.value)) {
+    return 'confirmed'
+  } 
+  else if (!searchResult.value.found && searchAttempts.value > 0) {
     return 'error'
   }
   return ''
@@ -594,6 +626,7 @@ function handleLoginSuccess() {
 async function handleSearch() {
   if (!canSearch.value) return
   
+  isSearchingAgain.value = false // Clear the flag when starting a new search
   uiStore.setLoading(true)
 
   const countryCallingCode = getCallingCodeByCountryCode(searchForm.value.countryCode)
@@ -664,7 +697,7 @@ function createNewMember() {
     Cell: '',
     notes: ''
   }
-  uiStore.info('🆕 Creating new record. Complete your registration below.')
+  uiStore.info('Creating new record. Complete your registration below.')
 }
 
 function clearSearch() {
@@ -677,6 +710,16 @@ function clearSearch() {
   }
   showForm.value = false
   editMode.value = false
+}
+
+function searchAgain() {
+  // Clear search results but KEEP the search form content and search counter
+  membersStore.clearSearch()
+  // DON'T reset search counter - we want it to accumulate for canCreateNew logic
+  showForm.value = false
+  editMode.value = false
+  isSearchingAgain.value = true // Flag that we're returning to search
+  // Note: searchForm.value is NOT cleared, keeping the user's input
 }
 
 function cancelEdit() {
@@ -698,6 +741,94 @@ function cancelEdit() {
 }
 
 async function handleSave() {
+  // Mark all fields as touched for validation display
+  formFieldsTouched.value = {
+    name: true,
+    morphersNumber: true,
+    parentsName: true,
+    parentsNumber: true,
+    school: true,
+    class: true,
+    residence: true,
+    cell: true
+  }
+
+  // 1. Check all required fields (matching original scripts.js validation)
+  const missingFields: string[] = []
+  const fieldMappings: Record<string, string> = {
+    "Name": "editableName",
+    "Phone": "editablePhone",
+    "School": "school",
+    "Class": "class",
+    "Residence": "residence",
+    "In Cell": "cellYes"
+  }
+
+  if (!memberForm.value.Name?.trim()) missingFields.push("Name")
+  if (!memberForm.value.MorphersNumber?.trim()) missingFields.push("Phone")
+  if (!memberForm.value.School?.trim()) missingFields.push("School")
+  if (!memberForm.value.Class?.trim()) missingFields.push("Class")
+  if (!memberForm.value.Residence?.trim()) missingFields.push("Residence")
+  if (!memberForm.value.Cell) missingFields.push("In Cell")
+
+  if (missingFields.length > 0) {
+    const fieldList = missingFields.join(", ")
+    const message = missingFields.length === 1
+      ? `Please fill in the ${fieldList} field`
+      : `Please fill in the following fields: ${fieldList}`
+    uiStore.warning(message)
+    
+    // Auto-focus to the first missing field
+    if (missingFields.length === 1) {
+      const fieldId = fieldMappings[missingFields[0]]
+      if (fieldId) {
+        autoFocusToField(fieldId)
+      }
+    }
+    return
+  }
+
+  // 2. Validate full name (must have first + last name, matching original scripts.js)
+  if (!validateFullName(memberForm.value.Name!)) {
+    const suggestion = suggestFullName(memberForm.value.Name!)
+    const message = suggestion || "Please enter your full name (first and last name)"
+    uiStore.warning(message)
+    autoFocusToField("editableName")
+    return
+  }
+
+  // 3. Validate and normalize school name (using existing school validator)
+  const schoolValidationResult = validateAndNormalizeSchoolName(memberForm.value.School!)
+  
+  if (!schoolValidationResult.isValid) {
+    uiStore.warning("Please correct the full school name to continue")
+    autoFocusToField("school")
+    return
+  }
+  
+  // Update with normalized school name
+  memberForm.value.School = schoolValidationResult.normalizedName
+
+  // 4. Validate phone numbers using PhoneInput component validation
+  // The PhoneInput component handles its own validation, but we need to ensure they're valid
+  const morphersPhoneElement = document.getElementById('editablePhone')
+  const parentsPhoneElement = document.getElementById('editableParentsPhone')
+  
+  // Check if morpher's phone has validation errors
+  if (morphersPhoneElement?.classList.contains('field-error')) {
+    uiStore.warning("Please enter a valid phone number")
+    autoFocusToField("editablePhone")
+    return
+  }
+  
+  // Check parent's phone if provided
+  if (memberForm.value.ParentsNumber && parentsPhoneElement?.classList.contains('field-error')) {
+    uiStore.warning("Please enter a valid parent's phone number")
+    autoFocusToField("editableParentsPhone")
+    return
+  }
+
+  // All validations passed - proceed with save
   uiStore.setLoading(true)
   try {
     // Prepare member data with country codes added back to phone numbers
@@ -721,6 +852,22 @@ async function handleSave() {
 
 async function handleSignOut() {
   await authStore.signOutUser()
+}
+
+async function handleQuickCheckIn() {
+  try {
+    uiStore.setLoading(true)
+    await membersStore.quickCheckIn(currentService.value)
+    
+    // Clear search state and return to main screen
+    clearSearch()
+    uiStore.success('Quick check-in completed successfully!')
+  } catch (error) {
+    console.error('Quick check-in failed:', error)
+    uiStore.error('Failed to complete quick check-in')
+  } finally {
+    uiStore.setLoading(false)
+  }
 }
 </script>
 

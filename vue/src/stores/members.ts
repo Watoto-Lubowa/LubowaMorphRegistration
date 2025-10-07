@@ -27,6 +27,7 @@ export const useMembersStore = defineStore('members', () => {
   const searchResult = ref<SearchResult>({ found: false })
   const searchAttempts = ref<number>(0) // Track search attempts
   const currentAttendance = ref<AttendanceRecord>({}) // Current attendance record
+  const forceUpdateFlow = ref<boolean>(false) // Quick check-in toggle state
 
   async function searchMember(firstName: string, phoneNumber: string, countryCallingCode: string): Promise<SearchResult> {
     const uiStore = useUIStore()
@@ -275,7 +276,7 @@ export const useMembersStore = defineStore('members', () => {
         throw new Error(ERROR_MESSAGES.FIREBASE_NOT_INITIALIZED)
       }
 
-      const membersRef = collection(db, 'members')
+      const membersRef = collection(db, 'morphers')
       const querySnapshot = await getDocs(membersRef)
       
       members.value = querySnapshot.docs.map(doc => ({
@@ -326,6 +327,76 @@ export const useMembersStore = defineStore('members', () => {
     currentAttendance.value = {}
   }
 
+  // Load forceUpdateFlow setting from Firestore config
+  async function loadForceUpdateFlowState() {
+    try {
+      const { db } = getFirebaseInstances()
+      if (!db) {
+        console.warn('Database not initialized, using default forceUpdateFlow setting')
+        return false
+      }
+
+      const configDocRef = doc(db, 'config', 'appSettings')
+      const configSnapshot = await getDocs(query(collection(db, 'config')))
+      
+      if (configSnapshot.empty) {
+        console.log('No forceUpdateFlow config found, using default (false)')
+        forceUpdateFlow.value = false
+        return false
+      }
+
+      // Look for appSettings document
+      let configData: any = null
+      configSnapshot.docs.forEach(docSnapshot => {
+        if (docSnapshot.id === 'appSettings') {
+          configData = docSnapshot.data()
+        }
+      })
+
+      if (!configData) {
+        console.log('No appSettings config found, using default (false)')
+        forceUpdateFlow.value = false
+        return false
+      }
+
+      forceUpdateFlow.value = configData.forceUpdateFlow === true
+      console.log('📋 Loaded forceUpdateFlow state:', forceUpdateFlow.value)
+      return forceUpdateFlow.value
+    } catch (error) {
+      console.error('Failed to load forceUpdateFlow state:', error)
+      forceUpdateFlow.value = false
+      return false
+    }
+  }
+
+  // Quick check-in: Save attendance without form completion
+  async function quickCheckIn(service: string | null = null) {
+    const uiStore = useUIStore()
+    try {
+      if (!currentMember.value || !currentMemberId.value) {
+        throw new Error('No member selected for quick check-in')
+      }
+
+      // Auto-populate attendance with current service
+      const attendance = autoPopulateAttendance()
+      if (service && (service === '1' || service === '2' || service === '3')) {
+        attendance.ServiceAttended = service as "1" | "2" | "3"
+      }
+
+      currentAttendance.value = attendance
+
+      // Save attendance without updating other member data
+      await saveMember(currentMember.value, currentMemberId.value)
+      
+      uiStore.success('Quick check-in completed successfully!')
+      return true
+    } catch (error: any) {
+      console.error('Quick check-in error:', error)
+      uiStore.error('Failed to complete quick check-in')
+      throw error
+    }
+  }
+
   return {
     // State
     members,
@@ -334,6 +405,7 @@ export const useMembersStore = defineStore('members', () => {
     searchResult,
     searchAttempts,
     currentAttendance,
+    forceUpdateFlow,
     
     // Actions
     searchMember,
@@ -342,6 +414,8 @@ export const useMembersStore = defineStore('members', () => {
     deleteMember,
     clearSearch,
     resetSearchCounter,
-    clearAttendance
+    clearAttendance,
+    loadForceUpdateFlowState,
+    quickCheckIn
   }
 })

@@ -39,7 +39,6 @@
     </div>
     
     <p v-if="helpText" class="field-help" style="display: block; margin-top: 5px; font-size: 0.85em; color: #777; font-style: italic; transition: all 0.3s ease;">{{ helpText }}</p>
-    <p v-if="errorMessage" style="margin-top: 5px; font-size: 0.85em; color: #e74c3c; font-weight: 500;">{{ errorMessage }}</p>
   </div>
 </template>
 

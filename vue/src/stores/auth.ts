@@ -2,12 +2,12 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { 
   getFirebaseInstances,
-  signInWithEmailAndPassword,
+  signInWithEmailAndPassword as firebaseSignIn,
   signOut,
   onAuthStateChanged,
   setPersistence,
   browserSessionPersistence,
-  sendPasswordResetEmail,
+  sendPasswordResetEmail as firebaseSendPasswordReset,
   type User
 } from '@/utils/firebase'
 import { appConfig, ERROR_MESSAGES } from '@/config'
@@ -43,7 +43,7 @@ export const useAuthStore = defineStore('auth', () => {
       await setPersistence(auth, browserSessionPersistence)
       
       // Sign in
-      const userCredential = await signInWithEmailAndPassword(auth, email, password)
+      const userCredential = await firebaseSignIn(auth, email, password)
       currentUser.value = userCredential.user
       isAuthenticated.value = true
       
@@ -109,7 +109,7 @@ export const useAuthStore = defineStore('auth', () => {
       }
 
       // Send password reset email
-      await sendPasswordResetEmail(auth, email)
+      await firebaseSendPasswordReset(auth, email)
       
       uiStore.success('Password reset email sent! Please check your inbox.')
       return true
@@ -155,6 +155,10 @@ export const useAuthStore = defineStore('auth', () => {
     })
   }
 
+  // Alias methods for compatibility with AdminView
+  const signInWithEmailAndPassword = signIn
+  const sendPasswordResetEmail = resetPassword
+
   return {
     currentUser,
     isAuthenticated,
@@ -162,8 +166,10 @@ export const useAuthStore = defineStore('auth', () => {
     isAuthorizedUser,
     userEmail,
     signIn,
+    signInWithEmailAndPassword,
     signOutUser,
     resetPassword,
+    sendPasswordResetEmail,
     checkAuthorization,
     initializeAuthListener
   }

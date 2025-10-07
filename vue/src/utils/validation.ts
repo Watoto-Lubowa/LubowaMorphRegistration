@@ -411,3 +411,40 @@ export function validateAndFocusFirstError(validations: FieldValidation[]): {
     focusedField: invalidFields[0].fieldId
   }
 }
+
+/**
+ * Validate that a string is valid (not empty, meets minimum length)
+ * Matches original scripts.js isValidString function
+ * 
+ * @param value - String to validate
+ * @param minLength - Minimum length required
+ * @returns true if string is valid
+ */
+export function isValidString(value: string, minLength: number = VALIDATION_CONSTANTS.MIN_NAME_LENGTH): boolean {
+  return typeof value === 'string' && value.trim().length >= minLength
+}
+
+/**
+ * Auto-focus to a specific field and scroll it into view
+ * Matches original scripts.js autoFocusToField function
+ * 
+ * @param fieldId - ID of field to focus
+ */
+export function autoFocusToField(fieldId: string): void {
+  const field = document.getElementById(fieldId)
+  if (field) {
+    // Scroll into view first
+    field.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    
+    // Then focus after a short delay to ensure scroll completes
+    setTimeout(() => {
+      field.focus()
+      
+      // For input fields, select the text
+      if (field instanceof HTMLInputElement || field instanceof HTMLTextAreaElement) {
+        field.select()
+      }
+    }, 300)
+  }
+}
+
