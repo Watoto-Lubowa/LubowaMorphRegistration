@@ -1,4 +1,4 @@
-import { parsePhoneNumber, isValidPhoneNumber } from 'libphonenumber-js'
+import { parsePhoneNumber, isValidPhoneNumber, parsePhoneNumberWithError } from 'libphonenumber-js'
 import { VALIDATION_CONSTANTS } from '@/config'
 
 export function validateName(name: string): boolean {
@@ -140,7 +140,7 @@ export function matchesMultipleNames(searchInput: string, storedName: string): b
  * @param phoneNumber - Phone number to generate variants for
  * @returns Array of phone number variants
  */
-export function generatePhoneVariants(phoneNumber: string, countryCallingCode: string): string[] {
+export function generatePhoneVariants(phoneNumber: string, _countryCallingCode: string): string[] {
   if (!phoneNumber) return []
   
   const variants = new Set<string>()
@@ -214,7 +214,7 @@ export function formatPhoneForDisplay(phoneNumber: string, countryCode: string =
     // For non-Ugandan numbers, show full international format
     if (!cleanNumber.startsWith('+')) {
       try {
-        const phoneNumberObj = parsePhoneNumber(cleanNumber, countryCode as any)
+        const phoneNumberObj = parsePhoneNumberWithError(cleanNumber, countryCode as any)
         return phoneNumberObj ? phoneNumberObj.formatInternational() : cleanNumber
       } catch {
         return cleanNumber
@@ -323,34 +323,55 @@ export function validateAndNormalizeSchoolName(schoolName: string): {
   normalizedName: string
   suggestion: string
 } {
+  // 1. Basic validation
   if (!schoolName || typeof schoolName !== 'string') {
     return { isValid: false, normalizedName: '', suggestion: 'Please enter a school name' }
   }
-  
+
   const trimmed = schoolName.trim()
-  
-  // Remove dots to check for abbreviations like K.I.S.
-  const noDots = trimmed.replace(/\./g, '')
-  
-  // Check if it's an invalid abbreviation (uppercase and 3 characters or less)
-  if (noDots.toUpperCase() === noDots && noDots.length <= 3) {
+
+  // 2. Advanced "Condensing": Remove everything that is NOT a letter from any language.
+  //    - `\p{L}` is a Unicode property escape that matches any letter character.
+  //    - The `u` flag enables full Unicode support.
+  //    - The `[^...]` means "not", so this removes non-letters.
+  const onlyLetters = trimmed.replace(/[^\p{L}]/gu, '')
+
+  // 3. Robust Acronym/Junk Check
+  //    This now checks for short inputs that are composed entirely of letters.
+  if (/^\p{L}+$/u.test(onlyLetters) && onlyLetters.length <= 6) {
+    // This catches "SICS", "sics123", "S-I-C-S", and "école" (if typed alone)
     return {
       isValid: false,
       normalizedName: trimmed,
-      suggestion: 'Please enter the full school name instead of abbreviation'
+      suggestion: 'Please enter the full school name instead of an abbreviation.'
     }
   }
+
+  // 4. New Heuristic: Check the uppercase ratio for single words.
+  //    If the input has no spaces and is mostly uppercase, it's likely an acronym or junk.
+  const lettersInTrimmed = trimmed.match(/\p{L}/gu) || []
+  const upperLettersInTrimmed = trimmed.match(/\p{Lu}/gu) || []
   
-  // Check minimum length
-  if (trimmed.length < 3) {
+  if (!trimmed.includes(' ') && lettersInTrimmed.length > 3 && (upperLettersInTrimmed.length / lettersInTrimmed.length) > 0.8) {
+      // This catches "HARVARD", "SCHOOLNAME", "TESTING" but allows "Eton" or "Harvard"
+      return {
+          isValid: false,
+          normalizedName: trimmed,
+          suggestion: 'Please avoid using all caps. Enter the full school name.'
+      }
+  }
+
+
+  // 5. Minimum length check (applied to the version with only letters)
+  if (onlyLetters.length < 4) {
     return {
       isValid: false,
       normalizedName: trimmed,
-      suggestion: 'Please enter the complete school name (at least 3 characters)'
+      suggestion: 'The school name must contain at least 4 letters.'
     }
   }
-  
-  // Valid school name
+
+  // 6. If all checks pass, the school name is valid ✅
   return {
     isValid: true,
     normalizedName: trimmed,

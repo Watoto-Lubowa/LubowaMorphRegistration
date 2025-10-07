@@ -11,7 +11,8 @@
       <select
         v-model="selectedCountryCode"
         @change="handleCountryChange"
-        style="width: 180px; padding: 15px 20px; border: 2px solid #e1e5e9; border-radius: 10px; font-size: 1em; transition: all 0.3s ease; background: #fafafa; outline: none; color: #333;"
+        :class="{ 'field-error': touched && hasError, 'field-valid': touched && isValid }"
+        style="width: 180px; padding: 15px 20px; border-radius: 10px; font-size: 1em; transition: all 0.3s ease; background: #fafafa; outline: none; color: #333;"
       >
         <option
           v-for="country in [...countries].sort((a, b) => a.name.localeCompare(b.name))"
@@ -32,7 +33,7 @@
         @input="handlePhoneInput"
         @blur="handleBlur"
         class="form-field"
-        :class="{ 'field-error': hasError }"
+        :class="{ 'field-error': touched && hasError, 'field-valid': touched && isValid, 'field-touched': touched }"
         style="flex: 1;"
       />
     </div>
@@ -76,6 +77,8 @@ const countries = ref<Country[]>([])
 const selectedCountryCode = ref(props.countryCode)
 const phoneValue = ref(props.modelValue || '')
 const hasError = ref(false)
+const isValid = ref(false)
+const touched = ref(false)
 const errorMessage = ref('')
 
 onMounted(() => {
@@ -88,19 +91,31 @@ function handleCountryChange() {
   if (country) {
     emit('update:callingCode', country.calling_code)
   }
-  validatePhoneNumber()
+  // Only validate if field has been touched
+  if (touched.value) {
+    validatePhoneNumber()
+  }
 }
 
 function handlePhoneInput() {
   emit('update:modelValue', phoneValue.value)
   hasError.value = false
+  isValid.value = false
   errorMessage.value = ''
 }
 
 function handleBlur() {
+  // Mark as touched when user leaves the field
+  touched.value = true
+  
   // Remove the beginning zero if present
-  if (phoneValue.value.startsWith('0')) {
-    phoneValue.value = phoneValue.value.slice(1)
+  if (phoneValue.value.startsWith('0') || phoneValue.value.startsWith(selectedCountryCode.value)) {
+    if (phoneValue.value.startsWith(selectedCountryCode.value)) {
+      phoneValue.value = phoneValue.value.slice(selectedCountryCode.value.length)
+    }
+    else {
+      phoneValue.value = phoneValue.value.slice(1)
+    }
     emit('update:modelValue', phoneValue.value)
   }
   validatePhoneNumber()
@@ -109,14 +124,16 @@ function handleBlur() {
 function validatePhoneNumber() {
   if (!phoneValue.value) {
     hasError.value = false
+    isValid.value = false
     errorMessage.value = ''
     return true
   }
 
-  const isValid = validatePhone(phoneValue.value, selectedCountryCode.value)
-  hasError.value = !isValid
-  errorMessage.value = isValid ? '' : 'Please enter a valid phone number'
-  return isValid
+  const isValidNumber = validatePhone(phoneValue.value, selectedCountryCode.value)
+  hasError.value = !isValidNumber
+  isValid.value = isValidNumber
+  errorMessage.value = isValidNumber ? '' : 'Please enter a valid phone number'
+  return isValidNumber
 }
 
 watch(() => props.modelValue, (newVal) => {
@@ -131,3 +148,68 @@ defineExpose({
   validate: validatePhoneNumber
 })
 </script>
+
+<style scoped>
+/* Default border for select when no validation state */
+select {
+  border: 2px solid #e1e5e9 !important;
+}
+
+select.field-error {
+  border-color: #e74c3c !important;
+  box-shadow: 0 0 25px rgba(231, 76, 60, 0.25) !important;
+  animation: fieldErrorPulse 0.6s ease-in-out;
+  background-color: rgba(231, 76, 60, 0.02) !important;
+}
+
+select.field-valid {
+  border-color: #27ae60 !important;
+  box-shadow: 0 0 20px rgba(39, 174, 96, 0.15) !important;
+  background-color: rgba(39, 174, 96, 0.02) !important;
+}
+
+/* Default border for input when no validation state */
+input[type="tel"] {
+  border: 2px solid #e1e5e9 !important;
+  padding: 15px 20px;
+  border-radius: 10px;
+  font-size: 1em;
+  transition: all 0.3s ease;
+  background: #fafafa;
+  outline: none;
+}
+
+/* Prevent browser's :invalid from showing red until touched */
+input[type="tel"]:invalid:not(.field-touched) {
+  border-color: #e1e5e9 !important;
+  box-shadow: none !important;
+}
+
+input[type="tel"].field-error {
+  border-color: #e74c3c !important;
+  box-shadow: 0 0 25px rgba(231, 76, 60, 0.25) !important;
+  animation: fieldErrorPulse 0.6s ease-in-out;
+  background-color: rgba(231, 76, 60, 0.02) !important;
+}
+
+input[type="tel"].field-valid {
+  border-color: #27ae60 !important;
+  box-shadow: 0 0 20px rgba(39, 174, 96, 0.15) !important;
+  background-color: rgba(39, 174, 96, 0.02) !important;
+}
+
+@keyframes fieldErrorPulse {
+  0% { 
+    box-shadow: 0 0 25px rgba(231, 76, 60, 0.4);
+    border-color: #e74c3c;
+  }
+  50% { 
+    box-shadow: 0 0 35px rgba(231, 76, 60, 0.6);
+    border-color: #c0392b;
+  }
+  100% { 
+    box-shadow: 0 0 25px rgba(231, 76, 60, 0.25);
+    border-color: #e74c3c;
+  }
+}
+</style>

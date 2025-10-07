@@ -237,7 +237,15 @@ export const useMembersStore = defineStore('members', () => {
         lastUpdated: Timestamp.now()
       }
 
+      console.log('💾 Saving member data:', payload, targetDocId)
+
       if (targetDocId) {
+        // Remove createdAt to avoid overwriting
+        delete payload.createdAt
+
+        // Remove the id field if present to avoid Firestore errors
+        delete payload.id
+
         // Update existing member
         await updateDoc(doc(morphersRef, targetDocId), payload)
         uiStore.success('Attendance submitted successfully!')

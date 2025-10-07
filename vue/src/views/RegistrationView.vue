@@ -29,108 +29,127 @@
         </div>
         
         <!-- Record Message matching original -->
-        <div id="recordMessage" :class="recordMessageClassComputed" v-if="recordMessageText">
-          {{ recordMessageText }}
-        </div>
+        <Transition name="section-fade" mode="out-in">
+          <div 
+            v-if="recordMessageText" 
+            id="recordMessage" 
+            :class="recordMessageClassComputed" 
+            :key="recordMessageClassComputed"
+          >
+            {{ recordMessageText }}
+          </div>
+        </Transition>
 
         <!-- Sign Out Button -->
         <button
           @click="handleSignOut"
           class="btn-secondary"
-          style="position: absolute; top: 20px; right: 20px; min-width: auto; padding: 12px 20px; font-size: 0.9em;"
+          style="display: none; position: absolute; top: 20px; right: 20px; min-width: auto; padding: 12px 20px; font-size: 0.9em;"
         >
           🚪 Sign Out
         </button>
 
         <!-- Identity Section matching original -->
-        <div v-if="!searchResult.found && !showForm" class="form-section" id="identitySection">
-          <div class="field">
-            <label for="name">
-              <span id="nameLabel">First Name</span>
-              <span class="required">*</span>
-            </label>
-            <input 
-              type="text" 
-              id="name" 
-              v-model="searchForm.firstName"
-              required 
-              aria-describedby="nameHelp"
-            >
-            <small id="nameHelp" class="field-help">Enter your first name only</small>
+        <Transition name="section-fade" mode="out-in">
+          <div v-if="!searchResult.found && !showForm" class="form-section" id="identitySection" key="identity">
+            <div class="field">
+              <label for="name">
+                <span id="nameLabel">First Name</span>
+                <span class="required">*</span>
+              </label>
+              <input 
+                type="text" 
+                id="name" 
+                v-model="searchForm.firstName"
+                @blur="handleNameBlur"
+                :class="{ 
+                  'field-error': nameTouched && !trimmedFirstName,
+                  'field-valid': nameTouched && trimmedFirstName && trimmedFirstName.length >= 2
+                }"
+                required
+                aria-describedby="nameHelp"
+              >
+              <small id="nameHelp" class="field-help">Enter your first name only</small>
+            </div>
+            
+            <PhoneInput
+              id="morphersNumber"
+              v-model="searchForm.phoneNumber"
+              :country-code="searchForm.countryCode"
+              @update:countryCode="searchForm.countryCode = $event"
+              placeholder="Enter phone number (e.g., 701234567)"
+              required
+              help-text="Use your number or one of your parents'. Don't start with 0!"
+            />
+            
+            <div class="search-button-container">
+              <button 
+                type="button" 
+                id="searchBtn" 
+                @click="handleSearch"
+                :disabled="!canSearch || isLoading"
+                class="search-btn"
+                :class="{ loading: isLoading }"
+              >
+                <span v-if="!isLoading" class="btn-text">🔍 Check My Info</span>
+                <span v-else class="btn-loading">Searching...</span>
+              </button>
+            </div>
           </div>
-          
-          <PhoneInput
-            id="morphersNumber"
-            v-model="searchForm.phoneNumber"
-            :country-code="searchForm.countryCode"
-            @update:countryCode="searchForm.countryCode = $event"
-            placeholder="Enter phone number (e.g., 701234567)"
-            required
-            help-text="Use your number or one of your parents'. Don't start with 0!"
-          />
-          
-          <div class="search-button-container">
-            <button 
-              type="button" 
-              id="searchBtn" 
-              @click="handleSearch"
-              :disabled="!canSearch || isLoading"
-              class="search-btn"
-              :class="{ loading: isLoading }"
-            >
-              <span v-if="!isLoading" class="btn-text">🔍 Check My Info</span>
-              <span v-else class="btn-loading">Searching...</span>
-            </button>
-          </div>
-        </div>
+        </Transition>
 
         <!-- Confirmation Section matching original -->
-        <div v-if="searchResult.found && !showForm" class="form-section" id="confirmationSection">
-          <h3 style="text-align: center;">Confirm Your Identity</h3>
-          <div class="identity-display">
-            <div class="identity-info">
-              <strong>Name:</strong> <span id="displayName">{{ searchResult.record?.Name }}</span>
+        <Transition name="section-fade" mode="out-in">
+          <div v-if="searchResult.found && !showForm" class="form-section" id="confirmationSection" key="confirmation">
+            <h3 style="text-align: center;">Confirm Your Identity</h3>
+            <div class="identity-display">
+              <div class="identity-info">
+                <strong>Name:</strong> <span id="displayName">{{ searchResult.record?.Name }}</span>
+              </div>
+              <div class="identity-info">
+                <strong>Phone:</strong> <span id="displayPhone">{{ formattedMorphersPhone }}</span>
+              </div>
+              <div class="identity-info">
+                <strong>Parent's Number:</strong> <span id="displayParentsPhone">{{ formattedParentsPhone }}</span>
+              </div>
             </div>
-            <div class="identity-info">
-              <strong>Phone:</strong> <span id="displayPhone">{{ formattedMorphersPhone }}</span>
-            </div>
-            <div class="identity-info">
-              <strong>Parent's Number:</strong> <span id="displayParentsPhone">{{ formattedParentsPhone }}</span>
+            <p class="confirmation-text">Is this you?</p>
+            <div class="confirmation-buttons">
+              <button type="button" @click="editMember" class="confirm-btn">Yes, that's me</button>
+              <button type="button" @click="clearSearch" class="deny-btn">No, search again</button>
+              <button type="button" v-if="canCreateNew" @click="createNewMember" class="create-new-btn">➕ Create New Record</button>
             </div>
           </div>
-          <p class="confirmation-text">Is this you?</p>
-          <div class="confirmation-buttons">
-            <button type="button" @click="editMember" class="confirm-btn">Yes, that's me</button>
-            <button type="button" @click="clearSearch" class="deny-btn">No, search again</button>
-            <button type="button" v-if="canCreateNew" @click="createNewMember" style="display: none;" class="create-new-btn">➕ Create New Record</button>
-          </div>
-        </div>
+        </Transition>
 
         <!-- No Record Found Section matching original -->
-        <div v-if="!searchResult.found && searchAttempts > 0 && !isLoading && !showForm" class="form-section" id="noRecordSection">
-          <h3>❌ No Record Found</h3>
-          <div class="no-record-message">
-            <p>Hmm, we couldn't find you.</p>
-            <div class="search-details">
-              <p id="searchedInfo" class="searched-info">
-                We searched for <strong>"{{ searchForm.firstName }}"</strong> with the phone number provided.
-              </p>
+        <Transition name="section-fade" mode="out-in">
+          <div v-if="!searchResult.found && searchAttempts > 0 && !isLoading && !showForm" class="form-section" id="noRecordSection" key="no-record">
+            <h3>❌ No Record Found</h3>
+            <div class="no-record-message">
+              <p>Hmm, we couldn't find you.</p>
+              <div class="search-details">
+                <p id="searchedInfo" class="searched-info">
+                  We searched for <strong>"{{ searchForm.firstName }}"</strong> with the phone number provided.
+                </p>
+              </div>
+              <span id="note">
+                <p>What would you like to do?</p>
+                <p><strong>Note:</strong> You can try searching again or create a new record.</p>
+              </span>
             </div>
-            <span id="note">
-              <p>What would you like to do?</p>
-              <p><strong>Note:</strong> You can try searching again or create a new record.</p>
-            </span>
+            <div class="no-record-options">
+              <button type="button" @click="clearSearch" class="search-again-btn">🔍 Search Again</button>
+              <button type="button" @click="createNewMember" class="create-new-btn">➕ Make a New Record</button>
+            </div>
           </div>
-          <div class="no-record-options">
-            <button type="button" @click="clearSearch" class="search-again-btn">🔍 Search Again</button>
-            <button type="button" @click="createNewMember" class="create-new-btn">➕ Make a New Record</button>
-          </div>
-        </div>
+        </Transition>
 
         <!-- Form Completion Section matching original -->
-        <div v-if="showForm" class="form-section" id="completionSection">
-          <h3>Register Your Attendance</h3>
-          <p class="section-description">Update your details if you need to.</p>
+        <Transition name="section-fade" mode="out-in">
+          <div v-if="showForm" class="form-section" id="completionSection" key="completion">
+            <h3>Register Your Attendance</h3>
+            <p class="section-description">Update your details if you need to.</p>
           
           <!-- All Editable Information -->
           <div class="editable-info">
@@ -142,6 +161,11 @@
                 type="text" 
                 id="editableName" 
                 v-model="memberForm.Name"
+                @blur="formFieldsTouched.name = true"
+                :class="{
+                  'field-error': formFieldsTouched.name && !memberForm.Name?.trim(),
+                  'field-valid': formFieldsTouched.name && memberForm.Name?.trim() && memberForm.Name.trim().length >= 2
+                }"
                 required
               >
               <small class="field-help">Your complete full name</small>
@@ -149,7 +173,7 @@
             
             <PhoneInput
               id="editablePhone"
-              v-model="memberForm.MorphersNumber"
+              v-model="editableMorphersPhone"
               :country-code="memberForm.MorphersCountryCode"
               @update:countryCode="memberForm.MorphersCountryCode = $event"
               placeholder="Enter phone number (e.g., 701234567)"
@@ -163,6 +187,11 @@
                 type="text" 
                 id="editableParentsName" 
                 v-model="memberForm.ParentsName"
+                @blur="formFieldsTouched.parentsName = true"
+                :class="{
+                  'field-error': formFieldsTouched.parentsName && !memberForm.ParentsName?.trim(),
+                  'field-valid': formFieldsTouched.parentsName && memberForm.ParentsName?.trim()
+                }"
                 required
               >
               <small class="field-help">Use your family name if you're not sure.</small>
@@ -170,7 +199,7 @@
             
             <PhoneInput
               id="editableParentsPhone"
-              v-model="memberForm.ParentsNumber"
+              v-model="editableParentsPhone"
               :country-code="memberForm.ParentsCountryCode"
               @update:countryCode="memberForm.ParentsCountryCode = $event"
               placeholder="Enter phone number (e.g., 701234567)"
@@ -188,10 +217,16 @@
                 type="text" 
                 id="school" 
                 v-model="memberForm.School"
+                @blur="handleSchoolBlur"
+                :class="{
+                  'field-error': formFieldsTouched.school && (!memberForm.School?.trim() || !schoolValidation.isValid),
+                  'field-valid': formFieldsTouched.school && memberForm.School?.trim() && schoolValidation.isValid
+                }"
                 required
               >
-              <small class="field-help"><strong>Enter your school's full name (NO ABBREVIATIONS). Example: "Sicomoro International Christian School" not "SICS".</strong>
-              If you're not in school, enter "Not in School".
+              <small class="field-help">
+                <strong>Enter your school's full name (NO ABBREVIATIONS). Example: "Sicomoro International Christian School" not "SICS".</strong>
+                If you're not in school, enter "Not in School".
               </small>
             </div>
             <div class="field" id="classField">
@@ -200,6 +235,11 @@
                 type="text" 
                 id="class" 
                 v-model="memberForm.Class"
+                @blur="formFieldsTouched.class = true"
+                :class="{
+                  'field-error': formFieldsTouched.class && !memberForm.Class?.trim(),
+                  'field-valid': formFieldsTouched.class && memberForm.Class?.trim()
+                }"
                 required
               >
               <small class="field-help">
@@ -213,6 +253,11 @@
                 type="text" 
                 id="residence" 
                 v-model="memberForm.Residence"
+                @blur="formFieldsTouched.residence = true"
+                :class="{
+                  'field-error': formFieldsTouched.residence && !memberForm.Residence?.trim(),
+                  'field-valid': formFieldsTouched.residence && memberForm.Residence?.trim()
+                }"
                 required
               >
               <small class="field-help">Where do you stay?</small>
@@ -260,7 +305,7 @@
               >
               <div class="service-detection">
                 <span class="service-label">Current Service:</span>
-                <span id="currentService" class="current-service">{{ currentServiceText }}</span>
+                <span id="currentService" :class="{'current-service': !noService, 'no-service': noService}">{{ currentServiceText }}</span>
               </div>
             </div>
           </div>
@@ -272,10 +317,11 @@
               :class="{ loading: isLoading }"
             >
               <span v-if="!isLoading" class="btn-text">✅ Done</span>
-              <span v-else class="btn-loading">Submitting...</span>
+              <span v-else class="btn-loading">⌛ Submitting...</span>
             </button>
           </div>
-        </div>
+          </div>
+        </Transition>
       </div>
     </div>
   </div>
@@ -290,8 +336,35 @@ import { getCallingCodeByCountryCode, loadCountriesData } from '@/utils/countrie
 import { useUIStore } from '@/stores/ui'
 import LoginForm from '@/components/LoginForm.vue'
 import PhoneInput from '@/components/PhoneInput.vue'
-import { formatPhoneForDisplay } from '@/utils/validation'
+import { formatPhoneForDisplay, validateAndNormalizeSchoolName } from '@/utils/validation'
 import type { MemberData } from '@/types'
+
+const initialMorphersCountryCallingCode = '+256' // Uganda's calling code
+const initialParentsCountryCallingCode = '+256' // Uganda's calling code
+
+// Computed property for editable Morphers phone (without country code prefix)
+const editableMorphersPhone = computed({
+  get() {
+    // Return the phone number as-is since it's already formatted without country code
+    return memberForm.value.MorphersNumber || ''
+  },
+  set(val: string) {
+    // Store the phone number without the country code prefix
+    memberForm.value.MorphersNumber = val
+  }
+})
+
+// Computed property for editable Parents phone (without country code prefix)
+const editableParentsPhone = computed({
+  get() {
+    // Return the phone number as-is since it's already formatted without country code
+    return memberForm.value.ParentsNumber || ''
+  },
+  set(val: string) {
+    // Store the phone number without the country code prefix
+    memberForm.value.ParentsNumber = val
+  }
+})
 
 const authStore = useAuthStore()
 const membersStore = useMembersStore()
@@ -306,6 +379,10 @@ const searchForm = ref({
   phoneNumber: '',
   countryCode: 'UG'
 })
+
+const nameTouched = ref(false)
+
+const trimmedFirstName = computed(() => searchForm.value.firstName.trim())
 
 const memberForm = ref<Partial<MemberData>>({
   Name: '',
@@ -325,14 +402,76 @@ const editMode = ref(false)
 const showForm = ref(false)
 const currentDocId = ref<string>()
 
+// Form field touched states for validation
+const formFieldsTouched = ref({
+  name: false,
+  parentsName: false,
+  school: false,
+  class: false,
+  residence: false
+})
+
+// School validation state
+const schoolValidation = ref({
+  isValid: true,
+  suggestion: ''
+})
+
 // Step indicator and UI state
 const currentStep = ref(1)
 const countries = ref<any[]>([])
-const currentServiceText = ref('Main Service')
+const currentServiceText = ref('No Service')
+const currentService = ref<string | null>(null)
+const noService = ref(false);
+
+// Service time detection functions
+function getCurrentService(): string | null {
+  const now = new Date()
+  const currentHour = now.getHours()
+  const currentMinutes = now.getMinutes()
+  const currentTimeMinutes = currentHour * 60 + currentMinutes
+
+  // Service times in minutes from midnight
+  const service1Start = 8 * 60 // 8:00 AM
+  const service1End = 10 * 60 + 15 // 10:15 AM
+  const service2Start = 10 * 60 // 10:00 AM
+  const service2End = 12 * 60 + 15 // 12:15 PM
+  const service3Start = 12 * 60 // 12:00 PM
+  const dayEnd = 14 * 60 + 15 // 2:15 PM
+
+  if (currentTimeMinutes >= service1Start && currentTimeMinutes <= service1End) {
+    return "1"
+  } else if (currentTimeMinutes >= service2Start && currentTimeMinutes <= service2End) {
+    return "2"
+  } else if (currentTimeMinutes >= service3Start && currentTimeMinutes <= dayEnd) {
+    return "3"
+  }
+  
+  return null // Outside service hours
+}
+
+function getServiceText(service: string | null): string {
+  switch(service) {
+    case "1": return "1st Service (8:00-9:30 AM)"
+    case "2": return "2nd Service (10:00-11:30 AM)"
+    case "3": return "3rd Service (12:00-2:00 PM)"
+    default: return "No Service"
+  }
+}
+
+function updateCurrentServiceDisplay() {
+  currentService.value = getCurrentService()
+  currentServiceText.value = getServiceText(currentService.value)
+  noService.value = currentService.value === null || false
+}
 
 // Load countries data
 onMounted(() => {
   countries.value = loadCountriesData()
+  // Update service display on mount
+  updateCurrentServiceDisplay()
+  // Set up interval to update every minute
+  setInterval(updateCurrentServiceDisplay, 60000)
 })
 
 // Watch showForm to update current step
@@ -349,13 +488,40 @@ const instructionText = computed(() => {
   if (currentStep.value === 1) {
     return "Type your name and number to see if you're already registered."
   } else {
-    return "Update your details if you need to."
+    return "Complete your registration by updating all the information below."
   }
 })
 
 const canSearch = computed(() => {
-  return searchForm.value.firstName.length >= 2 && searchForm.value.phoneNumber.length >= 7
+  return trimmedFirstName.value.length >= 2 && searchForm.value.phoneNumber.length >= 7
 })
+
+function handleNameBlur() {
+  // mark as touched and trim the value for consistency
+  nameTouched.value = true
+  searchForm.value.firstName = searchForm.value.firstName.trim()
+}
+
+function handleSchoolBlur() {
+  formFieldsTouched.value.school = true
+  
+  if (memberForm.value.School) {
+    const validation = validateAndNormalizeSchoolName(memberForm.value.School)
+    schoolValidation.value = validation
+    
+    // Update the school name with normalized version if valid
+    if (validation.isValid) {
+      memberForm.value.School = validation.normalizedName
+    }
+    
+    // Show suggestion if invalid
+    if (!validation.isValid && validation.suggestion) {
+      uiStore.warning(validation.suggestion)
+    }
+  }
+
+  console.log('School validation:', schoolValidation.value)
+}
 
 // Show "Create New Record" button only after 2+ search attempts (matching original behavior)
 const canCreateNew = computed(() => {
@@ -443,15 +609,8 @@ async function handleSearch() {
       countryCallingCode
     )
     
-    if (!searchResult.value.found) {
-      uiStore.info('No member found. You can create a new record.')
-      showForm.value = true
-      memberForm.value = {
-        Name: searchForm.value.firstName,
-        MorphersNumber: searchForm.value.phoneNumber,
-        MorphersCountryCode: searchForm.value.countryCode
-      }
-    }
+    // Don't automatically show form - let the intermediate "No Record Found" screen show first
+    // User will click "Make a New Record" button to proceed to the form
   } finally {
     uiStore.setLoading(false)
   }
@@ -459,7 +618,30 @@ async function handleSearch() {
 
 function editMember() {
   if (searchResult.value.record) {
-    memberForm.value = { ...searchResult.value.record }
+    const record = searchResult.value.record
+    
+    // Format phone numbers by removing country code prefix for display
+    let morphersPhone = record.MorphersNumber || ''
+    const morphersCode = record.MorphersCountryCode || 'UG'
+    const morphersCallingCode = getCallingCodeByCountryCode(morphersCode)
+    if (morphersPhone.startsWith(morphersCallingCode)) {
+      morphersPhone = morphersPhone.slice(morphersCallingCode.length)
+    }
+    
+    let parentsPhone = record.ParentsNumber || ''
+    const parentsCode = record.ParentsCountryCode || 'UG'
+    const parentsCallingCode = getCallingCodeByCountryCode(parentsCode)
+    if (parentsPhone.startsWith(parentsCallingCode)) {
+      parentsPhone = parentsPhone.slice(parentsCallingCode.length)
+    }
+    
+    // Set member form with formatted phone numbers
+    memberForm.value = {
+      ...record,
+      MorphersNumber: morphersPhone,
+      ParentsNumber: parentsPhone
+    }
+
     currentDocId.value = searchResult.value.docId
     editMode.value = true
     showForm.value = true
@@ -518,7 +700,18 @@ function cancelEdit() {
 async function handleSave() {
   uiStore.setLoading(true)
   try {
-    await membersStore.saveMember(memberForm.value as MemberData, currentDocId.value)
+    // Prepare member data with country codes added back to phone numbers
+    const memberData = {
+      ...memberForm.value,
+      MorphersNumber: memberForm.value.MorphersNumber 
+        ? getCallingCodeByCountryCode(memberForm.value.MorphersCountryCode || 'UG') + memberForm.value.MorphersNumber
+        : '',
+      ParentsNumber: memberForm.value.ParentsNumber
+        ? getCallingCodeByCountryCode(memberForm.value.ParentsCountryCode || 'UG') + memberForm.value.ParentsNumber
+        : ''
+    }
+    
+    await membersStore.saveMember(memberData as MemberData, currentDocId.value)
     clearSearch()
     cancelEdit()
   } finally {
@@ -547,4 +740,6 @@ async function handleSignOut() {
 .fade-leave-from {
   opacity: 1;
 }
+
+/* (Use global .field-error styles for error glow to match PhoneInput) */
 </style>

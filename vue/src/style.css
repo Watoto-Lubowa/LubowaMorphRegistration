@@ -23,6 +23,7 @@
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     -webkit-overflow-scrolling: touch;
+    touch-action: manipulation; /* Prevents double-tap zoom */
   }
 }
 
@@ -53,6 +54,28 @@
   0% { transform: rotate(0deg); }
   100% { transform: rotate(360deg); }
 }
+
+/* Vue Transition for Section Changes - 0.3s smooth transitions */
+.section-fade-enter-active {
+  transition: opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1), 
+              transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.section-fade-leave-active {
+  transition: opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1), 
+              transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.section-fade-enter-from {
+  opacity: 0;
+  transform: translateY(30px) scale(0.95);
+}
+
+.section-fade-leave-to {
+  opacity: 0;
+  transform: translateY(-30px) scale(0.95);
+}
+
 
 /* Section Transitions - Matching original scripts.js 400ms timing */
 @layer utilities {
@@ -105,8 +128,9 @@
   
   /* Field valid state */
   .field-valid {
-    border-color: #27ae60;
-    box-shadow: 0 0 20px rgba(39, 174, 96, 0.15);
+    border-color: #27ae60 !important;
+    box-shadow: 0 0 20px rgba(39, 174, 96, 0.15) !important;
+    background-color: rgba(39, 174, 96, 0.02) !important;
   }
   
   /* Enhanced shake animation for errors */
@@ -191,7 +215,7 @@
     color: #333;
     font-size: 1.3em;
     font-weight: 600;
-    text-align: center;
+    text-align: left;
   }
 
   /* Form Field Styles - Critical missing */
@@ -298,6 +322,55 @@
     outline: none;
   }
 
+  /* Record Message Styles - Extracted from original styles.css */
+  #recordMessage {
+    font-weight: bold;
+    margin: 20px 0;
+    padding: 15px;
+    border-radius: 8px;
+    text-align: center;
+    font-size: 1.1em;
+    transition: all 0.3s ease;
+    min-height: 20px;
+  }
+
+  #recordMessage:empty {
+    display: none;
+  }
+
+  /* Different message states */
+  #recordMessage.searching {
+    background: linear-gradient(135deg, #ffeaa7, #fab1a0);
+    color: #2d3436;
+    border: 2px solid #fdcb6e;
+    animation: pulse 1.5s infinite;
+  }
+
+  #recordMessage.found {
+    background: linear-gradient(135deg, #a8e6cf, #7fcdcd);
+    color: #00695c;
+    border: 2px solid #4caf50;
+  }
+
+  #recordMessage.confirmed {
+    background: linear-gradient(135deg, #e8f5e8, #c8e6c8);
+    color: #1b5e20;
+    border: 2px solid #2e7d32;
+  }
+
+  #recordMessage.new {
+    background: linear-gradient(135deg, #e1f5fe, #b3e5fc);
+    color: #01579b;
+    border: 2px solid #0288d1;
+  }
+
+  #recordMessage.error {
+    background: linear-gradient(135deg, #ffebee, #ffcdd2);
+    color: #c62828;
+    border: 2px solid #f44336;
+    animation: shake 0.5s ease-in-out;
+  }
+
   /* Radio Button Styles */
   .radio-group {
     display: flex;
@@ -340,12 +413,27 @@
 
   /* Button Container */
   .button-container {
-    margin-top: 40px;
     display: flex;
-    gap: 15px;
-    flex-wrap: wrap;
     justify-content: center;
+    margin-top: 40px;
   }
+
+  .button-container button {
+  padding: 16px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  border-radius: 15px;
+  font-size: 1em;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 8px 25px rgba(102, 126, 234, 0.3);
+  position: relative;
+  overflow: hidden;
+  max-width: 300px;
+}
+
 
   button {
     padding: 15px 30px;
@@ -403,6 +491,17 @@
     margin: 0 0 15px 0;
     color: #333;
     font-size: 1.6em;
+  }
+
+   h2 {
+    font-size: 2.0em;
+    margin-bottom: 21px;
+    padding-bottom: 20px;
+    line-height: 1.2;
+    text-align: center;
+    color: transparent;
+    background: linear-gradient(135deg, #667eea 0, #764ba2 100%);
+    background-clip: text;
   }
 
   .login-description {
@@ -544,7 +643,7 @@
   }
 
   .login-card .button-container button.loading .btn-loading::before {
-    content: '⏳';
+    content: '🔍';
     display: inline-block;
   }
 
@@ -817,9 +916,16 @@
     background: white;
   }
 
-  .form-field:invalid:not(:focus) {
+  /* Only show invalid styles on touched fields */
+  .form-field.field-touched:invalid:not(:focus) {
     border-color: #e74c3c;
     box-shadow: 0 0 20px rgba(231, 76, 60, 0.15);
+  }
+  
+  /* Prevent untouched invalid fields from showing red */
+  .form-field:invalid:not(.field-touched):not(:focus) {
+    border-color: #e1e5e9;
+    box-shadow: none;
   }
 
   .form-field:valid:not(:placeholder-shown) {
@@ -839,6 +945,7 @@
     margin: 0 0 15px 0;
     color: #1565c0;
     font-size: 1.1em;
+    font-weight: 700;
   }
 
   .attendance-input {
@@ -850,6 +957,17 @@
     padding: 15px;
     background: #f8f9fa;
     border-radius: 8px;
+  }
+
+  .attendance-input input[type="date"] {
+    padding: 5px, 5px;
+    border: 1px solid #1f86fd;
+    border-radius: 8px;
+    font-size: 1em;
+    text-align: center;
+    font-weight: 600;
+    transition: all 0.3s ease;
+    background: #fafafa;
   }
 
   .attendance-input label,
@@ -883,19 +1001,29 @@
     border: 1px solid #27ae60;
   }
 
+  .no-service {
+    font-weight: 700;
+    color: #e74c3c;
+    background: white;
+    padding: 4px 8px;
+    border-radius: 4px;
+    border: 1px solid #e74c3c;
+  }
+
   /* Editable Info Section */
   .editable-info {
-    background: linear-gradient(135deg, #f1f8e9, #e8f5e8);
-    border: 2px solid #4caf50;
+    background: #f0f8ff;
     border-radius: 10px;
+    border-left: 4px solid #1976d2;
     padding: 20px;
     margin: 20px 0;
   }
 
   .editable-info h4 {
     margin: 0 0 15px 0;
-    color: #2e7d32;
+    color: #1976d2;
     font-size: 1.1em;
+    font-weight: 700;
   }
 
   /* Step Indicator */
@@ -981,7 +1109,8 @@
     font-size: 0.95em;
     color: #666;
     margin-bottom: 20px;
-    text-align: center;
+    text-align: left;
+    font-style: italic;
   }
 
   /* Search Button Container */
@@ -1052,9 +1181,9 @@
   }
 
   .search-btn.loading .btn-loading::before {
-    content: '⏳';
+    content: '🔍';
     display: inline-block;
-    animation: spin 1s linear infinite;
+    animation: pulse 1s infinite;
   }
 
   /* Confirmation Section Styles */
@@ -1085,7 +1214,7 @@
   }
 
   .confirm-btn {
-    background: linear-gradient(135deg, #4caf50, #45a049);
+    background: linear-gradient(135deg, #5E5CE6, #8F55D7);
     color: white;
     box-shadow: 0 4px 15px rgba(76, 175, 80, 0.3);
   }
@@ -1096,7 +1225,7 @@
   }
 
   .deny-btn {
-    background: linear-gradient(135deg, #ff6b6b, #ee5a52);
+    background: linear-gradient(135deg, #E85AA9, #F76868);
     color: white;
     box-shadow: 0 4px 15px rgba(255, 107, 107, 0.3);
   }
@@ -1188,5 +1317,584 @@
   .create-new-btn:hover {
     transform: translateY(-2px);
     box-shadow: 0 6px 20px rgba(76, 175, 80, 0.4);
+  }
+}
+
+/* =====================================================================================
+ * MOBILE RESPONSIVENESS
+ * ===================================================================================== */
+
+/* Tablets and smaller desktops (768px and down) */
+@media (max-width: 768px) {
+  body {
+    padding: 15px;
+  }
+
+  .main-container {
+    padding: 25px 20px;
+    margin: 0 auto;
+  }
+
+  h2 {
+    font-size: 1.8em;
+    margin-bottom: 25px;
+  }
+
+  /* Step Indicator */
+  .step-indicator {
+    gap: 20px;
+    margin-bottom: 25px;
+  }
+
+  .step-number {
+    width: 40px;
+    height: 40px;
+    font-size: 1.1em;
+  }
+
+  .step-text {
+    font-size: 0.9em;
+  }
+
+  /* Instructions */
+  .instructions {
+    font-size: 0.95em;
+    padding: 12px 15px;
+  }
+
+  /* Record Message */
+  #recordMessage {
+    font-size: 0.95em;
+    padding: 12px 15px;
+  }
+
+  /* Form Sections */
+  .form-section {
+    padding: 25px 20px;
+  }
+
+  .form-section h3 {
+    font-size: 1.4em;
+  }
+
+  .section-description {
+    font-size: 0.9em;
+  }
+
+  /* Identity Display */
+  .identity-display {
+    padding: 20px;
+  }
+
+  .identity-info {
+    font-size: 0.95em;
+    padding: 10px;
+  }
+
+  /* Confirmation Buttons */
+  .confirmation-buttons {
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .confirm-btn,
+  .deny-btn,
+  .create-new-btn {
+    width: 100%;
+    min-width: auto;
+    padding: 14px 20px;
+    font-size: 1em;
+  }
+
+  /* No Record Section */
+  .no-record-options {
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .search-again-btn,
+  .create-new-btn {
+    width: 100%;
+    min-width: auto;
+    padding: 14px 20px;
+  }
+
+  /* Form Fields */
+  .field label {
+    font-size: 0.95em;
+  }
+
+  .field input[type="text"],
+  .field input[type="tel"],
+  .field input[type="date"],
+  .field select {
+    font-size: 16px; /* Prevents iOS zoom on focus */
+    padding: 12px 15px;
+  }
+
+  .field-help {
+    font-size: 0.85em;
+  }
+
+  /* Editable Info Sections */
+  .editable-info,
+  .locked-info {
+    padding: 20px 15px;
+  }
+
+  .editable-info h4,
+  .locked-info h4 {
+    font-size: 1.1em;
+  }
+
+  /* Service Detection */
+  .service-detection {
+    flex-wrap: wrap;
+    padding: 10px 12px;
+  }
+
+  .service-label,
+  .current-service,
+  .no-service {
+    font-size: 0.9em;
+  }
+
+  /* Attendance Section */
+  .attendance-section {
+    padding: 20px 15px;
+  }
+
+  .attendance-input {
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  /* Buttons */
+  .button-container {
+    margin-top: 25px;
+  }
+
+  .button-container button,
+  .search-btn {
+    min-height: 48px; /* Touch-friendly */
+    padding: 14px 25px;
+    font-size: 1em;
+  }
+
+  /* Toast Notifications */
+  .toast-container {
+    padding: 10px;
+    max-width: 95%;
+    right: 0;
+    left: 0;
+    margin: 0 auto;
+  }
+
+  .toast {
+    padding: 14px 16px;
+    font-size: 0.9em;
+  }
+}
+
+/* Mobile Phones (480px and down) */
+@media (max-width: 480px) {
+  body {
+    padding: 10px;
+  }
+
+  .main-container {
+    padding: 20px 15px;
+  }
+
+  h2 {
+    font-size: 1.5em;
+    margin-bottom: 20px;
+  }
+
+  /* Step Indicator */
+  .step-indicator {
+    gap: 15px;
+    margin-bottom: 20px;
+  }
+
+  .step-number {
+    width: 35px;
+    height: 35px;
+    font-size: 1em;
+  }
+
+  .step-text {
+    font-size: 0.85em;
+  }
+
+  /* Instructions */
+  .instructions {
+    font-size: 0.9em;
+    padding: 10px 12px;
+    margin-bottom: 15px;
+  }
+
+  /* Record Message */
+  #recordMessage {
+    font-size: 0.9em;
+    padding: 10px 12px;
+    margin: 15px 0;
+  }
+
+  /* Form Sections */
+  .form-section {
+    padding: 20px 15px;
+  }
+
+  .form-section h3 {
+    font-size: 1.2em;
+    margin-bottom: 15px;
+  }
+
+  .section-description {
+    font-size: 0.85em;
+  }
+
+  /* Identity Display */
+  .identity-display {
+    padding: 15px;
+  }
+
+  .identity-info {
+    font-size: 0.9em;
+    padding: 8px;
+    margin-bottom: 8px;
+  }
+
+  .identity-info strong {
+    font-size: 0.85em;
+  }
+
+  /* Confirmation Buttons */
+  .confirm-btn,
+  .deny-btn,
+  .create-new-btn {
+    padding: 12px 18px;
+    font-size: 0.95em;
+    min-height: 44px; /* Minimum touch target */
+  }
+
+  /* No Record Section */
+  .no-record-message {
+    padding: 0;
+  }
+
+  .no-record-message p {
+    font-size: 0.95em;
+  }
+
+  .search-details {
+    padding: 12px 15px;
+  }
+
+  .searched-info {
+    font-size: 0.9em;
+  }
+
+  .search-again-btn,
+  .create-new-btn {
+    padding: 12px 18px;
+    font-size: 0.95em;
+    min-height: 44px;
+  }
+
+  /* Form Fields */
+  .field {
+    margin-bottom: 18px;
+  }
+
+  .field label {
+    font-size: 0.9em;
+    margin-bottom: 6px;
+  }
+
+  .field input[type="text"],
+  .field input[type="tel"],
+  .field input[type="date"],
+  .field select {
+    font-size: 16px; /* Critical for iOS */
+    padding: 11px 14px;
+  }
+
+  .field-help {
+    font-size: 0.8em;
+    margin-top: 4px;
+  }
+
+  /* Radio Buttons */
+  .radio-group {
+    gap: 10px;
+  }
+
+  .radio-option {
+    padding: 10px 14px;
+    font-size: 0.9em;
+  }
+
+  /* Editable Info Sections */
+  .editable-info,
+  .locked-info {
+    padding: 15px 12px;
+    margin-bottom: 15px;
+  }
+
+  .editable-info h4,
+  .locked-info h4 {
+    font-size: 1em;
+    margin-bottom: 12px;
+  }
+
+  /* Service Detection */
+  .service-detection {
+    padding: 8px 10px;
+    gap: 6px;
+  }
+
+  .service-label {
+    font-size: 0.85em;
+  }
+
+  .current-service,
+  .no-service {
+    font-size: 0.85em;
+    padding: 3px 7px;
+  }
+
+  /* Attendance Section */
+  .attendance-section {
+    padding: 15px 12px;
+  }
+
+  .attendance-section h4 {
+    font-size: 1em;
+  }
+
+  .attendance-input label {
+    font-size: 0.85em;
+  }
+
+  /* Buttons */
+  .button-container {
+    margin-top: 20px;
+  }
+
+  .button-container button,
+  .search-btn {
+    min-height: 44px;
+    padding: 12px 20px;
+    font-size: 0.95em;
+  }
+
+  /* Search Button Container */
+  .search-button-container {
+    margin-top: 20px;
+  }
+
+  /* Toast Notifications */
+  .toast-container {
+    padding: 8px;
+    max-width: 100%;
+  }
+
+  .toast {
+    padding: 12px 14px;
+    font-size: 0.85em;
+  }
+}
+
+/* Ultra-Small Devices (360px and down) */
+@media (max-width: 360px) {
+  body {
+    padding: 8px;
+  }
+
+  .main-container {
+    padding: 15px 10px;
+  }
+
+  h2 {
+    font-size: 1.3em;
+    margin-bottom: 15px;
+  }
+
+  /* Step Indicator */
+  .step-indicator {
+    gap: 12px;
+    margin-bottom: 15px;
+  }
+
+  .step-number {
+    width: 32px;
+    height: 32px;
+    font-size: 0.95em;
+  }
+
+  .step-text {
+    font-size: 0.8em;
+  }
+
+  /* Instructions */
+  .instructions {
+    font-size: 0.85em;
+    padding: 8px 10px;
+    margin-bottom: 12px;
+  }
+
+  /* Record Message */
+  #recordMessage {
+    font-size: 0.85em;
+    padding: 8px 10px;
+    margin: 12px 0;
+  }
+
+  /* Form Sections */
+  .form-section {
+    padding: 15px 10px;
+  }
+
+  .form-section h3 {
+    font-size: 1.1em;
+    margin-bottom: 12px;
+  }
+
+  .section-description {
+    font-size: 0.8em;
+  }
+
+  /* Identity Display */
+  .identity-display {
+    padding: 12px;
+  }
+
+  .identity-info {
+    font-size: 0.85em;
+    padding: 6px;
+    margin-bottom: 6px;
+  }
+
+  .identity-info strong {
+    font-size: 0.8em;
+  }
+
+  /* Confirmation Text */
+  .confirmation-text {
+    font-size: 0.9em;
+  }
+
+  /* Buttons */
+  .confirm-btn,
+  .deny-btn,
+  .create-new-btn,
+  .search-again-btn {
+    padding: 11px 16px;
+    font-size: 0.9em;
+    min-height: 44px;
+  }
+
+  /* No Record Section */
+  .no-record-message p {
+    font-size: 0.9em;
+  }
+
+  .search-details {
+    padding: 10px 12px;
+  }
+
+  .searched-info {
+    font-size: 0.85em;
+  }
+
+  /* Form Fields */
+  .field {
+    margin-bottom: 15px;
+  }
+
+  .field label {
+    font-size: 0.85em;
+    margin-bottom: 5px;
+  }
+
+  .field input[type="text"],
+  .field input[type="tel"],
+  .field input[type="date"],
+  .field select {
+    font-size: 16px; /* Still 16px for iOS */
+    padding: 10px 12px;
+  }
+
+  .field-help {
+    font-size: 0.75em;
+    margin-top: 3px;
+  }
+
+  /* Radio Buttons */
+  .radio-option {
+    padding: 8px 12px;
+    font-size: 0.85em;
+  }
+
+  /* Editable Info Sections */
+  .editable-info,
+  .locked-info {
+    padding: 12px 10px;
+    margin-bottom: 12px;
+  }
+
+  .editable-info h4,
+  .locked-info h4 {
+    font-size: 0.95em;
+    margin-bottom: 10px;
+  }
+
+  /* Service Detection */
+  .service-detection {
+    padding: 6px 8px;
+    gap: 5px;
+  }
+
+  .service-label {
+    font-size: 0.8em;
+  }
+
+  .current-service,
+  .no-service {
+    font-size: 0.8em;
+    padding: 2px 6px;
+  }
+
+  /* Attendance Section */
+  .attendance-section {
+    padding: 12px 10px;
+  }
+
+  .attendance-section h4 {
+    font-size: 0.95em;
+  }
+
+  .attendance-input label {
+    font-size: 0.8em;
+  }
+
+  /* Button Container */
+  .button-container {
+    margin-top: 15px;
+  }
+
+  .button-container button,
+  .search-btn {
+    min-height: 44px;
+    padding: 11px 18px;
+    font-size: 0.9em;
+  }
+
+  /* Toast Notifications */
+  .toast {
+    padding: 10px 12px;
+    font-size: 0.8em;
   }
 }
