@@ -1,7 +1,4 @@
 <template>
-  <!-- Toast Container -->
-  <div id="toast-container" class="toast-container"></div>
-
   <div class="admin-container">
     <div class="admin-header">
       <h1>🔐 Admin Panel</h1>
@@ -193,7 +190,7 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref, nextTick } from 'vue'
+import { onMounted, ref, nextTick, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useAuthStore } from '@/stores/auth'
 import { useMembersStore } from '@/stores/members'
@@ -208,7 +205,6 @@ const uiStore = useUIStore()
 
 const { isAuthenticated, isAdmin } = storeToRefs(authStore)
 const { members } = storeToRefs(membersStore)
-const { isLoading } = storeToRefs(uiStore)
 
 // Authentication state
 const adminEmail = ref('')
@@ -246,6 +242,39 @@ onMounted(async () => {
     // Load initial data
     await updateServiceAttendanceCount()
     await nextTick()
+    await createServiceDistributionChart()
+  }
+})
+
+// Watch for authentication changes and load dashboard when user signs in
+watch([isAuthenticated, isAdmin], async ([authenticated, admin]) => {
+  if (authenticated && admin) {
+    await loadDashboardStats()
+    await loadForceUpdateFlowState()
+    
+    // Set default dates if not already set
+    if (!attendanceDate.value || !serviceDistributionDate.value) {
+      const today = new Date().toISOString().split('T')[0]
+      attendanceDate.value = today
+      serviceDistributionDate.value = today
+    }
+    
+    // Load initial data
+    await updateServiceAttendanceCount()
+    await nextTick()
+    await createServiceDistributionChart()
+  }
+})
+
+// Watch for date changes and update data
+watch(attendanceDate, async (newDate) => {
+  if (newDate && isAuthenticated.value && isAdmin.value) {
+    await updateServiceAttendanceCount()
+  }
+})
+
+watch(serviceDistributionDate, async (newDate) => {
+  if (newDate && isAuthenticated.value && isAdmin.value) {
     await createServiceDistributionChart()
   }
 })
@@ -347,6 +376,7 @@ async function loadDashboardStats() {
   try {
     await membersStore.getAllMembers()
     totalRecords.value = members.value.length.toString()
+    console.log('📋 Admin loaded total records:', totalRecords.value)
   } catch (error) {
     console.error('Failed to load dashboard stats:', error)
     uiStore.error('Failed to load dashboard statistics')
@@ -357,13 +387,59 @@ async function updateServiceAttendanceCount() {
   if (!attendanceDate.value) return
   
   try {
-    // This would need to be implemented in the members store
-    // For now, showing placeholder
-    serviceAttendance.value = 'N/A'
-    showToast('Service attendance data not yet implemented', 'info')
+    const [year, month, day] = attendanceDate.value.split('-')
+    const dateKey = `${day}_${month}_${year}`
+    
+    console.log('📅 Fetching attendance for:', attendanceDate.value, '(key:', dateKey, ')')
+    
+    const { getFirebaseInstances, collection, query, where, getDocs } = await import('@/utils/firebase')
+    const { db } = getFirebaseInstances()
+    
+    if (!db) {
+      throw new Error('Database not initialized')
+    }
+    
+    // Query only documents that have attendance for the specific date
+    const morphersCollection = collection(db, 'morphers')
+    const attendanceQuery = query(morphersCollection, where(`attendance.${dateKey}`, '>', ''))
+    const snapshot = await getDocs(attendanceQuery)
+    
+    const attendanceCount = snapshot.size
+    serviceAttendance.value = attendanceCount.toString()
+    
+    console.log('✅ Attendance count:', attendanceCount)
   } catch (error) {
     console.error('Failed to update service attendance:', error)
-    serviceAttendance.value = 'Error'
+    
+    // Fallback: get all docs and count manually if the query fails
+    try {
+      const { getFirebaseInstances, collection, getDocs } = await import('@/utils/firebase')
+      const { db } = getFirebaseInstances()
+      
+      if (!db) {
+        serviceAttendance.value = 'Error'
+        return
+      }
+      
+      const morphersCollection = collection(db, 'morphers')
+      const allSnapshot = await getDocs(morphersCollection)
+      const [year, month, day] = attendanceDate.value.split('-')
+      const dateKey = `${day}_${month}_${year}`
+      
+      let attendanceCount = 0
+      allSnapshot.docs.forEach(doc => {
+        const data = doc.data()
+        if (data.attendance && data.attendance[dateKey]) {
+          attendanceCount++
+        }
+      })
+      
+      serviceAttendance.value = attendanceCount.toString()
+      console.log('✅ Attendance count (fallback):', attendanceCount)
+    } catch (fallbackError) {
+      console.error('Fallback query also failed:', fallbackError)
+      serviceAttendance.value = 'Error'
+    }
   }
 }
 
@@ -371,28 +447,69 @@ async function createServiceDistributionChart() {
   if (!serviceDistributionDate.value || !attendanceChart.value) return
   
   try {
+    const [year, month, day] = serviceDistributionDate.value.split('-')
+    const dateKey = `${day}_${month}_${year}`
+    
+    console.log('📊 Creating chart for:', serviceDistributionDate.value, '(key:', dateKey, ')')
+    
+    // Get all records with attendance for the specific date
+    const { getFirebaseInstances, collection, getDocs } = await import('@/utils/firebase')
+    const { db } = getFirebaseInstances()
+    
+    if (!db) {
+      throw new Error('Database not initialized')
+    }
+    
+    const morphersCollection = collection(db, 'morphers')
+    const snapshot = await getDocs(morphersCollection)
+    const serviceDistribution: Record<string, number> = {}
+    
+    snapshot.docs.forEach(doc => {
+      const data = doc.data()
+      if (data.attendance && data.attendance[dateKey]) {
+        const service = data.attendance[dateKey]
+        const serviceName = getServiceName(service)
+        serviceDistribution[serviceName] = (serviceDistribution[serviceName] || 0) + 1
+      }
+    })
+    
+    console.log('📊 Service distribution:', serviceDistribution)
+    
     // Destroy existing chart
     if (chartInstance) {
       chartInstance.destroy()
     }
     
-    // Sample data - this would come from Firestore in real implementation
     const ctx = attendanceChart.value.getContext('2d')
     if (!ctx) return
     
+    const labels = Object.keys(serviceDistribution)
+    const data = Object.values(serviceDistribution)
+    
+    // If no data for the selected date, show empty chart
+    if (labels.length === 0) {
+      labels.push('No Attendance Data')
+      data.push(0)
+    }
+    
     chartInstance = new Chart(ctx, {
-      type: 'doughnut',
+      type: 'pie',
       data: {
-        labels: ['First Service', 'Second Service', 'Third Service'],
+        labels: labels,
         datasets: [{
-          data: [45, 35, 20],
+          data: data,
           backgroundColor: [
-            '#667eea',
-            '#764ba2',
-            '#f093fb'
+            '#667eea',  // First Service
+            '#764ba2',  // Second Service  
+            '#f093fb',  // Third Service
+            '#f5576c',  // Fourth Service (if needed)
+            '#4facfe',  // Fifth Service (if needed)
+            '#00f2fe',  // Additional services
+            '#43e97b',
+            '#38f9d7'
           ],
           borderWidth: 2,
-          borderColor: '#fff'
+          borderColor: '#ffffff'
         }]
       },
       options: {
@@ -400,14 +517,72 @@ async function createServiceDistributionChart() {
         maintainAspectRatio: false,
         plugins: {
           legend: {
-            position: 'bottom'
+            position: 'bottom',
+            labels: {
+              padding: 20,
+              usePointStyle: true,
+              font: {
+                size: 12
+              }
+            }
+          },
+          tooltip: {
+            callbacks: {
+              label: function(context) {
+                const label = context.label || ''
+                const value = context.parsed
+                if (value === 0) {
+                  return 'No attendance recorded for this date'
+                }
+                const total = context.dataset.data.reduce((a: number, b: number) => a + b, 0)
+                const percentage = ((value / total) * 100).toFixed(1)
+                return `${label}: ${value} attendees (${percentage}%)`
+              }
+            }
+          },
+          title: {
+            display: true,
+            text: `Service Distribution - ${formatDate(serviceDistributionDate.value)}`,
+            font: {
+              size: 14
+            },
+            padding: {
+              bottom: 20
+            }
           }
         }
       }
     })
+    
+    console.log('✅ Chart created successfully')
   } catch (error) {
     console.error('Failed to create chart:', error)
   }
+}
+
+// Helper function to get service name from service number
+function getServiceName(serviceNumber: string): string {
+  const serviceNames: Record<string, string> = {
+    '1': 'First Service',
+    '2': 'Second Service', 
+    '3': 'Third Service',
+    '4': 'Fourth Service',
+    '5': 'Fifth Service'
+  }
+  
+  return serviceNames[serviceNumber] || `Service ${serviceNumber}`
+}
+
+// Helper function to format date for display
+function formatDate(dateString: string): string {
+  const [year, month, day] = dateString.split('-')
+  const date = new Date(parseInt(year), parseInt(month) - 1, parseInt(day))
+  return date.toLocaleDateString('en-US', {
+    weekday: 'long',
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric'
+  })
 }
 
 // Force update flow functions
@@ -449,11 +624,11 @@ async function toggleForceUpdateFlow() {
       ? 'Force Info Update Flow is now ON - users must update info on every check-in'
       : 'Force Info Update Flow is now OFF - users can quickly check-in without updating info'
     
-    showToast(statusText, 'success')
+    uiStore.success(statusText)
     console.log('📋 Admin updated forceUpdateFlow to:', forceUpdateFlow.value)
   } catch (error) {
     console.error('Failed to toggle force update flow:', error)
-    showToast('Failed to update force update flow setting', 'error')
+    uiStore.error('Failed to update force update flow setting')
     
     // Revert the toggle on error
     forceUpdateFlow.value = !forceUpdateFlow.value
@@ -463,7 +638,7 @@ async function toggleForceUpdateFlow() {
 // Data management functions
 async function downloadAll() {
   if (!isAuthenticated.value || !isAdmin.value) {
-    showToast('Access denied: Admin privileges required', 'error')
+    uiStore.error('Access denied: Admin privileges required')
     return
   }
   
@@ -473,7 +648,7 @@ async function downloadAll() {
     await membersStore.getAllMembers()
     
     if (members.value.length === 0) {
-      showToast('No data to download', 'info')
+      uiStore.info('No data to download')
       return
     }
     
@@ -500,10 +675,10 @@ async function downloadAll() {
     link.click()
     document.body.removeChild(link)
     
-    showToast(`Downloaded ${members.value.length} records successfully`, 'success')
+    uiStore.success(`Downloaded ${members.value.length} records successfully`)
   } catch (error) {
     console.error('Download error:', error)
-    showToast('Failed to download data', 'error')
+    uiStore.error('Failed to download data')
   } finally {
     isDownloading.value = false
   }
@@ -516,7 +691,7 @@ async function handleCSVFileInput(event: Event) {
   if (!file) return
   
   if (!file.name.toLowerCase().endsWith('.csv')) {
-    showToast('Please select a CSV file', 'error')
+    uiStore.error('Please select a CSV file')
     return
   }
   
@@ -528,23 +703,24 @@ async function handleCSVFileInput(event: Event) {
     }
   } catch (error) {
     console.error('Upload error:', error)
-    showToast('Failed to upload CSV file', 'error')
+    uiStore.error('Failed to upload CSV file')
   }
 }
 
-async function uploadCSV(file: File) {
+async function uploadCSV(_file: File) {
   if (!isAuthenticated.value || !isAdmin.value) {
-    showToast('Access denied: Admin privileges required', 'error')
+    uiStore.error('Access denied: Admin privileges required')
     return
   }
   
-  showToast('CSV upload functionality not yet implemented', 'info')
+  uiStore.info('CSV upload functionality not yet implemented')
   // Implementation would go here
+  // TODO: Use _file parameter when implementing CSV upload
 }
 
 async function clearAllData() {
   if (!isAuthenticated.value || !isAdmin.value) {
-    showToast('Access denied: Admin privileges required', 'error')
+    uiStore.error('Access denied: Admin privileges required')
     return
   }
   
@@ -556,83 +732,20 @@ async function clearAllData() {
   
   const finalConfirm = prompt('Type "DELETE" to confirm deletion of all data:')
   if (finalConfirm !== 'DELETE') {
-    showToast('Data deletion cancelled', 'info')
+    uiStore.info('Data deletion cancelled')
     return
   }
   
   try {
     // This would need to be implemented in the members store
-    showToast('Clear all data functionality not yet implemented', 'info')
+    uiStore.info('Clear all data functionality not yet implemented')
   } catch (error) {
     console.error('Clear data error:', error)
-    showToast('Failed to clear data', 'error')
+    uiStore.error('Failed to clear data')
   }
 }
 
-// Toast notification system (matching admin.js)
-function showToast(message: string, type: 'info' | 'success' | 'error' | 'warning' = 'info', duration = 5000) {
-  const container = document.getElementById('toast-container')
-  if (!container) return
-  
-  const toast = document.createElement('div')
-  toast.className = `toast ${type}`
-  
-  const icons = {
-    success: '✅',
-    error: '❌', 
-    warning: '⚠️',
-    info: 'ℹ️'
-  }
-  
-  const icon = icons[type] || icons.info
-  
-  const toastContent = document.createElement('div')
-  toastContent.className = 'toast-content'
-  
-  const iconSpan = document.createElement('span')
-  iconSpan.className = 'toast-icon'
-  iconSpan.textContent = icon
-  
-  const messageSpan = document.createElement('span')
-  messageSpan.className = 'toast-message'
-  messageSpan.textContent = message
-  
-  const closeBtn = document.createElement('button')
-  closeBtn.className = 'toast-close'
-  closeBtn.textContent = '×'
-  closeBtn.onclick = () => removeToast(toast)
-  
-  const progressDiv = document.createElement('div')
-  progressDiv.className = 'toast-progress'
-  
-  toastContent.appendChild(iconSpan)
-  toastContent.appendChild(messageSpan)
-  toastContent.appendChild(closeBtn)
-  
-  toast.appendChild(toastContent)
-  toast.appendChild(progressDiv)
-  
-  container.appendChild(toast)
-  
-  setTimeout(() => {
-    toast.classList.add('show')
-  }, 100)
-  
-  setTimeout(() => {
-    removeToast(toast)
-  }, duration)
-}
-
-function removeToast(toast: HTMLElement) {
-  if (toast && toast.parentNode) {
-    toast.classList.remove('show')
-    setTimeout(() => {
-      if (toast.parentNode) {
-        toast.parentNode.removeChild(toast)
-      }
-    }, 300)
-  }
-}
+// No longer need manual toast functions - using UI store
 </script>
 
 <style scoped>

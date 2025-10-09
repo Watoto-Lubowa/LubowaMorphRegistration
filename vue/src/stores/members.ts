@@ -386,9 +386,7 @@ export const useMembersStore = defineStore('members', () => {
       currentAttendance.value = attendance
 
       // Save attendance without updating other member data
-      await saveMember(currentMember.value, currentMemberId.value)
-      
-      uiStore.success('Quick check-in completed successfully!')
+      await saveMember(currentMember.value, currentMemberId.value)     
       return true
     } catch (error: any) {
       console.error('Quick check-in error:', error)

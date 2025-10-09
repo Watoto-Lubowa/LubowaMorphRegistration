@@ -710,6 +710,7 @@ function clearSearch() {
   }
   showForm.value = false
   editMode.value = false
+  nameTouched.value = false // Reset name validation state
 }
 
 function searchAgain() {
@@ -861,7 +862,6 @@ async function handleQuickCheckIn() {
     
     // Clear search state and return to main screen
     clearSearch()
-    uiStore.success('Quick check-in completed successfully!')
   } catch (error) {
     console.error('Quick check-in failed:', error)
     uiStore.error('Failed to complete quick check-in')

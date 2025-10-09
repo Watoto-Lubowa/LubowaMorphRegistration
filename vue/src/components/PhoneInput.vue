@@ -6,13 +6,12 @@
       <span v-if="required" class="required" style="color: #e74c3c; margin-left: 2px;">*</span>
     </label>
     
-    <div style="display: flex; gap: 10px;">
+    <div class="phone-input-container">
       <!-- Country Code Selector -->
       <select
         v-model="selectedCountryCode"
         @change="handleCountryChange"
         :class="{ 'field-error': touched && hasError, 'field-valid': touched && isValid }"
-        style="width: 180px; padding: 15px 20px; border-radius: 10px; font-size: 1em; transition: all 0.3s ease; background: #fafafa; outline: none; color: #333;"
       >
         <option
           v-for="country in [...countries].sort((a, b) => a.name.localeCompare(b.name))"
@@ -34,7 +33,6 @@
         @blur="handleBlur"
         class="form-field"
         :class="{ 'field-error': touched && hasError, 'field-valid': touched && isValid, 'field-touched': touched }"
-        style="flex: 1;"
       />
     </div>
     
@@ -149,9 +147,22 @@ defineExpose({
 </script>
 
 <style scoped>
-/* Default border for select when no validation state */
+.phone-input-container {
+  display: flex;
+  gap: 10px;
+}
+
+/* Default styles for select */
 select {
-  border: 2px solid #e1e5e9 !important;
+  width: 180px;
+  padding: 15px 20px;
+  border: 2px solid #e1e5e9;
+  border-radius: 10px;
+  font-size: 1em;
+  transition: all 0.3s ease;
+  background: #fafafa;
+  outline: none;
+  color: #333;
 }
 
 select.field-error {
@@ -167,10 +178,11 @@ select.field-valid {
   background-color: rgba(39, 174, 96, 0.02) !important;
 }
 
-/* Default border for input when no validation state */
+/* Default styles for input */
 input[type="tel"] {
-  border: 2px solid #e1e5e9 !important;
+  flex: 1;
   padding: 15px 20px;
+  border: 2px solid #e1e5e9;
   border-radius: 10px;
   font-size: 1em;
   transition: all 0.3s ease;
