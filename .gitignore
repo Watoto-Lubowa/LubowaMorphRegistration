@@ -46,7 +46,14 @@ firebase-debug.log
 .firebase/
 
 # Local development
-config-local.js
+config.local.js
+config.local.ts
+
+# Firebase json files
+firebase.json
+firestore.indexes.json
+firestore.rules
+storage.rules
 
 # Python backend
 __pycache__/
