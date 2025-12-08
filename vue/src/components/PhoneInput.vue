@@ -1,7 +1,6 @@
 <template>
   <div class="field">
     <label :for="id" style="display: block; margin-bottom: 8px; font-weight: 600; color: #555; font-size: 0.95em; text-transform: uppercase; letter-spacing: 0.5px;">
-      <span>📱</span>
       <span>Phone Number</span>
       <span v-if="required" class="required" style="color: #e74c3c; margin-left: 2px;">*</span>
     </label>
