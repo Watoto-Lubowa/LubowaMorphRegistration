@@ -63,6 +63,7 @@
                 id="name" 
                 v-model="searchForm.firstName"
                 @blur="handleNameBlur"
+                @keydown.enter="focusPhoneInput"
                 :class="{ 
                   'field-error': nameTouched && !trimmedFirstName,
                   'field-valid': nameTouched && trimmedFirstName && trimmedFirstName.length >= 2
@@ -78,6 +79,7 @@
               v-model="searchForm.phoneNumber"
               :country-code="searchForm.countryCode"
               @update:countryCode="searchForm.countryCode = $event"
+              @enterPressed="handleSearch"
               placeholder="Enter phone number (e.g., 701234567)"
               required
               help-text="Use your number or one of your parents'. Don't start with 0!"
@@ -514,6 +516,14 @@ function handleNameBlur() {
   // mark as touched and trim the value for consistency
   nameTouched.value = true
   searchForm.value.firstName = searchForm.value.firstName.trim()
+}
+
+function focusPhoneInput() {
+  // Move to phone input when Enter is pressed on name field
+  const phoneInput = document.querySelector('#morphersNumber') as HTMLInputElement
+  if (phoneInput) {
+    phoneInput.focus()
+  }
 }
 
 function handleFullNameBlur() {

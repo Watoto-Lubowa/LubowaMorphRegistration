@@ -33,6 +33,7 @@
         :required="required"
         @input="handlePhoneInput"
         @blur="handleBlur"
+        @keydown.enter="handleEnter"
         class="form-field"
         :class="{ 'field-error': touched && hasError, 'field-valid': touched && isValid, 'field-touched': touched }"
       />
@@ -70,6 +71,7 @@ const emit = defineEmits<{
   'update:modelValue': [value: string]
   'update:countryCode': [code: string]
   'update:callingCode': [code: string]
+  'enterPressed': []
 }>()
 
 const countries = ref<Country[]>([])
@@ -133,12 +135,17 @@ function handleCountryChange() {
 }
 
 function handlePhoneInput() {
-  // Emit the clean value (without leading 0) for storage
+  // Keep the display value as-is (with leading 0 if user typed it)
+  // Only emit the clean value for storage/validation
   const cleanValue = getCleanPhoneNumber(phoneValue.value)
   emit('update:modelValue', cleanValue)
   hasError.value = false
   isValid.value = false
   errorMessage.value = ''
+}
+
+function handleEnter() {
+  emit('enterPressed')
 }
 
 function handleBlur() {
@@ -170,7 +177,11 @@ function validatePhoneNumber() {
 }
 
 watch(() => props.modelValue, (newVal) => {
-  phoneValue.value = newVal || ''
+  // Only update if it's a different clean value (avoid overwriting user's typing with 0)
+  const currentClean = getCleanPhoneNumber(phoneValue.value)
+  if (currentClean !== (newVal || '')) {
+    phoneValue.value = newVal || ''
+  }
 })
 
 watch(() => props.countryCode, (newVal) => {
@@ -186,15 +197,14 @@ defineExpose({
 .phone-input-container {
   display: flex;
   gap: 8px;
+  width: 100%;
 }
 
-/* Default styles for select */
+/* Default styles for select - 35% width */
 select {
-  width: auto;
-  min-width: 85px;
-  max-width: 95px;
-  flex-shrink: 0;
-  padding: 15px 8px;
+  flex: 0 0 35%;
+  min-width: 0;
+  padding: 15px 12px;
   border: 2px solid #e1e5e9;
   border-radius: 10px;
   font-size: 0.9em;
@@ -222,9 +232,10 @@ select.field-valid {
   background-color: rgba(39, 174, 96, 0.02) !important;
 }
 
-/* Default styles for input */
+/* Default styles for input - 65% width */
 input[type="tel"] {
   flex: 1;
+  min-width: 0;
   padding: 15px 20px;
   border: 2px solid #e1e5e9;
   border-radius: 10px;
