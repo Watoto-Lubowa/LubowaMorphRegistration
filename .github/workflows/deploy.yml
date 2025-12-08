@@ -61,16 +61,16 @@ jobs:
 
       - name: Minify HTML files and update references
         run: |
-          # Update HTML files to use minified resources
-          sed -i 's|src/scripts/scripts\.js|scripts.min.js|g' *.html
-          sed -i 's|src/scripts/admin\.js|admin.min.js|g' *.html
-          sed -i 's|src/scripts/phone-dropdown\.js|phone-dropdown.min.js|g' *.html
-          sed -i 's|config/config\.js|config.min.js|g' *.html
-          sed -i 's|src/styles/styles\.css|styles.min.css|g' *.html
-          sed -i 's|src/styles/admin-styles\.css|admin-styles.min.css|g' *.html
+          # Update HTML files to use minified resources (only root level HTML files)
+          sed -i 's|src/scripts/scripts\.js|scripts.min.js|g' index.html admin.html
+          sed -i 's|src/scripts/admin\.js|admin.min.js|g' index.html admin.html
+          sed -i 's|src/scripts/phone-dropdown\.js|phone-dropdown.min.js|g' index.html admin.html
+          sed -i 's|config/config\.js|config.min.js|g' index.html admin.html
+          sed -i 's|src/styles/styles\.css|styles.min.css|g' index.html admin.html
+          sed -i 's|src/styles/admin-styles\.css|admin-styles.min.css|g' index.html admin.html
           
           # Handle dynamic script loading in admin.html
-          sed -i "s|script.src = 'src/scripts/admin.js'|script.src = 'admin.min.js'|g" *.html
+          sed -i "s|script.src = 'src/scripts/admin.js'|script.src = 'admin.min.js'|g" admin.html
           
           # Copy data files to root for production
           cp src/data/countries.json ./countries.json
@@ -78,25 +78,29 @@ jobs:
           # Update data file references in minified JS
           sed -i 's|\\./src/data/countries\\.json|./countries.json|g' phone-dropdown.min.js
           
-          # Minify HTML files in place
-          html-minifier-terser --input-dir . --output-dir . --file-ext html \
-            --remove-comments \
-            --remove-script-type-attributes \
-            --remove-tag-whitespace \
-            --use-short-doctype \
-            --collapse-whitespace \
-            --minify-css false \
-            --minify-js false \
-            --process-conditional-comments \
-            --sort-attributes \
-            --sort-class-name
+          # Minify only root level HTML files (exclude vue folder)
+          for file in *.html; do
+            if [ -f "$file" ]; then
+              html-minifier-terser "$file" -o "$file" \
+                --remove-comments \
+                --remove-script-type-attributes \
+                --remove-tag-whitespace \
+                --use-short-doctype \
+                --collapse-whitespace \
+                --minify-css false \
+                --minify-js false \
+                --process-conditional-comments \
+                --sort-attributes \
+                --sort-class-name
+            fi
+          done
             
       - name: Verify minified files exist
         run: |
           echo "Checking for minified files..."
           ls -la *.min.js *.min.css countries.json
-          echo "HTML references:"
-          grep -E "\.(min\.)?(js|css)" *.html
+          echo "HTML references (root level only):"
+          grep -E "\.(min\.)?(js|css)" index.html admin.html || true
           echo "Data file references in JS:"
           grep -E "countries\.json" *.min.js || echo "No countries.json references found"
       
