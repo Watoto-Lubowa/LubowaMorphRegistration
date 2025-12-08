@@ -1394,15 +1394,15 @@ async function showConfirmationSection(found) {
   
   foundRecord = found;
 
-    // Show "Create New Record" button only after 2 search attempts
+    // Show "Create New Record" button only after 1 search attempt
   const createNewBtn = document.getElementById("confirmCreateNewBtn");
   if (createNewBtn) {
-    if (searchCounter >= 2) {
+    if (searchCounter >= 1) {
       createNewBtn.style.display = "inline-block";
       console.log(`✅ Showing "Create New Record" button after ${searchCounter} search attempts`);
     } else {
       createNewBtn.style.display = "none";
-      console.log(`🔒 Hiding "Create New Record" button - only ${searchCounter} of 2 required attempts`);
+      console.log(`🔒 Hiding "Create New Record" button - only ${searchCounter} of 1 required attempts`);
     }
   }
   
@@ -1541,18 +1541,18 @@ function showNoRecordSection() {
   const noRecordSection = document.getElementById("noRecordSection");
   noRecordSection.classList.remove("hidden");
   
-  // Show "Create New Record" button only after 2 search attempts
+  // Show "Create New Record" button only after 1 search attempt
   const createNewBtn = document.getElementById("createNewBtn");
   const noteSpan = document.getElementById("note");
   if (createNewBtn) {
-    if (searchCounter >= 2) {
+    if (searchCounter >= 1) {
       createNewBtn.style.display = "inline-block";
       noteSpan.style.display = "inline";
       console.log(`✅ Showing "Create New Record" button after ${searchCounter} search attempts`);
     } else {
       createNewBtn.style.display = "none";
       noteSpan.style.display = "none";
-      console.log(`🔒 Hiding "Create New Record" button - only ${searchCounter} of 2 required attempts`);
+      console.log(`🔒 Hiding "Create New Record" button - only ${searchCounter} of 1 required attempts`);
     }
   }
   
