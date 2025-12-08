@@ -3,7 +3,10 @@
   <div class="login-section">
     <div class="login-container">
       <div class="login-header">
-        <h1>Welcome</h1>
+        <h1 style="display: flex; align-items: center; justify-content: center; gap: 0.5rem;">
+          <img src="/watoto.svg" alt="Watoto Logo" style="height: 1.2em; width: auto; filter: brightness(0) invert(1);">
+          <span>Welcome</span>
+        </h1>
         <p class="login-subtitle">Lubowa Morph Registration System</p>
       </div>
       
