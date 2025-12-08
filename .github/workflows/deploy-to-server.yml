@@ -38,18 +38,6 @@ jobs:
           echo "✅ Build completed"
           ls -la vue/dist/
 
-      # Create remote directory first
-      - name: Create Remote Directory
-        uses: appleboy/ssh-action@v1.0.0
-        with:
-          host: ${{ secrets.FTP_SERVER }}
-          username: ${{ secrets.FTP_USERNAME }}
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
-          port: ${{ secrets.FTP_PORT }}
-          script: |
-            mkdir -p /var/www/vue
-            chmod 755 /var/www/vue
-            
       # Deploy to server via SFTP (recommended for secure connections)
       - name: Deploy to Server via SFTP
         uses: wlixcc/SFTP-Deploy-Action@v1.2.4
