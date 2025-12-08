@@ -107,7 +107,7 @@ jobs:
       - name: Build Vue App
         run: |
           cd vue
-          npm ci
+          npm install
           # Create .env file with secrets for Vue build
           echo "VITE_FIREBASE_API_KEY=${{ secrets.FIREBASE_API_KEY }}" >> .env
           echo "VITE_FIREBASE_AUTH_DOMAIN=${{ secrets.FIREBASE_AUTH_DOMAIN }}" >> .env

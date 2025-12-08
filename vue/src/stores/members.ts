@@ -336,7 +336,6 @@ export const useMembersStore = defineStore('members', () => {
         return false
       }
 
-      const configDocRef = doc(db, 'config', 'appSettings')
       const configSnapshot = await getDocs(query(collection(db, 'config')))
       
       if (configSnapshot.empty) {
