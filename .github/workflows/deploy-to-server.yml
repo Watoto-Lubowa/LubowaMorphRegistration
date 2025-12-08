@@ -47,7 +47,7 @@ jobs:
           port: ${{ secrets.FTP_PORT }}
           ssh_private_key: ${{ secrets.SSH_PRIVATE_KEY }}
           local_path: './vue/dist/*'
-          remote_path: '/var/www/vue/'
+          remote_path: '${{ secrets.FTP_REMOTE_PATH }}'
           sftp_only: true
           
       # Alternative: Deploy via FTP (uncomment if you prefer FTP over SFTP)
