@@ -151,8 +151,9 @@ jobs:
 
       - name: Copy Vue app to _site/vue
         run: |
-          mkdir -p _site/vue
-          cp -r vue-app-build/* _site/vue/
+          sudo mkdir -p _site/vue
+          sudo cp -r vue-app-build/* _site/vue/
+          sudo chown -R $(whoami):$(whoami) _site/vue
           echo "Vue app contents:"
           ls -la _site/vue/
       
