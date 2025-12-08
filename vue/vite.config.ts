@@ -6,10 +6,9 @@ import path from 'path'
 export default defineConfig({
   plugins: [vue()],
   // Base URL - can be overridden via --base flag or VITE_BASE_URL env var
-  // Default: /vue/ for GitHub Pages
-  // For root deployment: use '/'
-  // For subdomain: use '/'
-  base: process.env.VITE_BASE_URL || '/vue/',
+  // Default: / for root deployment
+  // For subdirectory: use '/subdirectory/'
+  base: process.env.VITE_BASE_URL || '/',
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src')
