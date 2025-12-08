@@ -1,21 +1,12 @@
-name: Deploy Vue App to GitHub Pages
+name: Deploy Vue App to Server
 
 on:
   push:
     branches: [ main-vue ]
   workflow_dispatch:
 
-permissions:
-  contents: read
-  pages: write
-  id-token: write
-
-concurrency:
-  group: "pages-vue"
-  cancel-in-progress: false
-
 jobs:
-  build:
+  build-and-deploy:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -25,9 +16,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-
-      - name: Setup Pages
-        uses: actions/configure-pages@v4
 
       # Build Vue app
       - name: Build Vue App
@@ -47,25 +35,35 @@ jobs:
           echo "VITE_AUTHORIZED_PHONE_NUMBERS=${{ secrets.AUTHORIZED_PHONE_NUMBERS }}" >> .env
           npm run build
           cd ..
+          echo "✅ Build completed"
+          ls -la vue/dist/
 
-      # Create deployment structure
-      - name: Prepare deployment
+      # Deploy to server via SFTP (recommended for secure connections)
+      - name: Deploy to Server via SFTP
+        uses: wlixcc/SFTP-Deploy-Action@v1.2.4
+        with:
+          username: ${{ secrets.FTP_USERNAME }}
+          server: ${{ secrets.FTP_SERVER }}
+          port: ${{ secrets.FTP_PORT }}
+          ssh_private_key: ${{ secrets.SSH_PRIVATE_KEY }}
+          local_path: './vue/dist/*'
+          remote_path: ${{ secrets.FTP_REMOTE_PATH }}
+          sftp_only: true
+          
+      # Alternative: Deploy via FTP (uncomment if you prefer FTP over SFTP)
+      # - name: Deploy to Server via FTP
+      #   uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+      #   with:
+      #     server: ${{ secrets.FTP_SERVER }}
+      #     username: ${{ secrets.FTP_USERNAME }}
+      #     password: ${{ secrets.FTP_PASSWORD }}
+      #     local-dir: ./vue/dist/
+      #     server-dir: ${{ secrets.FTP_REMOTE_PATH }}
+      #     protocol: ftps
+      #     port: 21
+
+      - name: Deployment Complete
         run: |
-          mkdir -p _site/vue
-          cp -r vue/dist/* _site/vue/
-          echo "Vue app deployed to /vue path"
-          ls -la _site/vue/
-      
-      - name: Upload artifact
-        uses: actions/upload-pages-artifact@v3
-        
-  deploy:
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    runs-on: ubuntu-latest
-    needs: build
-    steps:
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
+          echo "🚀 Vue app deployed successfully!"
+          echo "Server: ${{ secrets.FTP_SERVER }}"
+          echo "Path: ${{ secrets.FTP_REMOTE_PATH }}"
