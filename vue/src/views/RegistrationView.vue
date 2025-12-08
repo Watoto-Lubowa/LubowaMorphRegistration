@@ -1,12 +1,12 @@
 <template>
-  <div class="min-h-screen">
+  <div class="min-h-screen flex items-center justify-center py-8">
     <!-- Login Section -->
     <div v-if="!isAuthenticated">
       <LoginForm @success="handleLoginSuccess" />
     </div>
 
     <!-- Registration Form -->
-    <div v-else>
+    <div v-else class="w-full">
       <div class="main-container">
         <!-- Header matching original -->
         <h2>Lubowa Morph Registration</h2>
