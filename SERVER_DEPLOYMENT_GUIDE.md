@@ -35,14 +35,28 @@ Add the following secrets:
 
 ## How to Generate SSH Private Key (for SFTP)
 
-If you're using SFTP, you'll need to generate an SSH key pair:
+If you're using SFTP, you'll need to generate an SSH key pair **in PEM format**:
 
 ```bash
-# On your local machine
-ssh-keygen -t rsa -b 4096 -C "github-actions-deploy"
+# On your local machine - IMPORTANT: Use -m PEM flag
+ssh-keygen -t rsa -b 4096 -m PEM -C "github-actions-deploy"
 
 # Save as: ~/.ssh/github_deploy_key (or any name you prefer)
 # Don't set a passphrase (just press Enter)
+```
+
+**CRITICAL**: The `-m PEM` flag is required! The SFTP action doesn't support OpenSSH format keys.
+
+If you already have a key, convert it to PEM format:
+```bash
+ssh-keygen -p -m PEM -f ~/.ssh/github_deploy_key
+```
+
+Verify your key is in PEM format:
+```bash
+head -n 1 ~/.ssh/github_deploy_key
+# Should show: -----BEGIN RSA PRIVATE KEY-----
+# NOT: -----BEGIN OPENSSH PRIVATE KEY-----
 ```
 
 Then:
@@ -58,6 +72,11 @@ Then:
    cat ~/.ssh/github_deploy_key
    ```
    Copy the entire output including `-----BEGIN RSA PRIVATE KEY-----` and `-----END RSA PRIVATE KEY-----`
+   
+   **Important**: When pasting into GitHub Secrets:
+   - Include the full key with headers and footers
+   - Preserve all line breaks
+   - Don't add extra spaces or formatting
 
 ## Server Configuration
 
@@ -165,11 +184,99 @@ After deployment, check:
 
 ## Troubleshooting
 
-### Deployment fails with "Permission denied"
+### Deployment fails with "Load key: invalid format"
 
-- Verify SSH key is added to server's `~/.ssh/authorized_keys`
-- Check folder permissions on server (`chmod 755`)
-- Ensure FTP user has write permissions
+**This is the most common issue.** The SSH private key must be in PEM format:
+
+```bash
+# Check your key format
+head -n 1 ~/.ssh/github_deploy_key
+
+# If it shows "BEGIN OPENSSH PRIVATE KEY", convert to PEM:
+ssh-keygen -p -m PEM -f ~/.ssh/github_deploy_key
+# Press Enter when asked for passphrase (leave empty)
+
+# Verify conversion
+head -n 1 ~/.ssh/github_deploy_key
+# Should now show: -----BEGIN RSA PRIVATE KEY-----
+
+# Copy to GitHub Secret
+cat ~/.ssh/github_deploy_key
+```
+
+When pasting into GitHub Secrets:
+- Include the entire key with `-----BEGIN RSA PRIVATE KEY-----` and `-----END RSA PRIVATE KEY-----`
+- Preserve all line breaks (don't remove newlines)
+- Don't add extra spaces before/after
+
+### Deployment fails with "Permission denied (publickey,password)"
+
+- Verify the **public** key is in `~/.ssh/authorized_keys` on your server
+- Check server's SSH configuration allows key authentication:
+  ```bash
+  # On server, check /etc/ssh/sshd_config
+  PubkeyAuthentication yes
+  ```
+- Ensure correct ownership of authorized_keys:
+  ```bash
+  chmod 700 ~/.ssh
+  chmod 600 ~/.ssh/authorized_keys
+  ```
+- Test connection manually:
+  ```bash
+  ssh -i ~/.ssh/github_deploy_key username@server -p 22
+  ```
+
+### Deployment fails with "Permission denied" (file write)
+
+**First, verify the remote path exists and you have write permissions:**
+
+```bash
+# SSH to your server
+ssh -i ~/.ssh/github_deploy_key username@server -p 22
+
+# Check if directory exists and permissions
+ls -la /path/to/parent/
+ls -la /path/to/target/directory/
+
+# Create directory if needed
+mkdir -p /public_html/vue
+# Or for VPS: mkdir -p /var/www/html/vue
+
+# Set proper ownership (replace 'username' with your actual user)
+chown -R username:username /public_html/vue
+
+# Set proper permissions
+chmod 755 /public_html/vue
+
+# Verify you can write
+touch /public_html/vue/test.txt
+rm /public_html/vue/test.txt
+```
+
+**Common permission issues:**
+
+1. **Directory owned by root** - Change ownership to your FTP user
+2. **Parent directory not accessible** - Check all parent directories have execute permission (`chmod +x`)
+3. **SELinux blocking** (on VPS) - May need to adjust SELinux context:
+   ```bash
+   # Check SELinux status
+   sestatus
+   
+   # If enabled, set proper context
+   chcon -R -t httpd_sys_content_t /var/www/html/vue
+   ```
+
+4. **Disk quota exceeded** - Check available space:
+   ```bash
+   df -h
+   quota -s  # if quotas are enabled
+   ```
+
+**For cPanel/shared hosting:**
+- Use File Manager to create the directory
+- Right-click → Change Permissions → Set to 755
+- Ensure your FTP user owns the directory
 
 ### Vue app shows blank page
 
