@@ -1,7 +1,10 @@
 <template>
   <div class="admin-container">
     <div class="admin-header">
-      <h1>🔐 Admin Panel</h1>
+      <h1 style="display: flex; align-items: center; justify-content: center; gap: 0.5rem;">
+        <img src="/watoto.svg" alt="Watoto Logo" style="height: 1.2em; width: auto; filter: brightness(0) invert(1);">
+        <span>Admin Panel</span>
+      </h1>
       <p class="admin-subtitle">Lubowa Morph Registration System</p>
     </div>
 
@@ -159,7 +162,7 @@
             </button>
           </div>
 
-          <div class="action-card">
+          <!-- <div class="action-card">
             <div class="action-icon">📤</div>
             <h3>Upload Data</h3>
             <p>Import morphers records from CSV file</p>
@@ -173,16 +176,16 @@
                 ref="csvFileInput"
               >
             </label>
-          </div>
+          </div> -->
 
-          <div class="action-card">
+          <!-- <div class="action-card">
             <div class="action-icon">🧹</div>
             <h3>Clear All Data</h3>
             <p class="danger-text">Permanently delete all records</p>
             <button @click="clearAllData" class="action-btn danger">
               Clear All Data
             </button>
-          </div>
+          </div> -->
         </div>
       </div>
     </div>
@@ -645,37 +648,94 @@ async function downloadAll() {
   isDownloading.value = true
   
   try {
-    await membersStore.getAllMembers()
+    const { getFirebaseInstances } = await import('@/utils/firebase')
+    const { db } = getFirebaseInstances()
     
-    if (members.value.length === 0) {
-      uiStore.info('No data to download')
+    if (!db) {
+      throw new Error('Database not initialized')
+    }
+    
+    const { collection, getDocs, Timestamp } = await import('@/utils/firebase')
+    const morphersCollection = collection(db, 'morphers')
+    const snapshot = await getDocs(morphersCollection)
+    
+    if (snapshot.empty) {
+      uiStore.info('No records to download')
       return
     }
     
-    // Create CSV content
-    const headers = ['Name', 'MorphersNumber', 'CreatedAt', 'UpdatedAt']
-    const csvContent = [
-      headers.join(','),
-      ...members.value.map(member => [
-        `"${member.Name || ''}"`,
-        `"${member.MorphersNumber || ''}"`,
-        `"${member.createdAt || ''}"`,
-        `"${member.lastUpdated || ''}"`
-      ].join(','))
-    ].join('\n')
+    const data = snapshot.docs.map(doc => {
+      const record = doc.data()
+      const flatRecord: Record<string, any> = {}
+      
+      // Handle basic fields
+      Object.keys(record).forEach(key => {
+        if (key === 'attendance') {
+          // Flatten attendance object - convert each attendance date to a column
+          if (record.attendance && typeof record.attendance === 'object') {
+            Object.keys(record.attendance).forEach(date => {
+              flatRecord[`attendance_${date}`] = record.attendance[date]
+            })
+          }
+        } else if (record[key] && typeof record[key] === 'object') {
+          // Handle Firestore Timestamps and other objects
+          if (record[key].seconds !== undefined) {
+            // Firestore Timestamp
+            const timestamp = new Timestamp(record[key].seconds, record[key].nanoseconds || 0)
+            flatRecord[key] = timestamp.toDate().toISOString()
+          } else {
+            // Other objects - convert to string
+            flatRecord[key] = JSON.stringify(record[key])
+          }
+        } else {
+          // Simple values
+          flatRecord[key] = record[key] || ''
+        }
+      })
+      
+      return flatRecord
+    })
+    
+    if (data.length === 0) {
+      uiStore.info('No records to download')
+      return
+    }
+    
+    // Get all unique column headers from all records
+    const allHeaders = new Set<string>()
+    data.forEach(record => {
+      Object.keys(record).forEach(key => allHeaders.add(key))
+    })
+    
+    const headers = Array.from(allHeaders).sort()
+    const headerRow = headers.join(',') + '\n'
+    
+    const rows = data.map(record => {
+      return headers.map(header => {
+        const value = record[header] || ''
+        // Escape commas and quotes in CSV
+        if (typeof value === 'string' && (value.includes(',') || value.includes('"') || value.includes('\n'))) {
+          return '"' + value.replace(/"/g, '""') + '"'
+        }
+        return value
+      }).join(',')
+    }).join('\n')
+    
+    const csv = headerRow + rows
     
     // Download file
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
     const link = document.createElement('a')
     const url = URL.createObjectURL(blob)
     link.setAttribute('href', url)
-    link.setAttribute('download', `morphers_data_${new Date().toISOString().split('T')[0]}.csv`)
+    link.setAttribute('download', `morphers-data-${new Date().toISOString().split('T')[0]}.csv`)
     link.style.visibility = 'hidden'
     document.body.appendChild(link)
     link.click()
     document.body.removeChild(link)
+    URL.revokeObjectURL(url)
     
-    uiStore.success(`Downloaded ${members.value.length} records successfully`)
+    uiStore.success(`Downloaded ${data.length} records successfully`)
   } catch (error) {
     console.error('Download error:', error)
     uiStore.error('Failed to download data')
@@ -685,6 +745,7 @@ async function downloadAll() {
 }
 
 async function handleCSVFileInput(event: Event) {
+  
   const target = event.target as HTMLInputElement
   const file = target.files?.[0]
   

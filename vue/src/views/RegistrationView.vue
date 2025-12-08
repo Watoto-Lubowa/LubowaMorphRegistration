@@ -8,6 +8,15 @@
     <!-- Registration Form -->
     <div v-else class="w-full">
       <div class="main-container">
+        <!-- Logo -->
+        <div style="text-align: center; margin-bottom: 1rem;">
+          <img 
+            src="/watoto.svg" 
+            alt="Watoto Logo" 
+            style="height: 4rem; width: auto; margin: 0 auto; filter: invert(48%) sepia(79%) saturate(2476%) hue-rotate(228deg) brightness(94%) contrast(90%);"
+          >
+        </div>
+        
         <!-- Header matching original -->
         <h2>Lubowa Morph Registration</h2>
         
