@@ -102,12 +102,42 @@ jobs:
       
       - name: Setup Pages
         uses: actions/configure-pages@v4
-      
+
+      # Build Vue app and place in vue/ folder
+      - name: Build Vue App
+        run: |
+          cd vue
+          npm ci
+          # Create .env file with secrets for Vue build
+          echo "VITE_FIREBASE_API_KEY=${{ secrets.FIREBASE_API_KEY }}" >> .env
+          echo "VITE_FIREBASE_AUTH_DOMAIN=${{ secrets.FIREBASE_AUTH_DOMAIN }}" >> .env
+          echo "VITE_FIREBASE_PROJECT_ID=${{ secrets.FIREBASE_PROJECT_ID }}" >> .env
+          echo "VITE_FIREBASE_STORAGE_BUCKET=${{ secrets.FIREBASE_STORAGE_BUCKET }}" >> .env
+          echo "VITE_FIREBASE_MESSAGING_SENDER_ID=${{ secrets.FIREBASE_MESSAGING_SENDER_ID }}" >> .env
+          echo "VITE_FIREBASE_APP_ID=${{ secrets.FIREBASE_APP_ID }}" >> .env
+          echo "VITE_FIREBASE_MEASUREMENT_ID=${{ secrets.FIREBASE_MEASUREMENT_ID }}" >> .env
+          echo "VITE_AUTHORIZED_ADMIN_EMAILS=${{ secrets.AUTHORIZED_ADMIN_EMAILS }}" >> .env
+          echo "VITE_AUTHORIZED_USER_EMAILS=${{ secrets.AUTHORIZED_USER_EMAILS }}" >> .env
+          echo "VITE_AUTHORIZED_PHONE_NUMBERS=${{ secrets.AUTHORIZED_PHONE_NUMBERS }}" >> .env
+          npm run build
+          cd ..
+          # Move Vue build output to root vue/ folder for GitHub Pages
+          mkdir -p vue-deploy
+          cp -r vue/dist/* vue-deploy/
+          mv vue-deploy vue-app-build
+
       - name: Build with Jekyll
         uses: actions/jekyll-build-pages@v1
         with:
           source: ./
           destination: ./_site
+
+      - name: Copy Vue app to _site/vue
+        run: |
+          mkdir -p _site/vue
+          cp -r vue-app-build/* _site/vue/
+          echo "Vue app contents:"
+          ls -la _site/vue/
       
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3

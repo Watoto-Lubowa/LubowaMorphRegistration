@@ -12,13 +12,15 @@
         v-model="selectedCountryCode"
         @change="handleCountryChange"
         :class="{ 'field-error': touched && hasError, 'field-valid': touched && isValid }"
+        :title="selectedCountryName"
       >
         <option
           v-for="country in [...countries].sort((a, b) => a.name.localeCompare(b.name))"
           :key="country.code"
           :value="country.code"
+          :data-display="country.calling_code"
         >
-           {{ country.name }} ({{ country.calling_code }})
+          {{ country.calling_code }} - {{ country.name }}
         </option>
       </select>
       
@@ -41,7 +43,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, onMounted } from 'vue'
+import { ref, watch, onMounted, computed } from 'vue'
 import { loadCountriesData, getCountryByCode } from '@/utils/countries'
 import { validatePhone } from '@/utils/validation'
 import type { Country } from '@/types'
@@ -82,6 +84,42 @@ onMounted(() => {
   countries.value = loadCountriesData()
 })
 
+// Computed properties for displaying selected country info
+const selectedCallingCode = computed(() => {
+  const country = getCountryByCode(selectedCountryCode.value)
+  return country?.calling_code || '+256'
+})
+
+const selectedCountryName = computed(() => {
+  const country = getCountryByCode(selectedCountryCode.value)
+  return country?.name || 'Uganda'
+})
+
+// Get the clean phone number (without leading 0 or country code) for validation/storage
+function getCleanPhoneNumber(value: string): string {
+  if (!value) return ''
+  let clean = value.trim()
+  
+  // Remove leading 0 (common user input pattern)
+  if (clean.startsWith('0')) {
+    clean = clean.slice(1)
+  }
+  // Also handle if they accidentally type the country code
+  else if (clean.startsWith(selectedCountryCode.value)) {
+    clean = clean.slice(selectedCountryCode.value.length)
+  }
+  // Handle if they type the calling code (e.g., +256)
+  else if (clean.startsWith(selectedCallingCode.value)) {
+    clean = clean.slice(selectedCallingCode.value.length)
+  }
+  // Handle if they type calling code without + (e.g., 256)
+  else if (selectedCallingCode.value.startsWith('+') && clean.startsWith(selectedCallingCode.value.slice(1))) {
+    clean = clean.slice(selectedCallingCode.value.length - 1)
+  }
+  
+  return clean
+}
+
 function handleCountryChange() {
   emit('update:countryCode', selectedCountryCode.value)
   const country = getCountryByCode(selectedCountryCode.value)
@@ -95,7 +133,9 @@ function handleCountryChange() {
 }
 
 function handlePhoneInput() {
-  emit('update:modelValue', phoneValue.value)
+  // Emit the clean value (without leading 0) for storage
+  const cleanValue = getCleanPhoneNumber(phoneValue.value)
+  emit('update:modelValue', cleanValue)
   hasError.value = false
   isValid.value = false
   errorMessage.value = ''
@@ -105,28 +145,24 @@ function handleBlur() {
   // Mark as touched when user leaves the field
   touched.value = true
   
-  // Remove the beginning zero if present
-  if (phoneValue.value.startsWith('0') || phoneValue.value.startsWith(selectedCountryCode.value)) {
-    if (phoneValue.value.startsWith(selectedCountryCode.value)) {
-      phoneValue.value = phoneValue.value.slice(selectedCountryCode.value.length)
-    }
-    else {
-      phoneValue.value = phoneValue.value.slice(1)
-    }
-    emit('update:modelValue', phoneValue.value)
-  }
+  // Emit clean value on blur to ensure consistency
+  const cleanValue = getCleanPhoneNumber(phoneValue.value)
+  emit('update:modelValue', cleanValue)
   validatePhoneNumber()
 }
 
 function validatePhoneNumber() {
-  if (!phoneValue.value) {
+  // Use the clean value for validation (handles leading 0, etc.)
+  const cleanValue = getCleanPhoneNumber(phoneValue.value)
+  
+  if (!cleanValue) {
     hasError.value = false
     isValid.value = false
     errorMessage.value = ''
     return true
   }
 
-  const isValidNumber = validatePhone(phoneValue.value, selectedCountryCode.value)
+  const isValidNumber = validatePhone(cleanValue, selectedCountryCode.value)
   hasError.value = !isValidNumber
   isValid.value = isValidNumber
   errorMessage.value = isValidNumber ? '' : 'Please enter a valid phone number'
@@ -149,20 +185,28 @@ defineExpose({
 <style scoped>
 .phone-input-container {
   display: flex;
-  gap: 10px;
+  gap: 8px;
 }
 
 /* Default styles for select */
 select {
-  width: 180px;
-  padding: 15px 20px;
+  width: auto;
+  min-width: 85px;
+  max-width: 95px;
+  flex-shrink: 0;
+  padding: 15px 8px;
   border: 2px solid #e1e5e9;
   border-radius: 10px;
-  font-size: 1em;
+  font-size: 0.9em;
   transition: all 0.3s ease;
   background: #fafafa;
   outline: none;
   color: #333;
+  cursor: pointer;
+  /* Clip the text to show only calling code portion */
+  text-overflow: ellipsis;
+  overflow: hidden;
+  white-space: nowrap;
 }
 
 select.field-error {

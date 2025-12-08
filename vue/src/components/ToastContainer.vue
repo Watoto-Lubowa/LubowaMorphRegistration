@@ -1,6 +1,6 @@
 <template>
   <Teleport to="body">
-    <div class="fixed top-4 right-4 z-[9999] space-y-3 pointer-events-none">
+    <div class="fixed top-4 left-4 right-4 z-[9999] space-y-3 pointer-events-none flex flex-col items-center sm:items-end">
       <TransitionGroup name="toast">
         <div
           v-for="toast in toasts"
@@ -8,7 +8,7 @@
           :class="[
             'toast',
             `toast-${toast.type}`,
-            'rounded-xl shadow-2xl p-4 flex items-center gap-3 min-w-[320px] max-w-md',
+            'rounded-xl shadow-2xl p-4 flex items-center gap-3 w-full sm:w-auto sm:min-w-[320px] sm:max-w-md',
             'pointer-events-auto backdrop-blur-sm'
           ]"
         >

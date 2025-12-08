@@ -553,9 +553,9 @@ function handleSchoolBlur() {
   console.log('School validation:', schoolValidation.value)
 }
 
-// Show "Create New Record" button only after 2+ search attempts (matching original behavior)
+// Show "Create New Record" button only after 1+ search attempts (matching original behavior)
 const canCreateNew = computed(() => {
-  return searchAttempts.value >= 2
+  return searchAttempts.value >= 1
 })
 
 // Form validation matching original implementation requirements
