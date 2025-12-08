@@ -12,6 +12,7 @@
     "type-check": "vue-tsc --noEmit"
   },
   "dependencies": {
+    "chart.js": "^4.5.1",
     "firebase": "^12.3.0",
     "libphonenumber-js": "^1.12.23",
     "pinia": "^3.0.3",

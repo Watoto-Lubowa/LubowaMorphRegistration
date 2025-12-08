@@ -528,7 +528,7 @@ async function createServiceDistributionChart() {
           },
           tooltip: {
             callbacks: {
-              label: function(context) {
+              label: function(context: any) {
                 const label = context.label || ''
                 const value = context.parsed
                 if (value === 0) {
