@@ -107,6 +107,19 @@ jobs:
       - name: Setup Pages
         uses: actions/configure-pages@v4
 
+      # Create Jekyll config to exclude vue source folder
+      - name: Create Jekyll Configuration
+        run: |
+          cat > _config.yml << 'EOF'
+          exclude:
+            - vue/
+            - node_modules/
+            - package.json
+            - package-lock.json
+            - .gitignore
+            - README.md
+          EOF
+
       # Build Vue app and place in vue/ folder
       - name: Build Vue App
         run: |
