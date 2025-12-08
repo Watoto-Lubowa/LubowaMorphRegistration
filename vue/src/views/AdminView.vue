@@ -229,8 +229,8 @@ const isDownloading = ref(false)
 const attendanceChart = ref<HTMLCanvasElement>()
 let chartInstance: Chart | null = null
 
-// File input ref
-const csvFileInput = ref<HTMLInputElement>()
+// // File input ref
+// const csvFileInput = ref<HTMLInputElement>()
 
 onMounted(async () => {
   if (isAuthenticated.value && isAdmin.value) {
@@ -744,67 +744,67 @@ async function downloadAll() {
   }
 }
 
-async function handleCSVFileInput(event: Event) {
+// async function handleCSVFileInput(event: Event) {
   
-  const target = event.target as HTMLInputElement
-  const file = target.files?.[0]
+//   const target = event.target as HTMLInputElement
+//   const file = target.files?.[0]
   
-  if (!file) return
+//   if (!file) return
   
-  if (!file.name.toLowerCase().endsWith('.csv')) {
-    uiStore.error('Please select a CSV file')
-    return
-  }
+//   if (!file.name.toLowerCase().endsWith('.csv')) {
+//     uiStore.error('Please select a CSV file')
+//     return
+//   }
   
-  try {
-    await uploadCSV(file)
-    // Reset file input
-    if (csvFileInput.value) {
-      csvFileInput.value.value = ''
-    }
-  } catch (error) {
-    console.error('Upload error:', error)
-    uiStore.error('Failed to upload CSV file')
-  }
-}
+//   try {
+//     await uploadCSV(file)
+//     // Reset file input
+//     if (csvFileInput.value) {
+//       csvFileInput.value.value = ''
+//     }
+//   } catch (error) {
+//     console.error('Upload error:', error)
+//     uiStore.error('Failed to upload CSV file')
+//   }
+// }
 
-async function uploadCSV(_file: File) {
-  if (!isAuthenticated.value || !isAdmin.value) {
-    uiStore.error('Access denied: Admin privileges required')
-    return
-  }
+// async function uploadCSV(_file: File) {
+//   if (!isAuthenticated.value || !isAdmin.value) {
+//     uiStore.error('Access denied: Admin privileges required')
+//     return
+//   }
   
-  uiStore.info('CSV upload functionality not yet implemented')
-  // Implementation would go here
-  // TODO: Use _file parameter when implementing CSV upload
-}
+//   uiStore.info('CSV upload functionality not yet implemented')
+//   // Implementation would go here
+//   // TODO: Use _file parameter when implementing CSV upload
+// }
 
-async function clearAllData() {
-  if (!isAuthenticated.value || !isAdmin.value) {
-    uiStore.error('Access denied: Admin privileges required')
-    return
-  }
+// async function clearAllData() {
+//   if (!isAuthenticated.value || !isAdmin.value) {
+//     uiStore.error('Access denied: Admin privileges required')
+//     return
+//   }
   
-  const confirmed = confirm('⚠️ WARNING: This will permanently delete ALL morpher records!\n\nThis action cannot be undone. Are you absolutely sure?')
-  if (!confirmed) return
+//   const confirmed = confirm('⚠️ WARNING: This will permanently delete ALL morpher records!\n\nThis action cannot be undone. Are you absolutely sure?')
+//   if (!confirmed) return
   
-  const doubleConfirm = confirm('This is your final warning! All data will be lost forever.\n\nType "DELETE" in the next prompt to confirm.')
-  if (!doubleConfirm) return
+//   const doubleConfirm = confirm('This is your final warning! All data will be lost forever.\n\nType "DELETE" in the next prompt to confirm.')
+//   if (!doubleConfirm) return
   
-  const finalConfirm = prompt('Type "DELETE" to confirm deletion of all data:')
-  if (finalConfirm !== 'DELETE') {
-    uiStore.info('Data deletion cancelled')
-    return
-  }
+//   const finalConfirm = prompt('Type "DELETE" to confirm deletion of all data:')
+//   if (finalConfirm !== 'DELETE') {
+//     uiStore.info('Data deletion cancelled')
+//     return
+//   }
   
-  try {
-    // This would need to be implemented in the members store
-    uiStore.info('Clear all data functionality not yet implemented')
-  } catch (error) {
-    console.error('Clear data error:', error)
-    uiStore.error('Failed to clear data')
-  }
-}
+//   try {
+//     // This would need to be implemented in the members store
+//     uiStore.info('Clear all data functionality not yet implemented')
+//   } catch (error) {
+//     console.error('Clear data error:', error)
+//     uiStore.error('Failed to clear data')
+//   }
+// }
 
 // No longer need manual toast functions - using UI store
 </script>
