@@ -1,0 +1,17 @@
+name = "lubowa-morph-qr-worker"
+main = "src/index.ts"
+compatibility_date = "2024-12-09"
+
+# Environment variables (secrets set via wrangler secret put)
+# Run these commands after setup:
+# wrangler secret put QR_SECRET_KEY
+# wrangler secret put USER_DATA_KEY
+# wrangler secret put CACHE_SECRET_KEY
+
+[vars]
+ALLOWED_ORIGINS = "https://morph.watoto-lubowa.com,http://localhost:5173"
+
+# For production
+# account_id = "your-account-id"
+# workers_dev = false
+# route = "https://api.yourworker.com/*"

@@ -2,11 +2,21 @@ import type { AppConfig } from '@/types'
 
 /**
  * Configuration Loading Strategy:
- * 1. Load from environment variables (.env, .env.local)
- * 2. Use placeholders if nothing is configured
+ * 1. Try to load from config.local.ts (for local development)
+ * 2. Fall back to environment variables (.env, .env.local)
+ * 3. Use placeholders if nothing is configured
  */
 
-const appConfig: AppConfig = {
+let appConfig: AppConfig
+
+// Try to load local config first (for development)
+try {
+  const { localConfig } = await import('./config.local')
+  appConfig = localConfig
+  console.log('✅ Using local TypeScript configuration')
+} catch {
+  // Fall back to environment variables
+  appConfig = {
     firebase: {
       apiKey: import.meta.env.VITE_FIREBASE_API_KEY || 'FIREBASE_API_KEY_PLACEHOLDER',
       authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || 'FIREBASE_AUTH_DOMAIN_PLACEHOLDER',
@@ -25,6 +35,8 @@ const appConfig: AppConfig = {
     authorizedPhoneNumbers: (import.meta.env.VITE_AUTHORIZED_PHONE_NUMBERS || 'AUTHORIZED_PHONE_NUMBERS_PLACEHOLDER')
       .split(',')
       .map((phone: string) => phone.trim())
+  }
+  console.log('✅ Using environment variable configuration')
 }
 
 export { appConfig }

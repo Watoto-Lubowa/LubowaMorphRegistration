@@ -60,8 +60,48 @@
 
         <!-- Identity Section / No Record Found Section / Confirmation Section -->
         <Transition name="section-fade" mode="out-in">
+          <!-- Quick Confirm Section (for returning QR users with cached data) -->
+          <div v-if="showQuickConfirm && cachedUserData" class="form-section" id="quickConfirmSection" key="quick-confirm">
+            <h3 style="text-align: center;">Welcome Back! 👋</h3>
+            <div class="record-found">
+              <p style="text-align: center; margin-bottom: 1rem;">Is this you?</p>
+              <div class="identity-display">
+                <div class="identity-info">
+                  <strong>Name:</strong> <span>{{ cachedUserData.name }}</span>
+                </div>
+                <div class="identity-info">
+                  <strong>Phone:</strong> <span>{{ cachedUserData.phoneNumber }}</span>
+                </div>
+              </div>
+              
+              <!-- Reuse same service display as quick check-in section -->
+              <div v-if="!forceUpdateFlow" class="service-display" id="quickCheckInService">
+                <div class="service-info">
+                  <div class="service-icon">🗓️</div>
+                  <div class="service-details">
+                    <strong>Current Service:</strong>
+                    <span 
+                      class="current-service"
+                      :class="{ 'no-service': currentService === null }"
+                    >
+                      {{ currentService === null ? 'No service currently' : currentServiceText }}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="no-record-options" style="display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap;">
+              <button type="button" @click="confirmCachedData" class="search-again-btn">
+                ✅ Yes, that's me!
+              </button>
+              <button type="button" @click="useDifferentDetails" class="search-again-btn">
+                🔄 Use different details
+              </button>
+            </div>
+          </div>
+
           <!-- Identity Section (show for initial search, while loading, or after clicking search again) -->
-          <div v-if="(!searchResult.found && !showForm) && (searchAttempts === 0 || isLoading || isSearchingAgain)" class="form-section" id="identitySection" key="identity">
+          <div v-else-if="(!searchResult.found && !showForm) && (searchAttempts === 0 || isLoading || isSearchingAgain)" class="form-section" id="identitySection" key="identity">
             <div class="field">
               <label for="name">
                 <span id="nameLabel">First Name</span>
@@ -361,6 +401,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue'
 import { storeToRefs } from 'pinia'
+import { useRoute } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useMembersStore } from '@/stores/members'
 import { getCallingCodeByCountryCode, loadCountriesData } from '@/utils/countries'
@@ -374,14 +415,16 @@ import {
   suggestFullName,
   autoFocusToField
 } from '@/utils/validation'
+import { getCachedUserData, saveCachedUserData } from '@/utils/qrCache'
 import type { MemberData } from '@/types'
 
 
 const authStore = useAuthStore()
 const membersStore = useMembersStore()
 const uiStore = useUIStore()
+const route = useRoute()
 
-const { isAuthenticated } = storeToRefs(authStore)
+const { isAuthenticated, currentUser } = storeToRefs(authStore)
 const { searchResult, searchAttempts, forceUpdateFlow } = storeToRefs(membersStore)
 const { isLoading } = storeToRefs(uiStore)
 
@@ -439,6 +482,11 @@ const currentServiceText = ref('No Service')
 const currentService = ref<string | null>(null)
 const noService = ref(false);
 
+// QR cache state
+const cachedUserData = ref<{ name: string; phoneNumber: string } | null>(null)
+const showQuickConfirm = ref(false)
+const isFromQR = ref(false)
+
 // Service time detection functions
 function getCurrentService(): string | null {
   const now = new Date()
@@ -452,7 +500,7 @@ function getCurrentService(): string | null {
   const service2Start = 10 * 60 // 10:00 AM
   const service2End = 12 * 60 + 15 // 12:15 PM
   const service3Start = 12 * 60 // 12:00 PM
-  const dayEnd = 14 * 60 + 15 // 2:15 PM
+  const dayEnd = 20 * 60 + 15 // 8:15 PM (extended for testing)
 
   if (currentTimeMinutes >= service1Start && currentTimeMinutes <= service1End) {
     return "1"
@@ -469,7 +517,7 @@ function getServiceText(service: string | null): string {
   switch(service) {
     case "1": return "1st Service (8:00-9:30 AM)"
     case "2": return "2nd Service (10:00-11:30 AM)"
-    case "3": return "3rd Service (12:00-2:00 PM)"
+    case "3": return "3rd Service (12:00-8:00 PM)"
     default: return "No Service"
   }
 }
@@ -490,6 +538,9 @@ onMounted(async () => {
   
   // Load force update flow state
   await membersStore.loadForceUpdateFlowState()
+  
+  // Check if user came from QR code
+  await checkQRAccess()
 })
 
 // Watch showForm to update current step
@@ -637,9 +688,112 @@ const formattedParentsPhone = computed(() => {
   return ''
 })
 
+/**
+ * Check if user came from QR code and load cached data
+ */
+async function checkQRAccess() {
+  const qrParam = route.query.qr as string
+  
+  if (qrParam) {
+    isFromQR.value = true
+    console.log('[RegistrationView] QR parameter detected, user should already be authenticated')
+    
+    // User should already be authenticated and QR validated by QRView
+    // Just check if user has cached data
+    if (currentUser.value?.uid) {
+      try {
+        console.log('[RegistrationView] Checking for cached data for UID:', currentUser.value.uid)
+        const cached = await getCachedUserData(currentUser.value.uid)
+        
+        if (cached) {
+          console.log('[RegistrationView] Cached data found:', cached)
+          cachedUserData.value = cached
+          showQuickConfirm.value = true
+          uiStore.success('Welcome back! Confirm your details below.')
+        } else {
+          console.log('[RegistrationView] No cached data found')
+        }
+      } catch (error) {
+        console.error('[RegistrationView] Error loading cached data:', error)
+      }
+    } else {
+      console.warn('[RegistrationView] No UID found - user may not be authenticated')
+    }
+  }
+}
+
+/**
+ * Quick confirm - user confirms cached data and submits
+ */
+async function confirmCachedData() {
+  if (!cachedUserData.value || !currentUser.value?.uid) return
+  
+  try {
+    uiStore.setLoading(true)
+    
+    // Search for the member using cached data
+    const countryCallingCode = '+256' // Default for now
+    await membersStore.searchMember(
+      cachedUserData.value.name.split(' ')[0], // First name
+      cachedUserData.value.phoneNumber,
+      countryCallingCode
+    )
+    
+    // If found, check if quick check-in is available
+    if (searchResult.value.found) {
+      // If quick check-in is active (not force update flow) and service is running, do quick check-in
+      if (!forceUpdateFlow.value && currentService.value) {
+        await membersStore.quickCheckIn(currentService.value)
+        clearSearch()
+        showQuickConfirm.value = false
+        uiStore.success('Quick check-in successful!')
+      } else {
+        // Otherwise, proceed to edit/update form
+        editMember()
+        showQuickConfirm.value = false
+        uiStore.success('Record found! Update if needed and submit.')
+      }
+    } else {
+      // Create new with cached data
+      memberForm.value = {
+        Name: cachedUserData.value.name,
+        MorphersNumber: cachedUserData.value.phoneNumber.replace('+256', ''),
+        MorphersCountryCode: 'UG',
+        ParentsName: '',
+        ParentsNumber: '',
+        ParentsCountryCode: 'UG',
+        School: '',
+        Class: '',
+        Residence: '',
+        Cell: '',
+        notes: ''
+      }
+      showForm.value = true
+      editMode.value = false
+      showQuickConfirm.value = false
+      uiStore.info('Complete your registration below.')
+    }
+  } catch (error) {
+    console.error('Error confirming cached data:', error)
+    uiStore.error('Failed to load your information')
+  } finally {
+    uiStore.setLoading(false)
+  }
+}
+
+/**
+ * User wants to use different details (clear cache)
+ */
+function useDifferentDetails() {
+  showQuickConfirm.value = false
+  cachedUserData.value = null
+  uiStore.info('Enter your details to search or create a new record.')
+}
 
 function handleLoginSuccess() {
   uiStore.success('Welcome! You are now signed in.')
+  // After login, check QR access again
+  checkQRAccess()
 }
 
 async function handleSearch() {
@@ -697,6 +851,14 @@ function editMember() {
     currentDocId.value = searchResult.value.docId
     editMode.value = true
     showForm.value = true
+    
+    // If accessed via QR, cache the confirmed user data
+    if (isFromQR.value && currentUser.value?.uid && record.Name && record.MorphersNumber) {
+      saveCachedUserData(currentUser.value.uid, {
+        name: record.Name,
+        phoneNumber: record.MorphersNumber
+      }).catch(err => console.error('Failed to cache user data:', err))
+    }
   }
 }
 
@@ -863,6 +1025,17 @@ async function handleSave() {
     }
     
     await membersStore.saveMember(memberData as MemberData, currentDocId.value)
+    
+    // ONLY cache for QR-based anonymous users (not for authenticated admins)
+    if (isFromQR.value && currentUser.value?.uid && currentUser.value?.isAnonymous && memberForm.value.Name && memberForm.value.MorphersNumber) {
+      console.log('[RegistrationView] Caching QR user data for anonymous UID:', currentUser.value.uid)
+      const fullPhoneNumber = getCallingCodeByCountryCode(memberForm.value.MorphersCountryCode || 'UG') + memberForm.value.MorphersNumber
+      await saveCachedUserData(currentUser.value.uid, {
+        name: memberForm.value.Name,
+        phoneNumber: fullPhoneNumber
+      }).catch(err => console.error('[RegistrationView] Failed to cache user data:', err))
+    }
+    
     clearSearch()
     cancelEdit()
   } finally {

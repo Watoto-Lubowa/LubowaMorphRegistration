@@ -1,0 +1,23 @@
+{
+  "name": "lubowa-morph-qr-worker",
+  "version": "1.0.0",
+  "description": "Cloudflare Worker for QR-based check-in system",
+  "main": "src/index.js",
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "tail": "wrangler tail"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20251209.0",
+    "typescript": "^5.9.3",
+    "wrangler": "^3.0.0"
+  },
+  "keywords": [
+    "cloudflare",
+    "workers",
+    "qr-code",
+    "check-in"
+  ]
+}

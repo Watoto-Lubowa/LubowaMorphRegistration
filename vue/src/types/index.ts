@@ -67,3 +67,46 @@ export interface FormState {
   errors: ValidationError[]
   isDirty: boolean
 }
+
+// QR Code System Types
+export interface QRPayload {
+  x: string // dateFrom (ISO string)
+  y: string // dateTo (ISO string)
+  u: string // URL path
+  s?: number // service number
+}
+
+export interface QRValidationResult {
+  isValid: boolean
+  payload?: QRPayload
+  dateFrom?: Date
+  dateTo?: Date
+  serviceNumber?: number
+  error?: string
+}
+
+export interface GeolocationValidationResult {
+  isValid: boolean
+  distance?: number
+  error?: string
+}
+
+export interface StoredUserData {
+  id: string
+  encryptedData: string
+  timestamp: string
+  memberData?: any
+}
+
+export interface CloudFunctionResponse {
+  success: boolean
+  qrData?: string
+  encryptedData?: string
+  timestamp?: string
+  serviceInfo?: {
+    serviceNumber: number
+    startTime: string
+    endTime: string
+  }
+  error?: string
+}

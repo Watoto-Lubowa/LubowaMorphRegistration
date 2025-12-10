@@ -3,6 +3,7 @@ import { ref, computed } from 'vue'
 import { 
   getFirebaseInstances,
   signInWithEmailAndPassword as firebaseSignIn,
+  signInAnonymously as firebaseSignInAnonymously,
   signOut,
   onAuthStateChanged,
   setPersistence,
@@ -29,6 +30,32 @@ export const useAuthStore = defineStore('auth', () => {
     isAuthorizedUser.value = isAuthorized
     
     return { isAdmin: isAdminUser, isAuthorized }
+  }
+
+  async function signInAnonymously() {
+    const uiStore = useUIStore()
+    try {
+      const { auth } = getFirebaseInstances()
+      if (!auth) {
+        throw new Error(ERROR_MESSAGES.FIREBASE_NOT_INITIALIZED)
+      }
+
+      // Sign in anonymously
+      const userCredential = await firebaseSignInAnonymously(auth)
+      currentUser.value = userCredential.user
+      isAuthenticated.value = true
+      
+      // Anonymous users are not admin or authorized users
+      isAdmin.value = false
+      isAuthorizedUser.value = false
+      
+      console.log('Anonymous sign-in successful:', userCredential.user.uid)
+      return true
+    } catch (error: any) {
+      console.error('Anonymous sign-in error:', error)
+      uiStore.error('Failed to authenticate anonymously')
+      return false
+    }
   }
 
   async function signIn(email: string, password: string) {
@@ -166,6 +193,7 @@ export const useAuthStore = defineStore('auth', () => {
     isAuthorizedUser,
     userEmail,
     signIn,
+    signInAnonymously,
     signInWithEmailAndPassword,
     signOutUser,
     resetPassword,
