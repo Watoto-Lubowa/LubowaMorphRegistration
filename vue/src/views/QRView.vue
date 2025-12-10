@@ -96,7 +96,7 @@
                 {{ errorMessage }}
               </p>
               <p style="color: #666; margin-bottom: 0.5rem;">
-                Please try:
+                <strong>Please try:</strong>
               </p>
               <ul style="text-align: left; display: inline-block; color: #666; margin-top: 0.5rem;">
                 <li style="margin-bottom: 0.5rem;">📱 Scanning a new QR code from the check-in location</li>
