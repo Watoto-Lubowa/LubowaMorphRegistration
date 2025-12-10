@@ -28,6 +28,7 @@ export const useMembersStore = defineStore('members', () => {
   const searchAttempts = ref<number>(0) // Track search attempts
   const currentAttendance = ref<AttendanceRecord>({}) // Current attendance record
   const forceUpdateFlow = ref<boolean>(false) // Quick check-in toggle state
+  const enforceGPS = ref<boolean>(true) // GPS validation enforcement state
 
   async function searchMember(firstName: string, phoneNumber: string, countryCallingCode: string): Promise<SearchResult> {
     const uiStore = useUIStore()
@@ -238,7 +239,7 @@ export const useMembersStore = defineStore('members', () => {
         lastUpdated: Timestamp.now()
       }
 
-      console.log('💾 Saving member data:', payload, targetDocId)
+      // console.log('💾 Saving member data:', payload, targetDocId)
 
       if (targetDocId) {
         // Remove createdAt to avoid overwriting
@@ -359,7 +360,9 @@ export const useMembersStore = defineStore('members', () => {
       }
 
       forceUpdateFlow.value = configData.forceUpdateFlow === true
+      enforceGPS.value = configData.enforceGPS !== false // Default to true if not set
       console.log('📋 Loaded forceUpdateFlow state:', forceUpdateFlow.value)
+      console.log('📍 Loaded enforceGPS state:', enforceGPS.value)
       return forceUpdateFlow.value
     } catch (error) {
       console.error('Failed to load forceUpdateFlow state:', error)
@@ -395,6 +398,7 @@ export const useMembersStore = defineStore('members', () => {
     searchAttempts,
     currentAttendance,
     forceUpdateFlow,
+    enforceGPS,
     
     // Actions
     searchMember,

@@ -204,10 +204,11 @@ async function handleQRRegistration() {
         <!-- Form Fields -->
         <form @submit.prevent="handleQRRegistration">
           <div class="mb-4">
-            <label class="block text-gray-700 font-bold mb-2">
+            <label for="full-name" class="block text-gray-700 font-bold mb-2">
               Full Name <span class="text-red-500">*</span>
             </label>
             <input
+              id="full-name"
               v-model="memberForm.Name"
               type="text"
               class="w-full px-3 py-2 border rounded focus:outline-none focus:border-blue-500"
@@ -216,10 +217,11 @@ async function handleQRRegistration() {
           </div>
 
           <div class="mb-4">
-            <label class="block text-gray-700 font-bold mb-2">
+            <label for="phone-number" class="block text-gray-700 font-bold mb-2">
               Phone Number <span class="text-red-500">*</span>
             </label>
             <input
+              id="phone-number"
               v-model="memberForm.MorphersNumber"
               type="tel"
               class="w-full px-3 py-2 border rounded focus:outline-none focus:border-blue-500"
@@ -229,8 +231,9 @@ async function handleQRRegistration() {
           </div>
 
           <div class="mb-4">
-            <label class="block text-gray-700 font-bold mb-2">School</label>
+            <label for="school" class="block text-gray-700 font-bold mb-2">School</label>
             <input
+              id="school"
               v-model="memberForm.School"
               type="text"
               class="w-full px-3 py-2 border rounded focus:outline-none focus:border-blue-500"
@@ -238,8 +241,9 @@ async function handleQRRegistration() {
           </div>
 
           <div class="mb-4">
-            <label class="block text-gray-700 font-bold mb-2">Class</label>
+            <label for="class" class="block text-gray-700 font-bold mb-2">Class</label>
             <input
+              id="class"
               v-model="memberForm.Class"
               type="text"
               class="w-full px-3 py-2 border rounded focus:outline-none focus:border-blue-500"
@@ -247,8 +251,9 @@ async function handleQRRegistration() {
           </div>
 
           <div class="mb-6">
-            <label class="block text-gray-700 font-bold mb-2">Parent's Phone</label>
+            <label for="parents-phone" class="block text-gray-700 font-bold mb-2">Parent's Phone</label>
             <input
+              id="parents-phone"
               v-model="memberForm.ParentsNumber"
               type="tel"
               class="w-full px-3 py-2 border rounded focus:outline-none focus:border-blue-500"

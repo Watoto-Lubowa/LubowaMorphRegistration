@@ -3,7 +3,6 @@ import RegistrationView from '@/views/RegistrationView.vue'
 import AdminView from '@/views/AdminView.vue'
 import QRGeneratorView from '@/views/QRGeneratorView.vue'
 import QRView from '@/views/QRView.vue'
-import { useAuthStore } from '@/stores/auth'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -36,7 +35,7 @@ const router = createRouter({
 })
 
 // Navigation guards
-router.beforeEach((to, from, next) => {
+router.beforeEach((to, _from, next) => {
   // Update page title
   document.title = `${to.meta.title || 'Lubowa Morph'} - Lubowa Morph Registration`
   

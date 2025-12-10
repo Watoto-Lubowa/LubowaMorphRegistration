@@ -153,6 +153,23 @@
           </div>
 
           <div class="action-card">
+            <div class="action-icon">📍</div>
+            <h3>GPS Enforcement</h3>
+            <p>Toggle whether QR check-in requires GPS location validation</p>
+            <div style="display: flex; align-items: center; justify-content: center; gap: 10px; margin-top: 10px;">
+              <span style="font-weight: bold;">{{ gpsEnforcementStatusText }}</span>
+              <label class="toggle-switch">
+                <input 
+                  type="checkbox" 
+                  v-model="enforceGPS"
+                  @change="toggleGPSEnforcement"
+                >
+                <span class="toggle-slider"></span>
+              </label>
+            </div>
+          </div>
+
+          <div class="action-card">
             <div class="action-icon">📥</div>
             <h3>Download Data</h3>
             <p>Export all morpher records to CSV format</p>
@@ -223,6 +240,8 @@ const attendanceDate = ref('')
 const serviceDistributionDate = ref('')
 const forceUpdateFlow = ref(false)
 const forceUpdateStatusText = ref('Loading...')
+const enforceGPS = ref(true)
+const gpsEnforcementStatusText = ref('Loading...')
 const isDownloading = ref(false)
 
 // Chart instance
@@ -595,7 +614,13 @@ async function loadForceUpdateFlowState() {
     const currentState = await membersStore.loadForceUpdateFlowState()
     forceUpdateFlow.value = currentState
     forceUpdateStatusText.value = currentState ? 'Enabled' : 'Disabled'
+    
+    // Also load GPS enforcement state
+    enforceGPS.value = membersStore.enforceGPS
+    gpsEnforcementStatusText.value = enforceGPS.value ? 'Enabled' : 'Disabled'
+    
     console.log('📋 Admin loaded forceUpdateFlow state:', currentState)
+    console.log('📍 Admin loaded enforceGPS state:', enforceGPS.value)
   } catch (error) {
     console.error('Failed to load force update state:', error)
     forceUpdateStatusText.value = 'Error'
@@ -633,8 +658,44 @@ async function toggleForceUpdateFlow() {
     console.error('Failed to toggle force update flow:', error)
     uiStore.error('Failed to update force update flow setting')
     
-    // Revert the toggle on error
+    // Revert toggle if failed
     forceUpdateFlow.value = !forceUpdateFlow.value
+  }
+}
+
+async function toggleGPSEnforcement() {
+  try {
+    // Import Firestore functions for config update
+    const { getFirebaseInstances } = await import('@/utils/firebase')
+    const { db } = getFirebaseInstances()
+    if (!db) {
+      throw new Error('Database not initialized')
+    }
+
+    // Update Firestore config
+    const { doc, setDoc } = await import('@/utils/firebase')
+    const configDocRef = doc(db, 'config', 'appSettings')
+    await setDoc(configDocRef, {
+      enforceGPS: enforceGPS.value,
+      updatedAt: new Date().toISOString()
+    }, { merge: true })
+
+    // Update local state and sync with members store
+    gpsEnforcementStatusText.value = enforceGPS.value ? 'Enabled' : 'Disabled'
+    membersStore.enforceGPS = enforceGPS.value
+    
+    const statusText = enforceGPS.value 
+      ? 'GPS Enforcement is now ON - QR check-in requires location validation'
+      : 'GPS Enforcement is now OFF - QR check-in will skip location checks'
+    
+    uiStore.success(statusText)
+    console.log('📍 Admin updated enforceGPS to:', enforceGPS.value)
+  } catch (error) {
+    console.error('Failed to toggle GPS enforcement:', error)
+    uiStore.error('Failed to update GPS enforcement setting')
+    
+    // Revert toggle if failed
+    enforceGPS.value = !enforceGPS.value
   }
 }
 

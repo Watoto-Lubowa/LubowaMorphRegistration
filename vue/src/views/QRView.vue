@@ -72,7 +72,7 @@
               </p>
               <ul style="text-align: left; display: inline-block; color: #666; margin-top: 0.5rem;">
                 <li style="margin-bottom: 0.5rem;">🚶 Move closer to the check-in location</li>
-                <li style="margin-bottom: 0.5rem;">🔄 Try again once you're at the venue</li>
+                <li style="margin-bottom: 0.5rem;">🔄 Try again later or once you're at the venue</li>
                 <li>👨‍💼 Contact a facilitator if you're having issues</li>
               </ul>
               <button 
@@ -104,11 +104,6 @@
                 <li>👨‍💼 Contacting a facilitator if this issue persists</li>
               </ul>
             </div>
-            <!-- <div style="text-align: center; margin-top: 1.5rem; padding-top: 1.5rem; border-top: 1px solid #e5e7eb;">
-              <p style="color: #666; font-size: 0.9rem;">
-                Administrators: <router-link to="/admin/register" style="color: #6366f1; text-decoration: underline; font-weight: 600;">Access the admin registration page</router-link>
-              </p>
-            </div> -->
           </div>
         </div>
 
@@ -133,11 +128,11 @@
                 </ol>
               </div>
             </div>
-            <div style="text-align: center; margin-top: 1.5rem; padding-top: 1.5rem; border-top: 1px solid #e5e7eb;">
+            <!-- <div style="text-align: center; margin-top: 1.5rem; padding-top: 1.5rem; border-top: 1px solid #e5e7eb;">
               <p style="color: #666; font-size: 0.9rem;">
                 Administrators: <router-link to="/admin/register" style="color: #6366f1; text-decoration: underline; font-weight: 600;">Access the admin registration page</router-link>
               </p>
-            </div>
+            </div> -->
           </div>
         </div>
         </Transition>
@@ -148,17 +143,16 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { useRoute } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
-import { useUIStore } from '@/stores/ui'
+import { useMembersStore } from '@/stores/members'
 import { validateQRCodeWithServer } from '@/utils/cloudflareWorker'
-import { validateUserLocation, formatDistance, ENABLE_GEOLOCATION_VALIDATION } from '@/utils/geolocation'
+import { validateUserLocation, formatDistance } from '@/utils/geolocation'
 import RegistrationView from './RegistrationView.vue'
 
 const route = useRoute()
-const router = useRouter()
 const authStore = useAuthStore()
-const uiStore = useUIStore()
+const membersStore = useMembersStore()
 
 const isProcessing = ref(true)
 const qrError = ref(false)
@@ -170,8 +164,12 @@ const needsLocationPermission = ref(false)
 const locationError = ref(false)
 const locationErrorMessage = ref('')
 const userDistance = ref<number | null>(null)
+
 onMounted(async () => {
   const qrParam = route.query.qr as string
+  
+  // Load GPS enforcement setting first
+  await membersStore.loadForceUpdateFlowState() // This also loads enforceGPS
   
   // Check if QR parameter exists
   if (!qrParam) {
@@ -200,9 +198,9 @@ onMounted(async () => {
 
     console.log('QR code validated successfully')
 
-    // Step 2: Validate location (if enabled)
-    if (ENABLE_GEOLOCATION_VALIDATION) {
-      console.log('Validating location automatically...')
+    // Step 2: Validate location (if enforcement enabled)
+    if (membersStore.enforceGPS) {
+      console.log('GPS enforcement enabled - validating location automatically...')
       loadingMessage.value = 'Checking your location...'
       
       // Try to get location automatically first

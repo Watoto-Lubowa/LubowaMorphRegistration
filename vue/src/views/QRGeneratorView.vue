@@ -22,6 +22,7 @@ const authStore = useAuthStore()
 const uiStore = useUIStore()
 
 const isAuthenticated = computed(() => authStore.isAuthenticated)
+const isAnonymous = computed(() => authStore.currentUser?.isAnonymous || false)
 
 const qrData = ref<string>('')
 const qrImageUrl = ref<string>('')
@@ -202,8 +203,8 @@ function getServiceName(serviceNumber: number): string {
 
 <template>
   <div class="min-h-screen flex items-center justify-center py-8">
-    <!-- Login Section -->
-    <div v-if="!isAuthenticated">
+    <!-- Login Section (show for unauthenticated OR anonymous users) -->
+    <div v-if="!isAuthenticated || isAnonymous">
       <LoginForm />
     </div>
 
@@ -271,9 +272,10 @@ function getServiceName(serviceNumber: number): string {
 
             <!-- URL Display -->
             <div class="field" style="margin-bottom: 1.5rem;">
-              <label>Registration URL:</label>
+              <label for="registration-url">Registration URL:</label>
               <div style="display: flex; gap: 0.5rem;">
                 <input
+                  id="registration-url"
                   :value="generatedUrl"
                   readonly
                   style="flex: 1; background: #f5f5f5;"
@@ -354,5 +356,19 @@ function getServiceName(serviceNumber: number): string {
 /* Reuse existing styles from RegistrationView */
 .readonly-input {
   cursor: default;
+}
+
+.form-section {
+  background: #f9fafb;
+  padding: 2rem;
+  border-radius: 8px;
+  margin-top: 1rem;
+}
+
+.no-record-message {
+  background: white;
+  padding: 1.5rem;
+  border-radius: 8px;
+  border: 1px solid #e5e7eb;
 }
 </style>

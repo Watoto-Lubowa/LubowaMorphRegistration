@@ -1,7 +1,7 @@
 <template>
   <div class="min-h-screen flex items-center justify-center py-8">
-    <!-- Login Section -->
-    <div v-if="!isAuthenticated">
+    <!-- Login Section (show for unauthenticated OR anonymous users not from QR) -->
+    <div v-if="!isAuthenticated || (currentUser?.isAnonymous && !isFromQR)">
       <LoginForm @success="handleLoginSuccess" />
     </div>
 
@@ -111,10 +111,22 @@
               </div>
             </div>
             <div class="no-record-options" style="display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap;">
-              <button type="button" @click="confirmCachedData" class="search-again-btn">
-                ✅ Yes, that's me!
+              <button 
+                type="button" 
+                @click="confirmCachedData" 
+                class="search-again-btn"
+                :disabled="isLoading"
+                :class="{ loading: isLoading }"
+              >
+                <span v-if="!isLoading" class="btn-text">✅ Yes, that's me!</span>
+                <span v-else class="btn-loading">Processing...</span>
               </button>
-              <button type="button" @click="useDifferentDetails" class="search-again-btn">
+              <button 
+                type="button" 
+                @click="useDifferentDetails" 
+                class="search-again-btn"
+                :disabled="isLoading"
+              >
                 🔄 Use different details
               </button>
             </div>
@@ -191,7 +203,13 @@
           </div>
 
           <!-- Confirmation Section (replaces identity section after successful search) -->
-          <div v-else-if="searchResult.found && !showForm" class="form-section" id="confirmationSection" key="confirmation">
+          <div 
+            v-else-if="searchResult.found && !showForm" 
+            class="form-section" 
+            id="confirmationSection" 
+            key="confirmation"
+            :class="{ 'card-disabled': isLoading }"
+          >
             <h3 style="text-align: center;">Confirm Your Identity</h3>
             <div class="identity-display">
               <div class="identity-info">
@@ -225,11 +243,29 @@
             <p class="confirmation-text">Is this you?</p>
             <div class="confirmation-buttons">
               <!-- Quick check-in button (only when forceUpdateFlow is false) -->
-              <button v-if="!forceUpdateFlow && currentService" type="button" @click="handleQuickCheckIn" class="confirm-btn">Yes, that's me</button>
+              <button 
+                v-if="!forceUpdateFlow && currentService" 
+                type="button" 
+                @click="handleQuickCheckIn" 
+                class="confirm-btn"
+                :disabled="isLoading"
+                :class="{ loading: isLoading }"
+              >
+                <span v-if="!isLoading" class="btn-text">Yes, that's me</span>
+                <span v-else class="btn-loading">Checking in...</span>
+              </button>
               <!-- Regular "update info" button (when forceUpdateFlow is true OR no service detected) -->
-              <button v-else type="button" @click="editMember" class="confirm-btn">Yes, that's me</button>
-              <button type="button" @click="searchAgain" class="deny-btn">No, search again</button>
-              <button type="button" v-if="canCreateNew" @click="createNewMember" class="create-new-btn">➕ Create New Record</button>
+              <button 
+                v-else 
+                type="button" 
+                @click="editMember" 
+                class="confirm-btn"
+                :disabled="isLoading"
+              >
+                Yes, that's me
+              </button>
+              <button type="button" @click="searchAgain" class="deny-btn" :disabled="isLoading">No, search again</button>
+              <button type="button" v-if="canCreateNew" @click="createNewMember" class="create-new-btn" :disabled="isLoading">➕ Create New Record</button>
             </div>
           </div>
         </Transition>
@@ -436,6 +472,7 @@ import {
   autoFocusToField
 } from '@/utils/validation'
 import { getCachedUserData, saveCachedUserData } from '@/utils/qrCache'
+import { startAutoCloseCountdown } from '@/utils/transitions'
 import type { MemberData } from '@/types'
 
 
@@ -505,7 +542,8 @@ const noService = ref(false);
 // QR cache state
 const cachedUserData = ref<{ name: string; phoneNumber: string } | null>(null)
 const showQuickConfirm = ref(false)
-const isFromQR = ref(false)
+// Check QR parameter immediately to prevent login screen flash
+const isFromQR = ref(!!route.query.qr)
 const showSuccessCard = ref(false)
 const successCountdown = ref(5)
 
@@ -518,17 +556,17 @@ function getCurrentService(): string | null {
 
   // Service times in minutes from midnight
   const service1Start = 8 * 60 // 8:00 AM
-  const service1End = 10 * 60 + 15 // 10:15 AM
+  const service1End = 10 * 60 + 15 // 10:15 AM (10am + 15 min buffer)
   const service2Start = 10 * 60 // 10:00 AM
-  const service2End = 12 * 60 + 15 // 12:15 PM
+  const service2End = 12 * 60 + 15 // 12:15 PM (12pm + 15 min buffer)
   const service3Start = 12 * 60 // 12:00 PM
-  const dayEnd = 20 * 60 + 15 // 8:15 PM (extended for testing)
+  const service3End = 14 * 60 + 15 // 2:15 PM (2pm + 15 min buffer)
 
   if (currentTimeMinutes >= service1Start && currentTimeMinutes <= service1End) {
     return "1"
   } else if (currentTimeMinutes >= service2Start && currentTimeMinutes <= service2End) {
     return "2"
-  } else if (currentTimeMinutes >= service3Start && currentTimeMinutes <= dayEnd) {
+  } else if (currentTimeMinutes >= service3Start && currentTimeMinutes <= service3End) {
     return "3"
   }
   
@@ -537,9 +575,9 @@ function getCurrentService(): string | null {
 
 function getServiceText(service: string | null): string {
   switch(service) {
-    case "1": return "1st Service (8:00-9:30 AM)"
-    case "2": return "2nd Service (10:00-11:30 AM)"
-    case "3": return "3rd Service (12:00-8:00 PM)"
+    case "1": return "1st Service (8:00 AM - 10:00 AM)"
+    case "2": return "2nd Service (10:00 AM - 12:00 PM)"
+    case "3": return "3rd Service (12:00 PM - 2:00 PM)"
     default: return "No Service"
   }
 }
@@ -717,7 +755,7 @@ async function checkQRAccess() {
   const qrParam = route.query.qr as string
   
   if (qrParam) {
-    isFromQR.value = true
+    // isFromQR is already set in ref initialization
     console.log('[RegistrationView] QR parameter detected, user should already be authenticated')
     
     // User should already be authenticated and QR validated by QRView
@@ -765,29 +803,13 @@ async function confirmCachedData() {
     if (searchResult.value.found) {
       // If quick check-in is active (not force update flow) and service is running, do quick check-in
       if (!forceUpdateFlow.value && currentService.value) {
-        await membersStore.quickCheckIn(currentService.value)
+        await membersStore.quickCheckIn()
         clearSearch()
         showQuickConfirm.value = false
         
         // Show success card and start countdown
         showSuccessCard.value = true
-        successCountdown.value = 5
-        
-        const countdownInterval = setInterval(() => {
-          successCountdown.value--
-          if (successCountdown.value <= 0) {
-            clearInterval(countdownInterval)
-            // Try to close, but if it fails (opened manually), show message
-            window.close()
-            // If still here after 100ms, window.close() failed
-            setTimeout(() => {
-              if (successCountdown.value <= 0) {
-                // Update the success message to tell user they can close manually
-                successCountdown.value = -1 // Use negative to indicate manual close state
-              }
-            }, 100)
-          }
-        }, 1000)
+        startAutoCloseCountdown(successCountdown)
       } else {
         // Otherwise, proceed to edit/update form
         editMember()
@@ -1085,23 +1107,7 @@ async function handleSave() {
         phoneNumber: fullPhoneNumber
       }
       showSuccessCard.value = true
-      successCountdown.value = 5
-      
-      const countdownInterval = setInterval(() => {
-        successCountdown.value--
-        if (successCountdown.value <= 0) {
-          clearInterval(countdownInterval)
-          // Try to close, but if it fails (opened manually), show message
-          window.close()
-          // If still here after 100ms, window.close() failed
-          setTimeout(() => {
-            if (successCountdown.value <= 0) {
-              // Update the success message to tell user they can close manually
-              successCountdown.value = -1 // Use negative to indicate manual close state
-            }
-          }, 100)
-        }
-      }, 1000)
+      startAutoCloseCountdown(successCountdown)
       
       return // Exit early to prevent clearSearch/cancelEdit
     }
@@ -1125,7 +1131,7 @@ async function handleQuickCheckIn() {
 
     // Use searchResult.record (the confirmed member record) for caching, not memberForm
     const memberData = searchResult.value.record
-    console.log(isFromQR.value, currentUser.value?.uid, currentUser.value?.isAnonymous, memberData?.Name, memberData?.MorphersNumber)
+    // console.log(isFromQR.value, currentUser.value?.uid, currentUser.value?.isAnonymous, memberData?.Name, memberData?.MorphersNumber)
 
      // ONLY cache for QR-based anonymous users (not for authenticated admins)
     if (isFromQR.value && currentUser.value?.uid && currentUser.value?.isAnonymous && memberData) {
@@ -1142,23 +1148,7 @@ async function handleQuickCheckIn() {
         phoneNumber: memberData.MorphersNumber
       }
       showSuccessCard.value = true
-      successCountdown.value = 5
-      
-      const countdownInterval = setInterval(() => {
-        successCountdown.value--
-        if (successCountdown.value <= 0) {
-          clearInterval(countdownInterval)
-          // Try to close, but if it fails (opened manually), show message
-          window.close()
-          // If still here after 100ms, window.close() failed
-          setTimeout(() => {
-            if (successCountdown.value <= 0) {
-              // Update the success message to tell user they can close manually
-              successCountdown.value = -1 // Use negative to indicate manual close state
-            }
-          }, 100)
-        }
-      }, 1000)
+      startAutoCloseCountdown(successCountdown)
       
       return // Exit early to prevent clearSearch
     }
@@ -1241,6 +1231,32 @@ async function handleQuickCheckIn() {
 .fade-enter-to,
 .fade-leave-from {
   opacity: 1;
+}
+
+/* Card disabled state during async operations */
+.card-disabled {
+  pointer-events: none;
+  opacity: 0.6;
+  user-select: none;
+}
+
+/* Button loading states */
+button.loading {
+  position: relative;
+  cursor: not-allowed;
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+button .btn-loading {
+  display: inline-block;
+}
+
+button .btn-text {
+  display: inline-block;
 }
 
 /* (Use global .field-error styles for error glow to match PhoneInput) */

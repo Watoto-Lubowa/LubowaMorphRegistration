@@ -206,3 +206,37 @@ export const TRANSITIONS = {
     await transitionBetween(SECTION_IDS.MAIN_CONTAINER, SECTION_IDS.LOGIN)
   }
 } as const
+
+/**
+ * Start a countdown timer with auto-close window functionality
+ * Shows success card with countdown and attempts to close window
+ * Falls back to manual close message if window.close() fails
+ * 
+ * @param countdownRef - Ref to store countdown value
+ * @param initialSeconds - Initial countdown duration in seconds (default: 5)
+ * @returns Interval ID for the countdown timer
+ */
+export function startAutoCloseCountdown(
+  countdownRef: { value: number },
+  initialSeconds: number = 5
+): number {
+  countdownRef.value = initialSeconds
+  
+  const countdownInterval = window.setInterval(() => {
+    countdownRef.value--
+    if (countdownRef.value <= 0) {
+      clearInterval(countdownInterval)
+      // Try to close, but if it fails (opened manually), show message
+      window.close()
+      // If still here after 100ms, window.close() failed
+      setTimeout(() => {
+        if (countdownRef.value <= 0) {
+          // Update the success message to tell user they can close manually
+          countdownRef.value = -1 // Use negative to indicate manual close state
+        }
+      }, 100)
+    }
+  }, 1000)
+  
+  return countdownInterval
+}

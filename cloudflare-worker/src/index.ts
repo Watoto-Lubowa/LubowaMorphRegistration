@@ -37,39 +37,9 @@ interface ServiceSchedule {
 // Service schedule configuration
 const SERVICE_SCHEDULE: ServiceSchedule = {
   0: [ // Sunday (0 = Sunday in JavaScript Date)
-    { service: 1, start: 8, end: 10 },   // 8am - 10am
-    { service: 2, start: 10, end: 12 },  // 10am - 12pm
-    { service: 3, start: 12, end: 14 },  // 12pm - 2pm
-  ],
-  1: [ // Monday (for testing)
-    { service: 1, start: 8, end: 10 },   // 8am - 10am
-    { service: 2, start: 10, end: 12 },  // 10am - 12pm
-    { service: 3, start: 12, end: 20 },  // 12pm - 8pm (extended for testing)
-  ],
-  2: [ // Tuesday (for testing)
-    { service: 1, start: 8, end: 10 },   // 8am - 10am
-    { service: 2, start: 10, end: 12 },  // 10am - 12pm
-    { service: 3, start: 12, end: 20 },  // 12pm - 8pm (extended for testing)
-  ],
-  3: [ // Wednesday (for testing)
-    { service: 1, start: 8, end: 10 },   // 8am - 10am
-    { service: 2, start: 10, end: 12 },  // 10am - 12pm
-    { service: 3, start: 12, end: 20 },  // 12pm - 8pm (extended for testing)
-  ],
-  4: [ // Thursday (for testing)
-    { service: 1, start: 8, end: 10 },   // 8am - 10am
-    { service: 2, start: 10, end: 12 },  // 10am - 12pm
-    { service: 3, start: 12, end: 20 },  // 12pm - 8pm (extended for testing)
-  ],
-  5: [ // Friday (for testing)
-    { service: 1, start: 8, end: 10 },   // 8am - 10am
-    { service: 2, start: 10, end: 12 },  // 10am - 12pm
-    { service: 3, start: 12, end: 20 },  // 12pm - 8pm (extended for testing)
-  ],
-  6: [ // Saturday (for testing)
-    { service: 1, start: 8, end: 10 },   // 8am - 10am
-    { service: 2, start: 10, end: 12 },  // 10am - 12pm
-    { service: 3, start: 12, end: 20 },  // 12pm - 8pm (extended for testing)
+    { service: 1, start: 8, end: 10.25 },   // 8am - 10:15am (10am + 15 min buffer)
+    { service: 2, start: 10, end: 12.25 },  // 10am - 12:15pm (12pm + 15 min buffer)
+    { service: 3, start: 12, end: 14.25 },  // 12pm - 2:15pm (2pm + 15 min buffer)
   ],
 };
 
@@ -215,8 +185,10 @@ function getCurrentServiceWindow(): ServiceWindow | null {
   const now = new Date();
   const dayOfWeek = now.getDay();
   const currentHour = now.getHours();
+  const currentMinutes = now.getMinutes();
+  const currentTimeInMinutes = currentHour * 60 + currentMinutes;
 
-  console.log(`[DEBUG] Current time: ${now.toISOString()}, Day: ${dayOfWeek}, Hour: ${currentHour}`);
+  console.log(`[DEBUG] Current time: ${now.toISOString()}, Day: ${dayOfWeek}, Hour: ${currentHour}:${currentMinutes}`);
 
   const todayServices = SERVICE_SCHEDULE[dayOfWeek];
   if (!todayServices) {
@@ -227,13 +199,20 @@ function getCurrentServiceWindow(): ServiceWindow | null {
   console.log(`[DEBUG] Services for day ${dayOfWeek}:`, todayServices);
 
   for (const svc of todayServices) {
-    console.log(`[DEBUG] Checking service ${svc.service}: ${svc.start} <= ${currentHour} < ${svc.end}`);
-    if (currentHour >= svc.start && currentHour < svc.end) {
+    const startMinutes = svc.start * 60;
+    const endMinutes = svc.end * 60;
+    
+    console.log(`[DEBUG] Checking service ${svc.service}: ${startMinutes} <= ${currentTimeInMinutes} < ${endMinutes}`);
+    if (currentTimeInMinutes >= startMinutes && currentTimeInMinutes < endMinutes) {
       const dateFrom = new Date(now);
-      dateFrom.setHours(svc.start, 0, 0, 0);
+      const startHour = Math.floor(svc.start);
+      const startMin = Math.round((svc.start - startHour) * 60);
+      dateFrom.setHours(startHour, startMin, 0, 0);
 
       const dateTo = new Date(now);
-      dateTo.setHours(svc.end, 0, 0, 0);
+      const endHour = Math.floor(svc.end);
+      const endMin = Math.round((svc.end - endHour) * 60);
+      dateTo.setHours(endHour, endMin, 0, 0);
 
       console.log(`[DEBUG] Found active service ${svc.service}`);
       return {
