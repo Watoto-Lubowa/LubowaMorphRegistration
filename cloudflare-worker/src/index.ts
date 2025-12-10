@@ -41,6 +41,36 @@ const SERVICE_SCHEDULE: ServiceSchedule = {
     { service: 2, start: 10, end: 12.25 },  // 10am - 12:15pm (12pm + 15 min buffer)
     { service: 3, start: 12, end: 14.25 },  // 12pm - 2:15pm (2pm + 15 min buffer)
   ],
+  1: [ // Monday
+    { service: 1, start: 8, end: 10.25 },   // 8am - 10:15am (10am + 15 min buffer)
+    { service: 2, start: 10, end: 12.25 },  // 10am - 12:15pm (12pm + 15 min buffer)
+    { service: 3, start: 12, end: 17 },     // 12pm - 5pm
+  ],
+  2: [ // Tuesday
+    { service: 1, start: 8, end: 10.25 },   // 8am - 10:15am (10am + 15 min buffer)
+    { service: 2, start: 10, end: 12.25 },  // 10am - 12:15pm (12pm + 15 min buffer)
+    { service: 3, start: 12, end: 17 },     // 12pm - 5pm
+  ],
+  3: [ // Wednesday
+    { service: 1, start: 8, end: 10.25 },   // 8am - 10:15am (10am + 15 min buffer)
+    { service: 2, start: 10, end: 12.25 },  // 10am - 12:15pm (12pm + 15 min buffer)
+    { service: 3, start: 12, end: 17 },     // 12pm - 5pm
+  ],
+  4: [ // Thursday
+    { service: 1, start: 8, end: 10.25 },   // 8am - 10:15am (10am + 15 min buffer)
+    { service: 2, start: 10, end: 12.25 },  // 10am - 12:15pm (12pm + 15 min buffer)
+    { service: 3, start: 12, end: 17 },     // 12pm - 5pm
+  ],
+  5: [ // Friday
+    { service: 1, start: 8, end: 10.25 },   // 8am - 10:15am (10am + 15 min buffer)
+    { service: 2, start: 10, end: 12.25 },  // 10am - 12:15pm (12pm + 15 min buffer)
+    { service: 3, start: 12, end: 17 },     // 12pm - 5pm
+  ],
+  6: [ // Saturday
+    { service: 1, start: 8, end: 10.25 },   // 8am - 10:15am (10am + 15 min buffer)
+    { service: 2, start: 10, end: 12.25 },  // 10am - 12:15pm (12pm + 15 min buffer)
+    { service: 3, start: 12, end: 17 },     // 12pm - 5pm
+  ],
 };
 
 /**
