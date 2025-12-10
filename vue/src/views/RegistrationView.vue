@@ -1050,7 +1050,7 @@ async function handleSignOut() {
 async function handleQuickCheckIn() {
   try {
     uiStore.setLoading(true)
-    await membersStore.quickCheckIn(currentService.value)
+    await membersStore.quickCheckIn()
     
     // Clear search state and return to main screen
     clearSearch()
