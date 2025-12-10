@@ -369,20 +369,12 @@ export const useMembersStore = defineStore('members', () => {
   }
 
   // Quick check-in: Save attendance without form completion
-  async function quickCheckIn(service: string | null = null) {
+  async function quickCheckIn() {
     const uiStore = useUIStore()
     try {
       if (!currentMember.value || !currentMemberId.value) {
         throw new Error('No member selected for quick check-in')
       }
-
-      // Auto-populate attendance with current service
-      const attendance = autoPopulateAttendance()
-      if (service && (service === '1' || service === '2' || service === '3')) {
-        attendance.ServiceAttended = service as "1" | "2" | "3"
-      }
-
-      currentAttendance.value = attendance
 
       // Save attendance without updating other member data
       await saveMember(currentMember.value, currentMemberId.value)     
