@@ -157,7 +157,7 @@ export async function getCachedUserData(userId: string): Promise<{ name: string;
       throw new Error('Failed to decrypt cached data')
     }
     
-    console.log('[QR Cache] Decryption successful:', decrypted.decryptedData)
+    console.log('[QR Cache] Decryption successful:')
 
     return decrypted.decryptedData as { name: string; phoneNumber: string }
   } catch (error) {
