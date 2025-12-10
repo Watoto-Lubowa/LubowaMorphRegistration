@@ -10,11 +10,11 @@ import type { AppConfig } from '@/types'
 let appConfig: AppConfig
 
 // Try to load local config first (for development)
-try {
-  const { localConfig } = await import('./config.local')
-  appConfig = localConfig
-  console.log('✅ Using local TypeScript configuration')
-} catch {
+// try {
+//   const { localConfig } = await import('./config.local')
+//   appConfig = localConfig
+//   console.log('✅ Using local TypeScript configuration')
+// } catch {
   // Fall back to environment variables
   appConfig = {
     firebase: {
@@ -26,6 +26,7 @@ try {
       appId: import.meta.env.VITE_FIREBASE_APP_ID || 'FIREBASE_APP_ID_PLACEHOLDER',
       measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID || 'FIREBASE_MEASUREMENT_ID_PLACEHOLDER'
     },
+    workerUrl: import.meta.env.VITE_WORKER_URL || 'WORKER_URL_PLACEHOLDER',
     authorizedAdminEmails: (import.meta.env.VITE_AUTHORIZED_ADMIN_EMAILS || 'AUTHORIZED_ADMIN_EMAILS_PLACEHOLDER')
       .split(',')
       .map((email: string) => email.trim()),
@@ -37,8 +38,8 @@ try {
       .map((phone: string) => phone.trim())
   }
   console.log('✅ Using environment variable configuration')
-}
-
+// }
+// }
 export { appConfig }
 
 // Validation constants

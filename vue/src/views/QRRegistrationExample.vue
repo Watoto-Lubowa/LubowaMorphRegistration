@@ -6,15 +6,13 @@
 -->
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
-import { useAuthStore } from '@/stores/auth'
+import { ref, onMounted } from 'vue'
 import { useMembersStore } from '@/stores/members'
 import { useUIStore } from '@/stores/ui'
 import { useQRCheckIn } from '@/composables/useQRCheckIn'
 import type { MemberData } from '@/types'
 
 // Existing stores
-const authStore = useAuthStore()
 const membersStore = useMembersStore()
 const uiStore = useUIStore()
 
@@ -26,7 +24,6 @@ const {
   currentServiceName,
   serviceWindow,
   isCheckingLocation,
-  isCheckingQR,
   qrValidation,
   locationValidation,
   encryptAndStoreData,

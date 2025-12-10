@@ -52,6 +52,7 @@ export interface FirebaseConfig {
 
 export interface AppConfig {
   firebase: FirebaseConfig
+  workerUrl: string
   authorizedAdminEmails: string[]
   authorizedUserEmails: string[]
   authorizedPhoneNumbers: string[]
