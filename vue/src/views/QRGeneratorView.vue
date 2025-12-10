@@ -12,11 +12,16 @@
 
 <script setup lang="ts">
 import { ref, computed } from 'vue'
+import { useAuthStore } from '@/stores/auth'
 import { useUIStore } from '@/stores/ui'
 import { generateServiceQR } from '@/utils/cloudflareWorker'
 import QRCode from 'qrcode' // npm install qrcode
+import LoginForm from '@/components/LoginForm.vue'
 
+const authStore = useAuthStore()
 const uiStore = useUIStore()
+
+const isAuthenticated = computed(() => authStore.isAuthenticated)
 
 const qrData = ref<string>('')
 const qrImageUrl = ref<string>('')
@@ -197,7 +202,13 @@ function getServiceName(serviceNumber: number): string {
 
 <template>
   <div class="min-h-screen flex items-center justify-center py-8">
-    <div class="w-full">
+    <!-- Login Section -->
+    <div v-if="!isAuthenticated">
+      <LoginForm />
+    </div>
+
+    <!-- QR Generator -->
+    <div v-else class="w-full">
       <div class="main-container">
         <!-- Logo -->
         <div style="text-align: center; margin-bottom: 1rem;">

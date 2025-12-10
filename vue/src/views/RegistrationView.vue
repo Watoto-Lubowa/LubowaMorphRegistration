@@ -7,7 +7,27 @@
 
     <!-- Registration Form -->
     <div v-else class="w-full">
-      <div class="main-container">
+      <!-- Success Card (for QR check-in) -->
+      <div v-if="showSuccessCard" class="main-container">
+        <div class="success-card">
+          <!-- Logo -->
+          <div style="text-align: center; margin-bottom: 1.5rem;">
+            <img 
+              src="/watoto.svg" 
+              alt="Watoto Logo" 
+              style="height: 4rem; width: auto; margin: 0 auto; filter: invert(48%) sepia(79%) saturate(2476%) hue-rotate(228deg) brightness(94%) contrast(90%);"
+            >
+          </div>
+          <div class="success-icon">✅</div>
+          <h2 class="success-title">Check-in Successful!</h2>
+          <p class="success-message">Your attendance has been recorded.</p>
+          <p class="success-name">{{ cachedUserData?.name }}</p>
+          <p v-if="successCountdown > 0" class="success-countdown">This page will close in {{ successCountdown }} seconds...</p>
+          <p v-else class="success-countdown">You can close this page now.</p>
+        </div>
+      </div>
+
+      <div v-else class="main-container">
         <!-- Logo -->
         <div style="text-align: center; margin-bottom: 1rem;">
           <img 
@@ -486,6 +506,8 @@ const noService = ref(false);
 const cachedUserData = ref<{ name: string; phoneNumber: string } | null>(null)
 const showQuickConfirm = ref(false)
 const isFromQR = ref(false)
+const showSuccessCard = ref(false)
+const successCountdown = ref(5)
 
 // Service time detection functions
 function getCurrentService(): string | null {
@@ -746,7 +768,26 @@ async function confirmCachedData() {
         await membersStore.quickCheckIn(currentService.value)
         clearSearch()
         showQuickConfirm.value = false
-        uiStore.success('Quick check-in successful!')
+        
+        // Show success card and start countdown
+        showSuccessCard.value = true
+        successCountdown.value = 5
+        
+        const countdownInterval = setInterval(() => {
+          successCountdown.value--
+          if (successCountdown.value <= 0) {
+            clearInterval(countdownInterval)
+            // Try to close, but if it fails (opened manually), show message
+            window.close()
+            // If still here after 100ms, window.close() failed
+            setTimeout(() => {
+              if (successCountdown.value <= 0) {
+                // Update the success message to tell user they can close manually
+                successCountdown.value = -1 // Use negative to indicate manual close state
+              }
+            }, 100)
+          }
+        }, 1000)
       } else {
         // Otherwise, proceed to edit/update form
         editMember()
@@ -1026,7 +1067,7 @@ async function handleSave() {
     
     await membersStore.saveMember(memberData as MemberData, currentDocId.value)
     
-    // ONLY cache for QR-based anonymous users (not for authenticated admins)
+    // Cache and show success card for QR-based anonymous users
     if (isFromQR.value && currentUser.value?.uid && currentUser.value?.isAnonymous && memberForm.value.Name && memberForm.value.MorphersNumber) {
       console.log('[RegistrationView] Caching QR user data for anonymous UID:', currentUser.value.uid)
       const fullPhoneNumber = getCallingCodeByCountryCode(memberForm.value.MorphersCountryCode || 'UG') + memberForm.value.MorphersNumber
@@ -1034,6 +1075,35 @@ async function handleSave() {
         name: memberForm.value.Name,
         phoneNumber: fullPhoneNumber
       }).catch(err => console.error('[RegistrationView] Failed to cache user data:', err))
+    }
+    
+    // Show success card for ALL QR users (both cached and first-time)
+    if (isFromQR.value && currentUser.value?.isAnonymous && memberForm.value.Name) {
+      const fullPhoneNumber = getCallingCodeByCountryCode(memberForm.value.MorphersCountryCode || 'UG') + memberForm.value.MorphersNumber
+      cachedUserData.value = {
+        name: memberForm.value.Name,
+        phoneNumber: fullPhoneNumber
+      }
+      showSuccessCard.value = true
+      successCountdown.value = 5
+      
+      const countdownInterval = setInterval(() => {
+        successCountdown.value--
+        if (successCountdown.value <= 0) {
+          clearInterval(countdownInterval)
+          // Try to close, but if it fails (opened manually), show message
+          window.close()
+          // If still here after 100ms, window.close() failed
+          setTimeout(() => {
+            if (successCountdown.value <= 0) {
+              // Update the success message to tell user they can close manually
+              successCountdown.value = -1 // Use negative to indicate manual close state
+            }
+          }, 100)
+        }
+      }, 1000)
+      
+      return // Exit early to prevent clearSearch/cancelEdit
     }
     
     clearSearch()
@@ -1049,8 +1119,49 @@ async function handleSignOut() {
 
 async function handleQuickCheckIn() {
   try {
+    console.log('Starting quick check-in process')
     uiStore.setLoading(true)
     await membersStore.quickCheckIn()
+
+    // Use searchResult.record (the confirmed member record) for caching, not memberForm
+    const memberData = searchResult.value.record
+    console.log(isFromQR.value, currentUser.value?.uid, currentUser.value?.isAnonymous, memberData?.Name, memberData?.MorphersNumber)
+
+     // ONLY cache for QR-based anonymous users (not for authenticated admins)
+    if (isFromQR.value && currentUser.value?.uid && currentUser.value?.isAnonymous && memberData) {
+      console.log('[RegistrationView] Caching QR user data for anonymous UID:', currentUser.value.uid)
+      // Use the full phone number from the record (already includes country code)
+      await saveCachedUserData(currentUser.value.uid, {
+        name: memberData.Name,
+        phoneNumber: memberData.MorphersNumber
+      }).catch(err => console.error('[RegistrationView] Failed to cache user data:', err))
+      
+      // Show success card for QR users after quick check-in
+      cachedUserData.value = {
+        name: memberData.Name,
+        phoneNumber: memberData.MorphersNumber
+      }
+      showSuccessCard.value = true
+      successCountdown.value = 5
+      
+      const countdownInterval = setInterval(() => {
+        successCountdown.value--
+        if (successCountdown.value <= 0) {
+          clearInterval(countdownInterval)
+          // Try to close, but if it fails (opened manually), show message
+          window.close()
+          // If still here after 100ms, window.close() failed
+          setTimeout(() => {
+            if (successCountdown.value <= 0) {
+              // Update the success message to tell user they can close manually
+              successCountdown.value = -1 // Use negative to indicate manual close state
+            }
+          }, 100)
+        }
+      }, 1000)
+      
+      return // Exit early to prevent clearSearch
+    }
     
     // Clear search state and return to main screen
     clearSearch()
@@ -1064,6 +1175,58 @@ async function handleQuickCheckIn() {
 </script>
 
 <style scoped>
+/* Success Card Styles */
+.success-card {
+  text-align: center;
+  padding: 3rem 2rem;
+  background: white;
+  border-radius: 1rem;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
+  max-width: 500px;
+  margin: 0 auto;
+}
+
+.success-icon {
+  font-size: 5rem;
+  margin-bottom: 1.5rem;
+  animation: scaleIn 0.5s ease-out;
+}
+
+.success-title {
+  color: #22c55e;
+  font-size: 2rem;
+  font-weight: bold;
+  margin-bottom: 1rem;
+}
+
+.success-message {
+  font-size: 1.25rem;
+  color: #666;
+  margin-bottom: 1.5rem;
+}
+
+.success-name {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: #333;
+  margin-bottom: 2rem;
+}
+
+.success-countdown {
+  font-size: 1rem;
+  color: #999;
+  font-style: italic;
+}
+
+@keyframes scaleIn {
+  from {
+    transform: scale(0);
+  }
+  to {
+    transform: scale(1);
+  }
+}
+
 /* Fade transition */
 .fade-enter-active,
 .fade-leave-active {

@@ -4,9 +4,15 @@
  */
 
 // Watoto Church Lubowa coordinates
+// export const CHURCH_COORDINATES = {
+//   latitude: 0.2395,
+//   longitude: 32.5700,
+// }
+
+// Alternative coordinates for testing
 export const CHURCH_COORDINATES = {
-  latitude: 0.2395,
-  longitude: 32.5700,
+  latitude: 0.341820,
+  longitude: 32.594392,
 }
 
 // Maximum allowed distance in meters
@@ -14,7 +20,7 @@ export const MAX_DISTANCE_METERS = 500
 
 // ⚠️ TESTING MODE: Set to true to enable geolocation validation
 // Set to false to skip location checks during development
-export const ENABLE_GEOLOCATION_VALIDATION = false
+export const ENABLE_GEOLOCATION_VALIDATION = true
 
 /**
  * Calculate distance between two geographic coordinates using Haversine formula
@@ -46,10 +52,10 @@ export function calculateDistance(
 
 /**
  * Get user's current position with timeout
- * @param timeout - Timeout in milliseconds (default: 10000)
+ * @param timeout - Timeout in milliseconds (default: 30000)
  * @returns Promise with GeolocationPosition
  */
-export function getCurrentPosition(timeout = 10000): Promise<GeolocationPosition> {
+export function getCurrentPosition(timeout = 30000): Promise<GeolocationPosition> {
   return new Promise((resolve, reject) => {
     if (!navigator.geolocation) {
       reject(new Error('Geolocation is not supported by this browser'))

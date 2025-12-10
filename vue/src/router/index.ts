@@ -15,10 +15,10 @@ const router = createRouter({
       meta: { title: 'QR Check-In' }
     },
     {
-      path: '/admin/register',
+      path: '/register',
       name: 'admin-registration',
       component: RegistrationView,
-      meta: { title: 'Admin Registration', requiresAuth: true }
+      meta: { title: 'Registration', requiresAuth: true }
     },
     {
       path: '/admin',
@@ -27,10 +27,10 @@ const router = createRouter({
       meta: { title: 'Admin Panel', requiresAdmin: true }
     },
     {
-      path: '/admin/qr-generator',
+      path: '/qr-generator',
       name: 'qr-generator',
       component: QRGeneratorView,
-      meta: { title: 'QR Code Generator', requiresAdmin: true }
+      meta: { title: 'QR Code Generator', requiresAuth: true }
     }
   ]
 })
