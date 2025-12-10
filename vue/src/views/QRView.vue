@@ -68,21 +68,21 @@
                 <p style="color: #991b1b; font-size: 0.9rem; margin-top: 0.5rem;">You must be within 500m to check in</p>
               </div>
               <p style="color: #666; margin-bottom: 0.5rem;">
-                Please:
+                <strong>Please:</strong>
               </p>
               <ul style="text-align: left; display: inline-block; color: #666; margin-top: 0.5rem;">
                 <li style="margin-bottom: 0.5rem;">🚶 Move closer to the check-in location</li>
                 <li style="margin-bottom: 0.5rem;">🔄 Try again later or once you're at the venue</li>
                 <li>👨‍💼 Contact a facilitator if you're having issues</li>
               </ul>
-              <button 
-                @click="requestLocation" 
-                class="search-btn" 
-                style="width: 100%; margin-top: 1.5rem;"
-              >
-                <span class="btn-text">🔄 Check Location Again</span>
-              </button>
             </div>
+            <button 
+              @click="requestLocation" 
+              class="search-btn" 
+              style="width: 100%; min-width: unset; margin-top: 1.5rem; box-sizing: border-box;"
+            >
+              <span class="btn-text">🔄 Check Again</span>
+            </button>
           </div>
         </div>
 
