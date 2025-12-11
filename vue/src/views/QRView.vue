@@ -95,6 +95,11 @@
               <p style="font-size: 1.1rem; font-weight: 600; margin-bottom: 1rem; color: #dc2626;">
                 {{ errorMessage }}
               </p>
+              <div v-if="qrValidDate" style="background: #fef2f2; padding: 1rem; border-radius: 8px; margin: 1rem 0; border: 1px solid #fecaca;">
+                <p style="color: #991b1b; font-weight: 600;">This QR code is valid for:</p>
+                <p style="color: #991b1b; font-size: 1.1rem; margin-top: 0.5rem;">📅 {{ qrValidDate }}</p>
+                <p v-if="qrServiceInfo" style="color: #991b1b; font-size: 1rem; margin-top: 0.5rem;">🕐 {{ qrServiceInfo }}</p>
+              </div>
               <p style="color: #666; margin-bottom: 0.5rem;">
                 <strong>Please try:</strong>
               </p>
@@ -164,6 +169,8 @@ const needsLocationPermission = ref(false)
 const locationError = ref(false)
 const locationErrorMessage = ref('')
 const userDistance = ref<number | null>(null)
+const qrValidDate = ref<string | null>(null)
+const qrServiceInfo = ref<string | null>(null)
 
 onMounted(async () => {
   const qrParam = route.query.qr as string
@@ -191,7 +198,62 @@ onMounted(async () => {
     if (!validation.success || !validation.isValid) {
       console.error('QR validation failed:', validation)
       qrError.value = true
-      errorMessage.value = 'This QR code has expired or is invalid'
+      
+      // Use the reason from the worker to provide better error messages
+      switch (validation.reason) {
+        case 'NOT_YET_VALID':
+          errorMessage.value = 'This QR code is not yet valid'
+          if (validation.validFrom && validation.payload) {
+            const validDate = new Date(validation.validFrom)
+            qrValidDate.value = validDate.toLocaleDateString('en-US', {
+              weekday: 'long',
+              year: 'numeric',
+              month: 'long',
+              day: 'numeric'
+            })
+            // Extract service info
+            const serviceNumber = validation.payload.s
+            qrServiceInfo.value = getServiceName(serviceNumber)
+          }
+          break
+        case 'EXPIRED':
+          errorMessage.value = 'This QR code has expired'
+          if (validation.validFrom && validation.payload) {
+            const validDate = new Date(validation.validFrom)
+            qrValidDate.value = validDate.toLocaleDateString('en-US', {
+              weekday: 'long',
+              year: 'numeric',
+              month: 'long',
+              day: 'numeric'
+            })
+            // Extract service info
+            const serviceNumber = validation.payload.s
+            qrServiceInfo.value = getServiceName(serviceNumber)
+          }
+          break
+        case 'DECRYPTION_FAILED':
+          errorMessage.value = 'Invalid or corrupted QR code'
+          break
+        case 'MISSING_DATA':
+          errorMessage.value = 'Invalid QR code format'
+          break
+        default:
+          errorMessage.value = validation.message || 'This QR code is invalid'
+          // Try to extract date and service from payload if available
+          if (validation.payload && validation.payload.x) {
+            const validDate = new Date(validation.payload.x)
+            qrValidDate.value = validDate.toLocaleDateString('en-US', {
+              weekday: 'long',
+              year: 'numeric',
+              month: 'long',
+              day: 'numeric'
+            })
+            if (validation.payload.s) {
+              qrServiceInfo.value = getServiceName(validation.payload.s)
+            }
+          }
+      }
+      
       isProcessing.value = false
       return
     }
@@ -334,6 +396,18 @@ async function continueAfterLocationValidation() {
     errorMessage.value = 'An error occurred during setup'
     isProcessing.value = false
   }
+}
+
+/**
+ * Get service name from service number
+ */
+function getServiceName(serviceNumber: number): string {
+  const serviceNames: Record<number, string> = {
+    1: 'First Service (8:00 AM - 10:00 AM)',
+    2: 'Second Service (10:00 AM - 12:00 PM)',
+    3: 'Third Service (12:00 PM - 2:00 PM)',
+  }
+  return serviceNames[serviceNumber] || `Service ${serviceNumber}`
 }
 </script>
 

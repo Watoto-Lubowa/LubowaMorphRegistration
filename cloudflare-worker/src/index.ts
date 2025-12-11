@@ -348,6 +348,165 @@ async function handleGenerateQR(request: Request, env: Env): Promise<Response> {
 }
 
 /**
+ * Handle GET /generate-qr-for-service?service=X
+ * Generate encrypted QR code for a specific service on next Sunday
+ * Used by admin to pre-generate QR codes for printing
+ */
+async function handleGenerateQRForService(request: Request, env: Env): Promise<Response> {
+  try {
+    const url = new URL(request.url);
+    const serviceParam = url.searchParams.get('service');
+    
+    if (!serviceParam) {
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: 'Service number is required. Use ?service=1, ?service=2, or ?service=3',
+        }),
+        {
+          status: 400,
+          headers: {
+            'Content-Type': 'application/json',
+            ...getCorsHeaders(request, env),
+          },
+        }
+      );
+    }
+
+    const serviceNumber = parseInt(serviceParam, 10);
+    if (![1, 2, 3].includes(serviceNumber)) {
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: 'Service number must be 1, 2, or 3',
+        }),
+        {
+          status: 400,
+          headers: {
+            'Content-Type': 'application/json',
+            ...getCorsHeaders(request, env),
+          },
+        }
+      );
+    }
+
+    // Get current time in UTC and EAT
+    const nowUTC = new Date();
+    const EAT_OFFSET_HOURS = 3;
+    const ugandaTimeMs = nowUTC.getTime() + (EAT_OFFSET_HOURS * 60 * 60 * 1000);
+    const ugandaDate = new Date(ugandaTimeMs);
+    const currentDayOfWeek = ugandaDate.getUTCDay();
+
+    // Calculate next Sunday (or today if it's Sunday)
+    let daysUntilSunday = 0;
+    if (currentDayOfWeek !== 0) {
+      daysUntilSunday = 7 - currentDayOfWeek;
+    }
+
+    // Get Sunday services schedule
+    const sundayServices = SERVICE_SCHEDULE[0]; // 0 = Sunday
+    if (!sundayServices) {
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: 'No Sunday services configured',
+        }),
+        {
+          status: 500,
+          headers: {
+            'Content-Type': 'application/json',
+            ...getCorsHeaders(request, env),
+          },
+        }
+      );
+    }
+
+    // Find the requested service
+    const service = sundayServices.find(s => s.service === serviceNumber);
+    if (!service) {
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: `Service ${serviceNumber} not found in Sunday schedule`,
+        }),
+        {
+          status: 404,
+          headers: {
+            'Content-Type': 'application/json',
+            ...getCorsHeaders(request, env),
+          },
+        }
+      );
+    }
+
+    // Calculate service times for next Sunday in EAT
+    const startHour = Math.floor(service.start);
+    const startMin = Math.round((service.start - startHour) * 60);
+    const endHour = Math.floor(service.end);
+    const endMin = Math.round((service.end - endHour) * 60);
+
+    // Create dates for next Sunday at midnight UTC first
+    const nextSundayMidnight = new Date(nowUTC);
+    nextSundayMidnight.setUTCDate(nextSundayMidnight.getUTCDate() + daysUntilSunday);
+    nextSundayMidnight.setUTCHours(0, 0, 0, 0); // Reset to midnight UTC
+    
+    // Now set the service times (convert EAT hours to UTC by subtracting offset)
+    const dateFrom = new Date(nextSundayMidnight);
+    dateFrom.setUTCHours(startHour - EAT_OFFSET_HOURS, startMin, 0, 0);
+
+    const dateTo = new Date(nextSundayMidnight);
+    dateTo.setUTCHours(endHour - EAT_OFFSET_HOURS, endMin, 0, 0);
+
+    // Create payload
+    const payload = {
+      x: dateFrom.toISOString(),
+      y: dateTo.toISOString(),
+      u: '/qrcode/scan',
+      s: serviceNumber,
+    };
+
+    // Encrypt payload
+    const encrypted = await encrypt(
+      JSON.stringify(payload),
+      env.QR_SECRET_KEY
+    );
+
+    return new Response(
+      JSON.stringify({
+        success: true,
+        qrData: encrypted,
+        serviceInfo: {
+          serviceNumber: serviceNumber,
+          startTime: dateFrom.toISOString(),
+          endTime: dateTo.toISOString(),
+        },
+      }),
+      {
+        status: 200,
+        headers: {
+          'Content-Type': 'application/json',
+          ...getCorsHeaders(request, env),
+        },
+      }
+    );
+  } catch (error) {
+    return new Response(
+      JSON.stringify({
+        success: false,
+        error: (error instanceof Error ? error.message : 'Failed to generate QR code'),
+      }),
+      {
+        status: 500,
+        headers: {
+          'Content-Type': 'application/json',
+          ...getCorsHeaders(request, env),
+        },
+      }
+    );
+  }
+}
+
+/**
  * Handle POST /encrypt-user-data
  * Encrypt user registration data
  */
@@ -634,11 +793,13 @@ async function handleValidateQR(request: Request, env: Env): Promise<Response> {
     if (!qrData) {
       return new Response(
         JSON.stringify({
-          success: false,
+          success: true,
+          isValid: false,
           error: 'qrData is required',
+          reason: 'MISSING_DATA'
         }),
         {
-          status: 400,
+          status: 200,
           headers: {
             'Content-Type': 'application/json',
             ...getCorsHeaders(request, env),
@@ -647,6 +808,7 @@ async function handleValidateQR(request: Request, env: Env): Promise<Response> {
       );
     }
 
+    // Try to decrypt and parse the QR code
     // The qrData might be URL-encoded when passed as query parameter
     // Decode it first to get the proper base64 string
     let decodedQrData = qrData
@@ -657,8 +819,30 @@ async function handleValidateQR(request: Request, env: Env): Promise<Response> {
       console.log('QR data is not URL encoded, using as-is')
     }
 
-    const decrypted = await decrypt(decodedQrData, env.QR_SECRET_KEY)
-    const payload = JSON.parse(decrypted) as QRPayload
+    let payload: QRPayload
+    try {
+      const decrypted = await decrypt(decodedQrData, env.QR_SECRET_KEY)
+      payload = JSON.parse(decrypted) as QRPayload
+    } catch (decryptError) {
+      // Decryption failed - invalid or corrupted QR code
+      console.error('Decryption error:', decryptError)
+      return new Response(
+        JSON.stringify({
+          success: true,
+          isValid: false,
+          error: 'Invalid or corrupted QR code',
+          reason: 'DECRYPTION_FAILED',
+          message: 'This QR code could not be decrypted. It may be corrupted or not generated by this system.'
+        }),
+        {
+          status: 200,
+          headers: {
+            'Content-Type': 'application/json',
+            ...getCorsHeaders(request, env),
+          },
+        }
+      );
+    }
 
     // Validate time window
     const now = new Date()
@@ -666,12 +850,29 @@ async function handleValidateQR(request: Request, env: Env): Promise<Response> {
     const dateTo = new Date(payload.y)
     const isValid = now >= dateFrom && now <= dateTo
 
+    // Determine the reason for invalidity
+    let reason = 'VALID'
+    let message = 'QR code is valid'
+    
+    if (!isValid) {
+      if (now < dateFrom) {
+        reason = 'NOT_YET_VALID'
+        message = 'QR code is not yet valid - it will be active on the scheduled date'
+      } else if (now > dateTo) {
+        reason = 'EXPIRED'
+        message = 'QR code has expired'
+      }
+    }
+
     return new Response(
       JSON.stringify({
         success: true,
         isValid,
         payload,
-        message: isValid ? 'QR code is valid' : 'QR code has expired',
+        reason,
+        message,
+        validFrom: payload.x,
+        validUntil: payload.y,
       }),
       {
         status: 200,
@@ -682,13 +883,17 @@ async function handleValidateQR(request: Request, env: Env): Promise<Response> {
       }
     );
   } catch (error) {
+    // Unexpected error
+    console.error('Unexpected error in handleValidateQR:', error)
     return new Response(
       JSON.stringify({
-        success: false,
+        success: true,
+        isValid: false,
         error: (error instanceof Error ? error.message : 'Failed to validate QR code'),
+        reason: 'UNEXPECTED_ERROR'
       }),
       {
-        status: 500,
+        status: 200,
         headers: {
           'Content-Type': 'application/json',
           ...getCorsHeaders(request, env),
@@ -714,6 +919,10 @@ export default {
     // Route requests
     if (path === '/generate-qr' && request.method === 'GET') {
       return handleGenerateQR(request, env)
+    }
+
+    if (path === '/generate-qr-for-service' && request.method === 'GET') {
+      return handleGenerateQRForService(request, env)
     }
 
     if (path === '/secure-encrypt' && request.method === 'POST') {
@@ -745,6 +954,7 @@ export default {
           status: 'running',
           endpoints: {
             'GET /generate-qr': 'Generate encrypted QR code for current service',
+            'GET /generate-qr-for-service?service=X': 'Generate encrypted QR code for specific service (1, 2, or 3) on next Sunday',
             'POST /secure-encrypt': 'Securely encrypt data with UID-derived key',
             'POST /secure-decrypt': 'Securely decrypt data with UID-derived key',
             'POST /encrypt-user-data': 'Encrypt user registration data (legacy)',

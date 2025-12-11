@@ -193,9 +193,9 @@ async function copyUrl() {
  */
 function getServiceName(serviceNumber: number): string {
   const names: Record<number, string> = {
-    1: 'First Service (8-10 AM)',
-    2: 'Second Service (10 AM-12 PM)',
-    3: 'Third Service (12-2 PM)',
+    1: 'First Service (8:00AM to 10:00AM)',
+    2: 'Second Service (10:00AM to 12:00PM)',
+    3: 'Third Service (12:00PM to 2:00PM)',
   }
   return names[serviceNumber] || `Service ${serviceNumber}`
 }

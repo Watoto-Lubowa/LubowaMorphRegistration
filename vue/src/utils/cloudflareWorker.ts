@@ -20,6 +20,10 @@ export interface WorkerResponse {
   error?: string
   isValid?: boolean
   payload?: any
+  reason?: 'VALID' | 'NOT_YET_VALID' | 'EXPIRED' | 'DECRYPTION_FAILED' | 'MISSING_DATA' | 'UNEXPECTED_ERROR'
+  message?: string
+  validFrom?: string
+  validUntil?: string
 }
 
 /**
@@ -43,6 +47,32 @@ export async function generateServiceQR(): Promise<WorkerResponse> {
     return await response.json()
   } catch (error) {
     console.error('Error generating QR code:', error)
+    throw error
+  }
+}
+
+/**
+ * Generate QR code for a specific service on next Sunday
+ * @param serviceNumber - Service number (1, 2, or 3)
+ * @returns Promise with QR data and service info
+ */
+export async function generateServiceQRForService(serviceNumber: number): Promise<WorkerResponse> {
+  try {
+    const response = await fetch(`${WORKER_URL}/generate-qr-for-service?service=${serviceNumber}`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    })
+
+    if (!response.ok) {
+      const error = await response.json()
+      throw new Error(error.error || 'Failed to generate QR code')
+    }
+
+    return await response.json()
+  } catch (error) {
+    console.error('Error generating QR code for service:', error)
     throw error
   }
 }

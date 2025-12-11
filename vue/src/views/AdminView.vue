@@ -53,7 +53,11 @@
             :disabled="isSigningIn"
             :class="{ loading: isSigningIn }"
           >
-            <span class="btn-text">🚀 Sign In</span>
+            <span v-if="!isSigningIn">🚀 Sign In</span>
+            <span v-else style="display: flex; align-items: center; justify-content: center; gap: 0.5rem;">
+              <span style="display: inline-block; width: 1rem; height: 1rem; border: 2px solid rgba(255,255,255,0.3); border-top-color: white; border-radius: 50%; animation: spin 0.8s linear infinite;"></span>
+              <span>Signing In...</span>
+            </span>
           </button>
         </div>
         
@@ -170,12 +174,28 @@
           </div>
 
           <div class="action-card">
+            <div class="action-icon">📱</div>
+            <h3>Generate QR Codes</h3>
+            <p>Generate QR codes for all three Sunday services</p>
+            <button @click="generateAllQRCodes" class="action-btn" :disabled="isGeneratingQRs">
+              <span v-if="!isGeneratingQRs">📱 Generate & Print</span>
+              <span v-else style="display: flex; align-items: center; justify-content: center; gap: 0.5rem;">
+                <span style="display: inline-block; width: 1rem; height: 1rem; border: 2px solid rgba(255,255,255,0.3); border-top-color: white; border-radius: 50%; animation: spin 0.8s linear infinite;"></span>
+                <span>Generating QR Codes...</span>
+              </span>
+            </button>
+          </div>
+
+          <div class="action-card">
             <div class="action-icon">📥</div>
             <h3>Download Data</h3>
             <p>Export all morpher records to CSV format</p>
             <button @click="downloadAll" class="action-btn" :disabled="isDownloading">
-              <span class="btn-text">Download CSV</span>
-              <span class="btn-loading" v-if="isDownloading">Downloading...</span>
+              <span v-if="!isDownloading">📥 Download CSV</span>
+              <span v-else style="display: flex; align-items: center; justify-content: center; gap: 0.5rem;">
+                <span style="display: inline-block; width: 1rem; height: 1rem; border: 2px solid rgba(255,255,255,0.3); border-top-color: white; border-radius: 50%; animation: spin 0.8s linear infinite;"></span>
+                <span>Downloading...</span>
+              </span>
             </button>
           </div>
 
@@ -215,6 +235,8 @@ import { storeToRefs } from 'pinia'
 import { useAuthStore } from '@/stores/auth'
 import { useMembersStore } from '@/stores/members'
 import { useUIStore } from '@/stores/ui'
+import { generateServiceQRForService } from '@/utils/cloudflareWorker'
+import QRCode from 'qrcode'
 
 // Chart.js import
 import Chart from 'chart.js/auto'
@@ -243,6 +265,7 @@ const forceUpdateStatusText = ref('Loading...')
 const enforceGPS = ref(true)
 const gpsEnforcementStatusText = ref('Loading...')
 const isDownloading = ref(false)
+const isGeneratingQRs = ref(false)
 
 // Chart instance
 const attendanceChart = ref<HTMLCanvasElement>()
@@ -699,6 +722,270 @@ async function toggleGPSEnforcement() {
   }
 }
 
+// QR Code generation functions
+interface ServiceQRData {
+  serviceNumber: number
+  serviceName: string
+  serviceTime: string
+  qrCodeDataUrl: string
+  validDate: string // Human-readable date (e.g., "Sunday, December 15, 2025")
+}
+
+/**
+ * Generate QR code for a specific service
+ * @param serviceNumber - The service number (1, 2, or 3)
+ * @returns Promise with QR code data URL and service info
+ */
+async function generateServiceQR(serviceNumber: number): Promise<ServiceQRData> {
+  const serviceInfo = {
+    1: { name: 'First Service', time: '8:00 AM - 10:00 AM' },
+    2: { name: 'Second Service', time: '10:00 AM - 12:00 PM' },
+    3: { name: 'Third Service', time: '12:00 PM - 2:00 PM' }
+  }
+
+  const service = serviceInfo[serviceNumber as keyof typeof serviceInfo]
+  if (!service) {
+    throw new Error(`Invalid service number: ${serviceNumber}`)
+  }
+
+  // Get encrypted QR data from Cloudflare Worker for next Sunday's service
+  const workerResponse = await generateServiceQRForService(serviceNumber)
+  
+  if (!workerResponse.success || !workerResponse.qrData || !workerResponse.serviceInfo) {
+    throw new Error(workerResponse.error || 'Failed to generate QR code from worker')
+  }
+
+  // Extract and format the valid date from service info
+  const validDate = new Date(workerResponse.serviceInfo.startTime)
+  const formattedDate = validDate.toLocaleDateString('en-US', {
+    weekday: 'long',
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric'
+  })
+
+  // Generate QR code with full URL including encrypted data (same format as QRView expects)
+  // URL-encode the QR data to handle special characters in base64 (+, /, =)
+  const encodedQrData = encodeURIComponent(workerResponse.qrData)
+  const qrUrl = `${window.location.origin}?qr=${encodedQrData}`
+  const qrCodeDataUrl = await QRCode.toDataURL(qrUrl, {
+    width: 400,
+    margin: 2,
+    errorCorrectionLevel: 'H'
+  })
+
+  return {
+    serviceNumber,
+    serviceName: service.name,
+    serviceTime: service.time,
+    qrCodeDataUrl,
+    validDate: formattedDate
+  }
+}
+
+/**
+ * Create print-ready HTML layout with all QR codes
+ * @param qrDataArray - Array of QR code data for all services
+ * @returns HTML string ready for printing
+ */
+function createPrintLayout(qrDataArray: ServiceQRData[]): string {
+  const pages = qrDataArray.map((data, index) => `
+    <div class="qr-print-page" ${index === 0 ? 'style="page-break-before: auto;"' : ''}>
+      <div class="qr-print-content">
+        <div class="qr-logo-container">
+          <img src="/watoto.svg" alt="Watoto Church" class="qr-logo" />
+        </div>
+        <div class="qr-service-info">
+          <h1 class="qr-service-name">${data.serviceName}</h1>
+          <p class="qr-service-time">${data.serviceTime}</p>
+          <p class="qr-location">Watoto Church Lubowa</p>
+        </div>
+        <div class="qr-code-container">
+          <img src="${data.qrCodeDataUrl}" alt="QR Code for ${data.serviceName}" class="qr-code-image" />
+        </div>
+        <div class="qr-valid-date">
+          <p style="font-size: 1rem; color: #666; font-weight: 600; margin: 1rem 0;">Valid: ${data.validDate}</p>
+        </div>
+        <div class="qr-instructions">
+          <p>Scan this QR code to check in for ${data.serviceName}</p>
+        </div>
+      </div>
+    </div>
+  `).join('')
+
+  return `
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>Service QR Codes - Watoto Church Lubowa</title>
+      <style>
+        @page {
+          size: A4 portrait;
+          margin: 0;
+        }
+        
+        * {
+          margin: 0;
+          padding: 0;
+          box-sizing: border-box;
+        }
+        
+        body {
+          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+          background: white;
+        }
+        
+        .qr-print-page {
+          width: 100vw;
+          height: 100vh;
+          page-break-after: always;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          background: white;
+        }
+        
+        .qr-print-page:last-child {
+          page-break-after: auto;
+        }
+        
+        .qr-print-content {
+          text-align: center;
+          padding: 2rem;
+          max-width: 600px;
+        }
+        
+        .qr-logo-container {
+          margin-bottom: 2rem;
+        }
+        
+        .qr-logo {
+          height: 80px;
+          width: auto;
+        }
+        
+        .qr-service-info {
+          margin-bottom: 2rem;
+        }
+        
+        .qr-service-name {
+          font-size: 2.5rem;
+          font-weight: bold;
+          color: #1a1a1a;
+          margin-bottom: 0.5rem;
+        }
+        
+        .qr-service-time {
+          font-size: 1.5rem;
+          color: #666;
+          margin-bottom: 0.25rem;
+        }
+        
+        .qr-location {
+          font-size: 1.2rem;
+          color: #888;
+        }
+        
+        .qr-code-container {
+          margin: 2rem 0;
+          display: flex;
+          justify-content: center;
+        }
+        
+        .qr-code-image {
+          max-width: 400px;
+          width: 100%;
+          height: auto;
+          border: 2px solid #e0e0e0;
+          border-radius: 8px;
+          padding: 1rem;
+          background: white;
+        }
+        
+        .qr-instructions {
+          margin-top: 2rem;
+          font-size: 1.1rem;
+          color: #666;
+        }
+        
+        @media print {
+          body {
+            background: white;
+          }
+          
+          .qr-print-page {
+            page-break-after: always;
+          }
+          
+          .qr-print-page:last-child {
+            page-break-after: auto;
+          }
+        }
+      </style>
+    </head>
+    <body>
+      ${pages}
+    </body>
+    </html>
+  `
+}
+
+/**
+ * Open print dialog with generated QR codes
+ * @param htmlContent - HTML content to print
+ */
+function printQRCodes(htmlContent: string): void {
+  const printWindow = window.open('', '_blank')
+  if (!printWindow) {
+    throw new Error('Failed to open print window. Please check your popup blocker settings.')
+  }
+  
+  printWindow.document.write(htmlContent)
+  printWindow.document.close()
+  
+  // Wait for images to load before printing
+  printWindow.onload = () => {
+    printWindow.focus()
+    printWindow.print()
+  }
+}
+
+/**
+ * Main function to generate all QR codes and trigger print
+ * Orchestrates the entire QR generation workflow
+ */
+async function generateAllQRCodes(): Promise<void> {
+  if (!isAuthenticated.value || !isAdmin.value) {
+    uiStore.error('Access denied: Admin privileges required')
+    return
+  }
+
+  isGeneratingQRs.value = true
+
+  try {
+    // Generate QR codes for all three services in parallel
+    const qrPromises = [1, 2, 3].map(serviceNum => generateServiceQR(serviceNum))
+    const qrDataArray = await Promise.all(qrPromises)
+
+    // Create print layout
+    const htmlContent = createPrintLayout(qrDataArray)
+
+    // Trigger print dialog
+    printQRCodes(htmlContent)
+
+    uiStore.success('QR codes generated successfully. Print dialog opened.')
+    console.log('📱 Generated QR codes for all 3 services')
+  } catch (error) {
+    console.error('Failed to generate QR codes:', error)
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred'
+    uiStore.error(`Failed to generate QR codes: ${errorMessage}`)
+  } finally {
+    isGeneratingQRs.value = false
+  }
+}
+
 // Data management functions
 async function downloadAll() {
   if (!isAuthenticated.value || !isAdmin.value) {
@@ -884,5 +1171,15 @@ html, body {
 /* Ensure the admin container takes full viewport */
 .admin-container {
   min-height: 100vh;
+}
+
+/* Loading spinner animation */
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
 }
 </style>
