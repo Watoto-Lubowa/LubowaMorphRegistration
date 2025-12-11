@@ -210,15 +210,26 @@ async function decrypt(encryptedBase64: string, secretKey: string): Promise<stri
 
 /**
  * Determine the current service window
+ * Works in Uganda time (EAT/UTC+3) but returns UTC dates
  */
 function getCurrentServiceWindow(): ServiceWindow | null {
-  const now = new Date();
-  const dayOfWeek = now.getDay();
-  const currentHour = now.getHours();
-  const currentMinutes = now.getMinutes();
+  // Get current time in UTC
+  const nowUTC = new Date();
+  
+  // East Africa Time offset (UTC+3)
+  const EAT_OFFSET_HOURS = 3;
+  
+  // Get current time components in Uganda timezone
+  // We add the offset to get the local hour/minute for comparison
+  const ugandaTimeMs = nowUTC.getTime() + (EAT_OFFSET_HOURS * 60 * 60 * 1000);
+  const ugandaDate = new Date(ugandaTimeMs);
+  
+  const dayOfWeek = ugandaDate.getUTCDay();
+  const currentHour = ugandaDate.getUTCHours();
+  const currentMinutes = ugandaDate.getUTCMinutes();
   const currentTimeInMinutes = currentHour * 60 + currentMinutes;
 
-  console.log(`[DEBUG] Current time: ${now.toISOString()}, Day: ${dayOfWeek}, Hour: ${currentHour}:${currentMinutes}`);
+  console.log(`[DEBUG] UTC: ${nowUTC.toISOString()}, EAT: ${currentHour}:${currentMinutes}, Day: ${dayOfWeek}`);
 
   const todayServices = SERVICE_SCHEDULE[dayOfWeek];
   if (!todayServices) {
@@ -234,17 +245,22 @@ function getCurrentServiceWindow(): ServiceWindow | null {
     
     console.log(`[DEBUG] Checking service ${svc.service}: ${startMinutes} <= ${currentTimeInMinutes} < ${endMinutes}`);
     if (currentTimeInMinutes >= startMinutes && currentTimeInMinutes < endMinutes) {
-      const dateFrom = new Date(now);
+      // Create service start/end times in UTC
+      // Service times are defined in EAT, so we subtract the offset to get UTC
       const startHour = Math.floor(svc.start);
       const startMin = Math.round((svc.start - startHour) * 60);
-      dateFrom.setHours(startHour, startMin, 0, 0);
-
-      const dateTo = new Date(now);
+      
       const endHour = Math.floor(svc.end);
       const endMin = Math.round((svc.end - endHour) * 60);
-      dateTo.setHours(endHour, endMin, 0, 0);
+      
+      // Create dates in UTC by subtracting the EAT offset
+      const dateFrom = new Date(nowUTC);
+      dateFrom.setUTCHours(startHour - EAT_OFFSET_HOURS, startMin, 0, 0);
 
-      console.log(`[DEBUG] Found active service ${svc.service}`);
+      const dateTo = new Date(nowUTC);
+      dateTo.setUTCHours(endHour - EAT_OFFSET_HOURS, endMin, 0, 0);
+
+      console.log(`[DEBUG] Found service ${svc.service}: ${dateFrom.toISOString()} to ${dateTo.toISOString()}`);
       return {
         dateFrom: dateFrom.toISOString(),
         dateTo: dateTo.toISOString(),
@@ -253,7 +269,7 @@ function getCurrentServiceWindow(): ServiceWindow | null {
     }
   }
 
-  console.log(`[DEBUG] No active service found for current hour ${currentHour}`);
+  console.log(`[DEBUG] No active service found for EAT ${currentHour}:${currentMinutes}`);
 
   return null;
 }
