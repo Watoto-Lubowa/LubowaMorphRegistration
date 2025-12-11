@@ -121,7 +121,7 @@
               </p>
               <div style="background: #f3f4f6; padding: 1.5rem; border-radius: 8px; margin: 1.5rem 0;">
                 <p style="color: #374151; font-weight: 600; margin-bottom: 0.5rem;">How to scan:</p>
-                <ul style="text-align: left; display: inline-block; color: #4b5563; margin-top: 0.5rem; padding-left: 1.5rem;">
+                <ul style="text-align: left; display: inline-block; color: #4b5563; margin-top: 0.5rem; padding-left: 1.5rem; list-style-type: disc;">
                   <li style="margin-bottom: 0.5rem;">Open your phone camera</li>
                   <li style="margin-bottom: 0.5rem;">Point it at the QR code</li>
                   <li>Tap the notification to open the link</li>
