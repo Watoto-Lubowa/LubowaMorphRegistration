@@ -832,14 +832,17 @@ function createPrintLayout(qrDataArray: ServiceQRData[]): string {
           box-sizing: border-box;
         }
         
-        body {
+        html, body {
           font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
           background: white;
+          margin: 0;
+          padding: 0;
+          height: 100%;
         }
         
         .qr-print-page {
-          width: 210mm;
-          min-height: 297mm;
+          width: 100%;
+          height: 100vh;
           page-break-after: always;
           page-break-inside: avoid;
           display: flex;
@@ -855,8 +858,9 @@ function createPrintLayout(qrDataArray: ServiceQRData[]): string {
         
         .qr-print-content {
           text-align: center;
-          padding: 2rem;
+          padding: 1rem;
           max-width: 600px;
+          width: 100%;
         }
         
         .qr-logo-container {
@@ -913,21 +917,29 @@ function createPrintLayout(qrDataArray: ServiceQRData[]): string {
         }
         
         @media print {
-          body {
+          html, body {
             background: white;
             margin: 0;
             padding: 0;
+            height: 100%;
+            overflow: hidden;
           }
           
           .qr-print-page {
             page-break-after: always;
             page-break-inside: avoid;
             width: 100%;
-            min-height: 100vh;
+            height: 100vh;
+            margin: 0;
+            padding: 0;
           }
           
           .qr-print-page:last-child {
             page-break-after: avoid;
+          }
+          
+          .qr-print-content {
+            padding: 1rem;
           }
         }
       </style>
