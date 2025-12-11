@@ -838,17 +838,19 @@ function createPrintLayout(qrDataArray: ServiceQRData[]): string {
         }
         
         .qr-print-page {
-          width: 100vw;
-          height: 100vh;
+          width: 210mm;
+          min-height: 297mm;
           page-break-after: always;
+          page-break-inside: avoid;
           display: flex;
           align-items: center;
           justify-content: center;
           background: white;
+          position: relative;
         }
         
         .qr-print-page:last-child {
-          page-break-after: auto;
+          page-break-after: avoid;
         }
         
         .qr-print-content {
@@ -913,14 +915,19 @@ function createPrintLayout(qrDataArray: ServiceQRData[]): string {
         @media print {
           body {
             background: white;
+            margin: 0;
+            padding: 0;
           }
           
           .qr-print-page {
             page-break-after: always;
+            page-break-inside: avoid;
+            width: 100%;
+            min-height: 100vh;
           }
           
           .qr-print-page:last-child {
-            page-break-after: auto;
+            page-break-after: avoid;
           }
         }
       </style>
