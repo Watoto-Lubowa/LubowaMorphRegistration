@@ -837,12 +837,11 @@ function createPrintLayout(qrDataArray: ServiceQRData[]): string {
           background: white;
           margin: 0;
           padding: 0;
-          height: 100%;
         }
         
         .qr-print-page {
           width: 100%;
-          height: 100vh;
+          min-height: 100vh;
           page-break-after: always;
           page-break-inside: avoid;
           display: flex;
@@ -921,15 +920,13 @@ function createPrintLayout(qrDataArray: ServiceQRData[]): string {
             background: white;
             margin: 0;
             padding: 0;
-            height: 100%;
-            overflow: hidden;
           }
           
           .qr-print-page {
             page-break-after: always;
             page-break-inside: avoid;
             width: 100%;
-            height: 100vh;
+            min-height: 100vh;
             margin: 0;
             padding: 0;
           }
@@ -939,7 +936,7 @@ function createPrintLayout(qrDataArray: ServiceQRData[]): string {
           }
           
           .qr-print-content {
-            padding: 1rem;
+            padding: 0.5rem;
           }
         }
       </style>
