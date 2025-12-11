@@ -789,6 +789,12 @@ async function generateServiceQR(serviceNumber: number): Promise<ServiceQRData> 
  * @returns HTML string ready for printing
  */
 function createPrintLayout(qrDataArray: ServiceQRData[]): string {
+  // Format date as YYYYMMDD
+  const today = new Date()
+  const dateStr = today.getFullYear().toString() + 
+                  (today.getMonth() + 1).toString().padStart(2, '0') + 
+                  today.getDate().toString().padStart(2, '0')
+  
   const pages = qrDataArray.map((data, index) => `
     <div class="qr-print-page" ${index === 0 ? 'style="page-break-before: auto;"' : ''}>
       <div class="qr-print-content">
@@ -819,7 +825,7 @@ function createPrintLayout(qrDataArray: ServiceQRData[]): string {
     <head>
       <meta charset="UTF-8">
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <title>Service QR Codes - Watoto Church Lubowa</title>
+      <title>Service QR Codes - Watoto Church Lubowa (${dateStr})</title>
       <style>
         @page {
           size: A4 portrait;
@@ -832,16 +838,14 @@ function createPrintLayout(qrDataArray: ServiceQRData[]): string {
           box-sizing: border-box;
         }
         
-        html, body {
+        body {
           font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
           background: white;
-          margin: 0;
-          padding: 0;
         }
         
         .qr-print-page {
-          width: 100%;
-          min-height: 100vh;
+          width: 210mm;
+          min-height: 297mm;
           page-break-after: always;
           page-break-inside: avoid;
           display: flex;
@@ -857,9 +861,8 @@ function createPrintLayout(qrDataArray: ServiceQRData[]): string {
         
         .qr-print-content {
           text-align: center;
-          padding: 1rem;
+          padding: 2rem;
           max-width: 600px;
-          width: 100%;
         }
         
         .qr-logo-container {
@@ -916,7 +919,7 @@ function createPrintLayout(qrDataArray: ServiceQRData[]): string {
         }
         
         @media print {
-          html, body {
+          body {
             background: white;
             margin: 0;
             padding: 0;
@@ -927,16 +930,10 @@ function createPrintLayout(qrDataArray: ServiceQRData[]): string {
             page-break-inside: avoid;
             width: 100%;
             min-height: 100vh;
-            margin: 0;
-            padding: 0;
           }
           
           .qr-print-page:last-child {
             page-break-after: avoid;
-          }
-          
-          .qr-print-content {
-            padding: 0.5rem;
           }
         }
       </style>
