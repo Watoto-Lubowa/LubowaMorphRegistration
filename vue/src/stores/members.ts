@@ -236,6 +236,7 @@ export const useMembersStore = defineStore('members', () => {
       const payload = {
         ...formattedData,
         attendance: currentAttendance.value, // Include current attendance
+        attendanceCount: Object.keys(currentAttendance.value).length, // Include attendance count
         lastUpdated: Timestamp.now()
       }
 

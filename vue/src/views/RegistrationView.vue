@@ -80,8 +80,33 @@
 
         <!-- Identity Section / No Record Found Section / Confirmation Section -->
         <Transition name="section-fade" mode="out-in">
+          <!-- Already Checked In Section -->
+          <div v-if="alreadyCheckedIn && searchResult.found && !showForm" class="form-section" id="alreadyCheckedInSection" key="already-checked-in">
+            <div class="success-card">
+              <div class="success-icon">✅</div>
+              <h2 class="success-title">Already Checked In!</h2>
+              <p class="success-message">You've already been checked in today.</p>
+              <p class="success-name">{{ searchResult.record?.Name }}</p>
+              <div v-if="checkedInService" style="background: #f0fdf4; padding: 1rem; border-radius: 8px; margin: 1.5rem 0; border: 1px solid #86efac;">
+                <p style="color: #15803d; font-weight: 600; margin-bottom: 0.5rem;">Service Attended:</p>
+                <p style="color: #15803d; font-size: 1.1rem;">{{ getServiceName(checkedInService) }}</p>
+              </div>
+              <p style="color: #666; margin-top: 1rem;">
+                Thank you for coming to church! You're all set.
+              </p>
+              <button 
+                v-if="!currentUser?.isAnonymous"
+                @click="clearSearch" 
+                class="search-btn" 
+                style="width: 100%; margin-top: 1.5rem;"
+              >
+                <span class="btn-text">🔍 Search Again</span>
+              </button>
+            </div>
+          </div>
+
           <!-- Quick Confirm Section (for returning QR users with cached data) -->
-          <div v-if="showQuickConfirm && cachedUserData" class="form-section" id="quickConfirmSection" key="quick-confirm">
+          <div v-else-if="showQuickConfirm && cachedUserData" class="form-section" id="quickConfirmSection" key="quick-confirm">
             <h3 style="text-align: center;">Welcome Back! 👋</h3>
             <div class="record-found">
               <p style="text-align: center; margin-bottom: 1rem;">Is this you?</p>
@@ -90,7 +115,7 @@
                   <strong>Name:</strong> <span>{{ cachedUserData.name }}</span>
                 </div>
                 <div class="identity-info">
-                  <strong>Phone:</strong> <span>{{ cachedUserData.phoneNumber }}</span>
+                  <strong>Phone:</strong> <span>{{ formattedCachedPhone }}</span>
                 </div>
               </div>
               
@@ -133,7 +158,7 @@
           </div>
 
           <!-- Identity Section (show for initial search, while loading, or after clicking search again) -->
-          <div v-else-if="(!searchResult.found && !showForm) && (searchAttempts === 0 || isLoading || isSearchingAgain)" class="form-section" id="identitySection" key="identity">
+          <div v-else-if="(!searchResult.found && !showForm && !alreadyCheckedIn) && (searchAttempts === 0 || isLoading || isSearchingAgain)" class="form-section" id="identitySection" key="identity">
             <div class="field">
               <label for="name">
                 <span id="nameLabel">First Name</span>
@@ -182,7 +207,7 @@
           </div>
 
           <!-- No Record Found Section (replaces identity section ONLY after unsuccessful search completes) -->
-          <div v-else-if="!searchResult.found && searchAttempts > 0 && !isLoading && !showForm" class="form-section" id="noRecordSection" key="no-record">
+          <div v-else-if="!searchResult.found && searchAttempts > 0 && !isLoading && !showForm && !alreadyCheckedIn" class="form-section" id="noRecordSection" key="no-record">
             <h3>❌ No Record Found</h3>
             <div class="no-record-message">
               <p>Hmm, we couldn't find you.</p>
@@ -204,7 +229,7 @@
 
           <!-- Confirmation Section (replaces identity section after successful search) -->
           <div 
-            v-else-if="searchResult.found && !showForm" 
+            v-else-if="searchResult.found && !showForm && !alreadyCheckedIn" 
             class="form-section" 
             id="confirmationSection" 
             key="confirmation"
@@ -473,6 +498,7 @@ import {
 } from '@/utils/validation'
 import { getCachedUserData, saveCachedUserData } from '@/utils/qrCache'
 import { startAutoCloseCountdown } from '@/utils/transitions'
+import { formatDateKey, getServiceText as getServiceName, type ServiceNumber } from '@/utils/attendance'
 import type { MemberData } from '@/types'
 
 
@@ -540,12 +566,35 @@ const currentService = ref<string | null>(null)
 const noService = ref(false);
 
 // QR cache state
-const cachedUserData = ref<{ name: string; phoneNumber: string } | null>(null)
+const cachedUserData = ref<{ name: string; phoneNumber: string; countryCode: string } | null>(null)
 const showQuickConfirm = ref(false)
 // Check QR parameter immediately to prevent login screen flash
 const isFromQR = ref(!!route.query.qr)
 const showSuccessCard = ref(false)
 const successCountdown = ref(5)
+
+// Already checked-in state
+const alreadyCheckedIn = ref(false)
+const checkedInService = ref<ServiceNumber>(null)
+
+/**
+ * Check if a member is already checked in today
+ */
+function isCheckedInToday(attendanceRecord?: Record<string, string>): { isCheckedIn: boolean; service: ServiceNumber } {
+  if (!attendanceRecord) {
+    return { isCheckedIn: false, service: null }
+  }
+  
+  const todayKey = formatDateKey()
+  const todayService = attendanceRecord[todayKey]
+  
+  if (todayService && (todayService === '1' || todayService === '2' || todayService === '3')) {
+    console.log('✅ Already checked in today:', todayKey, 'Service:', todayService)
+    return { isCheckedIn: true, service: todayService as ServiceNumber }
+  }
+  
+  return { isCheckedIn: false, service: null }
+}
 
 // Service time detection functions
 function getCurrentService(): string | null {
@@ -702,7 +751,9 @@ const isFormValid = computed(() => {
 
 // Record message computed properties
 const recordMessageText = computed(() => {
-  if (searchResult.value.found && !showForm.value) {
+  if (alreadyCheckedIn.value) {
+    return '' // No record message for already checked in state
+  } else if (searchResult.value.found && !showForm.value) {
     return '✅ Identity confirmed! Complete the missing fields below.'
   } else if (showForm.value && editMode.value) {
     return '✅ Identity confirmed! Complete the missing fields below.'
@@ -743,6 +794,16 @@ const formattedParentsPhone = computed(() => {
     return formatPhoneForDisplay(
       searchResult.value.record.ParentsNumber,
       searchResult.value.record.ParentsCountryCode || 'UG'
+    )
+  }
+  return ''
+})
+
+const formattedCachedPhone = computed(() => {
+  if (cachedUserData.value?.phoneNumber) {
+    return formatPhoneForDisplay(
+      cachedUserData.value.phoneNumber,
+      cachedUserData.value.countryCode || 'UG'
     )
   }
   return ''
@@ -792,15 +853,26 @@ async function confirmCachedData() {
     uiStore.setLoading(true)
     
     // Search for the member using cached data
-    const countryCallingCode = '+256' // Default for now
+    const countryCallingCode = getCallingCodeByCountryCode(cachedUserData.value.countryCode || 'UG')
     await membersStore.searchMember(
       cachedUserData.value.name.split(' ')[0], // First name
       cachedUserData.value.phoneNumber,
       countryCallingCode
     )
     
-    // If found, check if quick check-in is available
+    // If found, check if already checked in today
     if (searchResult.value.found) {
+      const checkInStatus = isCheckedInToday(searchResult.value.record?.attendance)
+      
+      // If already checked in, show the already-checked-in screen
+      if (checkInStatus.isCheckedIn) {
+        alreadyCheckedIn.value = true
+        checkedInService.value = checkInStatus.service
+        showQuickConfirm.value = false
+        uiStore.info('You have already checked in today!')
+        return
+      }
+      
       // If quick check-in is active (not force update flow) and service is running, do quick check-in
       if (!forceUpdateFlow.value && currentService.value) {
         await membersStore.quickCheckIn()
@@ -863,6 +935,7 @@ async function handleSearch() {
   if (!canSearch.value) return
   
   isSearchingAgain.value = false // Clear the flag when starting a new search
+  alreadyCheckedIn.value = false // Reset checked-in state
   uiStore.setLoading(true)
 
   const countryCallingCode = getCallingCodeByCountryCode(searchForm.value.countryCode)
@@ -877,6 +950,16 @@ async function handleSearch() {
       fullPhoneNumber,
       countryCallingCode
     )
+    
+    // Check if user is already checked in today
+    if (searchResult.value.found && searchResult.value.record) {
+      const checkInStatus = isCheckedInToday(searchResult.value.record.attendance)
+      if (checkInStatus.isCheckedIn) {
+        alreadyCheckedIn.value = true
+        checkedInService.value = checkInStatus.service
+        console.log('🎯 User already checked in today, showing already-checked-in screen')
+      }
+    }
     
     // Don't automatically show form - let the intermediate "No Record Found" screen show first
     // User will click "Make a New Record" button to proceed to the form
@@ -919,7 +1002,8 @@ function editMember() {
     if (isFromQR.value && currentUser.value?.uid && record.Name && record.MorphersNumber) {
       saveCachedUserData(currentUser.value.uid, {
         name: record.Name,
-        phoneNumber: record.MorphersNumber
+        phoneNumber: record.MorphersNumber,
+        countryCode: record.MorphersCountryCode || 'UG'
       }).catch(err => console.error('Failed to cache user data:', err))
     }
   }
@@ -955,6 +1039,8 @@ function clearSearch() {
   showForm.value = false
   editMode.value = false
   nameTouched.value = false // Reset name validation state
+  alreadyCheckedIn.value = false // Reset checked-in state
+  checkedInService.value = null
 }
 
 function searchAgain() {
@@ -964,6 +1050,8 @@ function searchAgain() {
   showForm.value = false
   editMode.value = false
   isSearchingAgain.value = true // Flag that we're returning to search
+  alreadyCheckedIn.value = false // Reset checked-in state
+  checkedInService.value = null
   // Note: searchForm.value is NOT cleared, keeping the user's input
 }
 
@@ -1095,7 +1183,8 @@ async function handleSave() {
       const fullPhoneNumber = getCallingCodeByCountryCode(memberForm.value.MorphersCountryCode || 'UG') + memberForm.value.MorphersNumber
       await saveCachedUserData(currentUser.value.uid, {
         name: memberForm.value.Name,
-        phoneNumber: fullPhoneNumber
+        phoneNumber: fullPhoneNumber,
+        countryCode: memberForm.value.MorphersCountryCode || 'UG'
       }).catch(err => console.error('[RegistrationView] Failed to cache user data:', err))
     }
     
@@ -1104,7 +1193,8 @@ async function handleSave() {
       const fullPhoneNumber = getCallingCodeByCountryCode(memberForm.value.MorphersCountryCode || 'UG') + memberForm.value.MorphersNumber
       cachedUserData.value = {
         name: memberForm.value.Name,
-        phoneNumber: fullPhoneNumber
+        phoneNumber: fullPhoneNumber,
+        countryCode: memberForm.value.MorphersCountryCode || 'UG'
       }
       showSuccessCard.value = true
       startAutoCloseCountdown(successCountdown)
@@ -1139,13 +1229,15 @@ async function handleQuickCheckIn() {
       // Use the full phone number from the record (already includes country code)
       await saveCachedUserData(currentUser.value.uid, {
         name: memberData.Name,
-        phoneNumber: memberData.MorphersNumber
+        phoneNumber: memberData.MorphersNumber,
+        countryCode: memberData.MorphersCountryCode || 'UG'
       }).catch(err => console.error('[RegistrationView] Failed to cache user data:', err))
       
       // Show success card for QR users after quick check-in
       cachedUserData.value = {
         name: memberData.Name,
-        phoneNumber: memberData.MorphersNumber
+        phoneNumber: memberData.MorphersNumber,
+        countryCode: memberData.MorphersCountryCode || 'UG'
       }
       showSuccessCard.value = true
       startAutoCloseCountdown(successCountdown)

@@ -12,7 +12,7 @@ const DB_VERSION = 1
 
 export interface CachedUserData {
   userId: string // Firebase UID (anonymous or regular)
-  encryptedData: string // Encrypted user data (name + phone) - encrypted with UID-derived key
+  encryptedData: string // Encrypted user data (name + phone + countryCode) - encrypted with UID-derived key
   timestamp: string // When this was cached
   expiresAt: string // Expiration date (30 days from cache)
 }
@@ -48,9 +48,9 @@ function openDatabase(): Promise<IDBDatabase> {
 /**
  * Save confirmed user data (encrypted with UID-derived key) to cache
  * @param userId - Firebase UID (anonymous or regular)
- * @param userData - User data object { name, phoneNumber }
+ * @param userData - User data object { name, phoneNumber, countryCode }
  */
-export async function saveCachedUserData(userId: string, userData: { name: string; phoneNumber: string }): Promise<void> {
+export async function saveCachedUserData(userId: string, userData: { name: string; phoneNumber: string; countryCode: string }): Promise<void> {
   try {
     console.log('[QR Cache] Saving data for UID:', userId, 'Data:', userData)
     
@@ -106,7 +106,7 @@ export async function saveCachedUserData(userId: string, userData: { name: strin
  * @param userId - Firebase UID (anonymous or regular)
  * @returns User data object or null if not found/expired
  */
-export async function getCachedUserData(userId: string): Promise<{ name: string; phoneNumber: string } | null> {
+export async function getCachedUserData(userId: string): Promise<{ name: string; phoneNumber: string; countryCode: string } | null> {
   try {
     console.log('[QR Cache] Retrieving cached data for UID:', userId)
     
@@ -159,7 +159,7 @@ export async function getCachedUserData(userId: string): Promise<{ name: string;
     
     console.log('[QR Cache] Decryption successful:')
 
-    return decrypted.decryptedData as { name: string; phoneNumber: string }
+    return decrypted.decryptedData as { name: string; phoneNumber: string; countryCode: string }
   } catch (error) {
     console.error('[QR Cache] Error retrieving cached user data:', error)
     return null

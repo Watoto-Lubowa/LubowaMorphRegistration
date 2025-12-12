@@ -117,6 +117,9 @@ function getCleanPhoneNumber(value: string): string {
   else if (selectedCallingCode.value.startsWith('+') && clean.startsWith(selectedCallingCode.value.slice(1))) {
     clean = clean.slice(selectedCallingCode.value.length - 1)
   }
+
+  // Remove any spaces or non-digit characters within the number
+  clean = clean.replace(/\D/g, '')
   
   return clean
 }
