@@ -28,7 +28,7 @@ export const useMembersStore = defineStore('members', () => {
   const searchAttempts = ref<number>(0) // Track search attempts
   const currentAttendance = ref<AttendanceRecord>({}) // Current attendance record
   const forceUpdateFlow = ref<boolean>(false) // Quick check-in toggle state
-  const enforceGPS = ref<boolean>(true) // GPS validation enforcement state
+  const enforceGPS = ref<boolean>(false) // GPS validation enforcement state
 
   async function searchMember(firstName: string, phoneNumber: string, countryCallingCode: string): Promise<SearchResult> {
     const uiStore = useUIStore()
@@ -361,7 +361,7 @@ export const useMembersStore = defineStore('members', () => {
       }
 
       forceUpdateFlow.value = configData.forceUpdateFlow === true
-      enforceGPS.value = configData.enforceGPS !== false // Default to true if not set
+      enforceGPS.value = configData.enforceGPS === true // Default to false if not set
       console.log('📋 Loaded forceUpdateFlow state:', forceUpdateFlow.value)
       console.log('📍 Loaded enforceGPS state:', enforceGPS.value)
       return forceUpdateFlow.value
