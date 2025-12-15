@@ -240,6 +240,7 @@
     width: fit-content;
     box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
     transition: all 0.3s ease;
+    box-sizing: border-box;
   }
 
   .service-display:hover {
@@ -287,7 +288,9 @@
     backdrop-filter: blur(10px);
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
     border: 1px solid #27ae60;
-
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    max-width: 100%;
   }
 
   /* Special styling for "No Service" state */
@@ -1548,6 +1551,7 @@
     display: flex;
     width: 100%;
     flex-basis: 100%;
+    min-width: auto;
   }
 
   .service-label,
@@ -1563,16 +1567,26 @@
   /* Service Display for Quick Check-in - Mobile */
   .service-display {
     padding: 14px 18px;
-    margin: 15px auto;
+    margin: 15px 0;
     max-width: 100%;
+    width: 100% !important;
+    box-sizing: border-box;
   }
 
   .service-info {
     gap: 12px;
+    width: 100%;
+    overflow: hidden;
   }
 
   .service-icon {
     font-size: 2em;
+  }
+
+  .service-details {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
   }
 
   .service-details strong {
@@ -1582,6 +1596,10 @@
   .service-details .current-service {
     font-size: 1em;
     padding: 6px 14px;
+    max-width: 100%;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    box-sizing: border-box;
   }
 
   /* Attendance Section */
@@ -1791,6 +1809,7 @@
   .service-detection {
     padding: 8px 10px;
     gap: 6px;
+    min-width: auto;
   }
 
   .service-label {
@@ -1997,6 +2016,7 @@
     width: 100%;
     flex-basis: 100%;
     font-size: 0.85em;
+    min-width: auto;
   }
 
   .service-label {
@@ -2014,19 +2034,39 @@
   /* Service Display for Quick Check-in - Small Mobile */
   .service-display {
     padding: 12px 14px;
-    margin: 12px auto;
+    margin: 12px 0;
+    width: 100% !important;
+    box-sizing: border-box;
   }
 
   .service-info {
     gap: 10px;
+    width: 100%;
+    overflow: hidden;
   }
 
   .service-icon {
     font-size: 1.8em;
+    flex-shrink: 0;
+  }
+
+  .service-details {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
   }
 
   .service-details strong {
     font-size: 0.8em;
+  }
+
+  .service-details .current-service {
+    font-size: 0.9em;
+    padding: 6px 12px;
+    max-width: 100%;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    box-sizing: border-box;
   }
 
 
