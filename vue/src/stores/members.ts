@@ -343,6 +343,7 @@ export const useMembersStore = defineStore('members', () => {
       if (configSnapshot.empty) {
         console.log('No forceUpdateFlow config found, using default (false)')
         forceUpdateFlow.value = false
+        enforceGPS.value = false // Ensure GPS enforcement is disabled
         return false
       }
 
@@ -357,6 +358,7 @@ export const useMembersStore = defineStore('members', () => {
       if (!configData) {
         console.log('No appSettings config found, using default (false)')
         forceUpdateFlow.value = false
+        enforceGPS.value = false // Ensure GPS enforcement is disabled
         return false
       }
 
@@ -368,6 +370,7 @@ export const useMembersStore = defineStore('members', () => {
     } catch (error) {
       console.error('Failed to load forceUpdateFlow state:', error)
       forceUpdateFlow.value = false
+      enforceGPS.value = false // Ensure GPS enforcement is disabled on error
       return false
     }
   }
