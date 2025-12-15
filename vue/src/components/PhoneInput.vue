@@ -45,7 +45,7 @@
 <script setup lang="ts">
 import { ref, watch, onMounted, computed } from 'vue'
 import { loadCountriesData, getCountryByCode } from '@/utils/countries'
-import { validatePhone } from '@/utils/validation'
+import { validatePhone, validateUgandaPhoneFormat } from '@/utils/validation'
 import type { Country } from '@/types'
 
 interface Props {
@@ -71,6 +71,7 @@ const emit = defineEmits<{
   'update:countryCode': [code: string]
   'update:callingCode': [code: string]
   'enterPressed': []
+  'validationError': [hasError: boolean]
 }>()
 
 const countries = ref<Country[]>([])
@@ -168,13 +169,41 @@ function validatePhoneNumber() {
     hasError.value = false
     isValid.value = false
     errorMessage.value = ''
+    emit('validationError', false)
     return true
+  }
+
+  // For Uganda numbers, enforce strict format before +256 is appended
+  if (selectedCountryCode.value === 'UG') {
+    const isValidFormat = validateUgandaPhoneFormat(cleanValue)
+    if (!isValidFormat) {
+      hasError.value = true
+      isValid.value = false
+      // Provide helpful error message based on format
+      if (cleanValue.startsWith('0')) {
+        errorMessage.value = cleanValue.length !== 10 
+          ? `Must be exactly 10 digits (0 + 9 digits). Current: ${cleanValue.length} digits`
+          : 'Please enter a valid phone number'
+      } else {
+        errorMessage.value = cleanValue.length !== 9 
+          ? `Must be exactly 9 digits (without leading 0). Current: ${cleanValue.length} digits`
+          : 'Please enter a valid phone number'
+      }
+      emit('validationError', true)
+      return false
+    }
   }
 
   const isValidNumber = validatePhone(cleanValue, selectedCountryCode.value)
   hasError.value = !isValidNumber
   isValid.value = isValidNumber
   errorMessage.value = isValidNumber ? '' : 'Please enter a valid phone number'
+  
+  // Emit validation error status - only for Uganda numbers with format errors
+  if (selectedCountryCode.value === 'UG') {
+    emit('validationError', !isValidNumber)
+  }
+  
   return isValidNumber
 }
 
@@ -191,7 +220,10 @@ watch(() => props.countryCode, (newVal) => {
 })
 
 defineExpose({
-  validate: validatePhoneNumber
+  validate: validatePhoneNumber,
+  hasError: () => hasError.value,
+  isValid: () => isValid.value,
+  getErrorMessage: () => errorMessage.value
 })
 </script>
 

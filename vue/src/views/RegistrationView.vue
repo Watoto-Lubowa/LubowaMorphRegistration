@@ -181,10 +181,12 @@
             </div>
             
             <PhoneInput
+              ref="phoneInputRef"
               id="morphersNumber"
               v-model="searchForm.phoneNumber"
               :country-code="searchForm.countryCode"
               @update:countryCode="searchForm.countryCode = $event"
+              @validationError="(hasError) => hasPhoneError = hasError"
               @enterPressed="handleSearch"
               placeholder="Enter phone number (e.g., 701234567)"
               required
@@ -577,6 +579,10 @@ const successCountdown = ref(5)
 const alreadyCheckedIn = ref(false)
 const checkedInService = ref<ServiceNumber>(null)
 
+// Phone validation error tracking
+const phoneInputRef = ref<InstanceType<typeof PhoneInput>>()
+const hasPhoneError = ref(false)
+
 /**
  * Check if a member is already checked in today
  */
@@ -671,7 +677,15 @@ const instructionText = computed(() => {
 })
 
 const canSearch = computed(() => {
-  return trimmedFirstName.value.length >= 2 && searchForm.value.phoneNumber.length >= 7
+  const hasValidName = trimmedFirstName.value.length >= 2
+  const hasValidPhoneLength = searchForm.value.phoneNumber.length >= 7
+  
+  // Check for Uganda-specific phone format validation errors
+  if (searchForm.value.countryCode === 'UG' && hasPhoneError.value) {
+    return false
+  }
+  
+  return hasValidName && hasValidPhoneLength
 })
 
 const fullPhoneNumber = computed(() => {
@@ -936,6 +950,25 @@ async function handleSearch() {
   
   isSearchingAgain.value = false // Clear the flag when starting a new search
   alreadyCheckedIn.value = false // Reset checked-in state
+  
+  // Validate phone format for Uganda numbers ONLY (using strict format rules)
+  // For other countries, use the preexisting libphonenumber validation
+  if (searchForm.value.countryCode === 'UG') {
+    const { validateUgandaPhoneFormat } = await import('@/utils/validation')
+    const cleanPhone = searchForm.value.phoneNumber.replace(/[\s\-\(\)]/g, '')
+    
+    if (!validateUgandaPhoneFormat(cleanPhone)) {
+      // Show helpful error message
+      if (cleanPhone.startsWith('0')) {
+        uiStore.error(`Phone number must be exactly 10 digits (including the 0). You entered ${cleanPhone.length} digits.`)
+      } else {
+        uiStore.error(`Phone number must be exactly 9 digits (without leading 0). You entered ${cleanPhone.length} digits.`)
+      }
+      return
+    }
+  }
+  // For non-Uganda countries, the preexisting validation will handle it
+  
   uiStore.setLoading(true)
 
   const countryCallingCode = getCallingCodeByCountryCode(searchForm.value.countryCode)

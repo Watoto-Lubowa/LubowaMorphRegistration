@@ -13,6 +13,35 @@ export function validatePhone(phone: string, countryCode: string = 'UG'): boolea
   }
 }
 
+/**
+ * Validate Uganda-specific phone number format BEFORE +256 is appended
+ * Rules:
+ * - If starts with 0: must be exactly 10 digits total (0 + 9 digits)
+ * - If doesn't start with 0: must be exactly 9 digits
+ * 
+ * @param phone - Phone number as entered by user (may have leading 0 or not)
+ * @returns true if valid Uganda format, false otherwise
+ */
+export function validateUgandaPhoneFormat(phone: string): boolean {
+  if (!phone) return false
+  
+  // Remove any spaces, dashes, or other formatting characters
+  const cleanNumber = phone.replace(/[\s\-\(\)]/g, '')
+  
+  // Must be only digits
+  if (!/^\d+$/.test(cleanNumber)) {
+    return false
+  }
+  
+  // Case 1: Starts with 0 - must be exactly 10 digits
+  if (cleanNumber.startsWith('0')) {
+    return cleanNumber.length === 10
+  }
+  
+  // Case 2: Doesn't start with 0 - must be exactly 9 digits
+  return cleanNumber.length === 9
+}
+
 export function formatPhoneNumber(phone: string, countryCode: string = 'UG'): string {
   try {
     const phoneNumber = parsePhoneNumber(phone, countryCode as any)
