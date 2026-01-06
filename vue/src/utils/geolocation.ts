@@ -4,16 +4,16 @@
  */
 
 // Watoto Church Lubowa coordinates
-export const CHURCH_COORDINATES = {
-  latitude: 0.2395,
-  longitude: 32.5700,
-}
-
-// // Alternative coordinates for testing
 // export const CHURCH_COORDINATES = {
-//   latitude: 0.341820,
-//   longitude: 32.594392,
+//   latitude: 0.2395,
+//   longitude: 32.5700,
 // }
+
+// Alternative coordinates for testing
+export const CHURCH_COORDINATES = {
+  latitude: 0.341820,
+  longitude: 32.594392,
+}
 
 // Maximum allowed distance in meters
 export const MAX_DISTANCE_METERS = 500
