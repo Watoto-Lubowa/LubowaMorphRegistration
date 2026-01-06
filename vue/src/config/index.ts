@@ -10,11 +10,11 @@ import type { AppConfig } from '@/types'
 let appConfig: AppConfig
 
 // Try to load local config first (for development)
-try {
-  const { localConfig } = await import('./config.local')
-  appConfig = localConfig
-  console.log('✅ Using local TypeScript configuration')
-} catch {
+// try {
+//   const { localConfig } = await import('./config.local')
+//   appConfig = localConfig
+//   console.log('✅ Using local TypeScript configuration')
+// } catch {
   // Fall back to environment variables
   appConfig = {
     firebase: {
@@ -38,8 +38,8 @@ try {
       .map((phone: string) => phone.trim())
   }
   console.log('✅ Using environment variable configuration')
-}
-
+// }
+// }
 export { appConfig }
 
 // Validation constants
