@@ -87,9 +87,20 @@
             <p>Authenticated Admin</p>
           </div>
         </div>
-        <button @click="handleSignOut" class="sign-out-btn">
-          🚪 Sign Out
-        </button>
+        
+        <div class="header-actions">
+          <div class="global-date-picker">
+            <span class="date-icon">📅</span>
+            <input 
+              type="date" 
+              v-model="selectedDate"
+              class="header-date-input"
+            >
+          </div>
+          <button @click="handleSignOut" class="sign-out-btn">
+            🚪 Sign Out
+          </button>
+        </div>
       </div>
 
       <div class="dashboard-content">
@@ -108,13 +119,13 @@
               <h3>{{ serviceAttendance }}</h3>
               <p>Total Service Attendance</p>
             </div>
-            <div class="date-picker-container">
-              <input 
-                type="date" 
-                v-model="attendanceDate"
-                @change="updateServiceAttendanceCount"
-                class="date-picker"
-              >
+          </div>
+
+          <div class="stat-card">
+            <div class="stat-icon">👋</div>
+            <div class="stat-info">
+              <h3>{{ newGuestsCount }}</h3>
+              <p>New Guests</p>
             </div>
           </div>
         </div>
@@ -123,15 +134,7 @@
         <div class="charts-grid">
           <div class="chart-card">
             <h3>Service Distribution</h3>
-            <div class="date-picker-container">
-              <input 
-                type="date" 
-                v-model="serviceDistributionDate"
-                @change="createServiceDistributionChart"
-                class="date-picker"
-              >
-              <label class="date-label">Select Service Date</label>
-            </div>
+            <!-- Date picker removed (using global one) -->
             <div class="chart-container">
               <canvas ref="attendanceChart"></canvas>
             </div>
@@ -258,8 +261,8 @@ const authStatusClass = ref('')
 // Dashboard data
 const totalRecords = ref('Loading...')
 const serviceAttendance = ref('Loading...')
-const attendanceDate = ref('')
-const serviceDistributionDate = ref('')
+const newGuestsCount = ref('Loading...')
+const selectedDate = ref('')
 const forceUpdateFlow = ref(false)
 const forceUpdateStatusText = ref('Loading...')
 const enforceGPS = ref(true)
@@ -281,13 +284,10 @@ onMounted(async () => {
     
     // Set default dates
     const today = new Date().toISOString().split('T')[0]
-    attendanceDate.value = today
-    serviceDistributionDate.value = today
-    
+    selectedDate.value = today
+
     // Load initial data
-    await updateServiceAttendanceCount()
-    await nextTick()
-    await createServiceDistributionChart()
+    await updateDashboardData()
   }
 })
 
@@ -298,31 +298,26 @@ watch([isAuthenticated, isAdmin], async ([authenticated, admin]) => {
     await loadForceUpdateFlowState()
     
     // Set default dates if not already set
-    if (!attendanceDate.value || !serviceDistributionDate.value) {
+    if (!selectedDate.value) {
       const today = new Date().toISOString().split('T')[0]
-      attendanceDate.value = today
-      serviceDistributionDate.value = today
+      selectedDate.value = today
     }
     
     // Load initial data
-    await updateServiceAttendanceCount()
-    await nextTick()
-    await createServiceDistributionChart()
+    await updateDashboardData()
   }
 })
 
 // Watch for date changes and update data
-watch(attendanceDate, async (newDate) => {
+watch(selectedDate, async (newDate) => {
   if (newDate && isAuthenticated.value && isAdmin.value) {
-    await updateServiceAttendanceCount()
+    await updateDashboardData()
   }
 })
 
-watch(serviceDistributionDate, async (newDate) => {
-  if (newDate && isAuthenticated.value && isAdmin.value) {
-    await createServiceDistributionChart()
-  }
-})
+async function updateDashboardData() {
+  await fetchDailyStats()
+}
 
 // Authentication functions
 async function signInWithPassword() {
@@ -428,14 +423,19 @@ async function loadDashboardStats() {
   }
 }
 
-async function updateServiceAttendanceCount() {
-  if (!attendanceDate.value) return
+async function fetchDailyStats() {
+  if (!selectedDate.value) return
+  
+  // Reset states
+  serviceAttendance.value = 'Loading...'
+  newGuestsCount.value = 'Loading...'
   
   try {
-    const [year, month, day] = attendanceDate.value.split('-')
+    const [year, month, day] = selectedDate.value.split('-')
     const dateKey = `${day}_${month}_${year}`
+    const queryDate = selectedDate.value.replace(/-/g, '/') // YYYY/MM/DD
     
-    console.log('📅 Fetching attendance for:', attendanceDate.value, '(key:', dateKey, ')')
+    console.log('📅 Fetching stats for:', selectedDate.value, '(key:', dateKey, ')')
     
     const { getFirebaseInstances, collection, query, where, getDocs } = await import('@/utils/firebase')
     const { db } = getFirebaseInstances()
@@ -445,164 +445,142 @@ async function updateServiceAttendanceCount() {
     }
     
     // Query only documents that have attendance for the specific date
+    // This is much more efficient than fetching all documents
     const morphersCollection = collection(db, 'morphers')
     const attendanceQuery = query(morphersCollection, where(`attendance.${dateKey}`, '>', ''))
     const snapshot = await getDocs(attendanceQuery)
     
+    // 1. Total Attendance
     const attendanceCount = snapshot.size
     serviceAttendance.value = attendanceCount.toString()
     
-    console.log('✅ Attendance count:', attendanceCount)
-  } catch (error) {
-    console.error('Failed to update service attendance:', error)
-    
-    // Fallback: get all docs and count manually if the query fails
-    try {
-      const { getFirebaseInstances, collection, getDocs } = await import('@/utils/firebase')
-      const { db } = getFirebaseInstances()
-      
-      if (!db) {
-        serviceAttendance.value = 'Error'
-        return
-      }
-      
-      const morphersCollection = collection(db, 'morphers')
-      const allSnapshot = await getDocs(morphersCollection)
-      const [year, month, day] = attendanceDate.value.split('-')
-      const dateKey = `${day}_${month}_${year}`
-      
-      let attendanceCount = 0
-      allSnapshot.docs.forEach(doc => {
-        const data = doc.data()
-        if (data.attendance && data.attendance[dateKey]) {
-          attendanceCount++
-        }
-      })
-      
-      serviceAttendance.value = attendanceCount.toString()
-      console.log('✅ Attendance count (fallback):', attendanceCount)
-    } catch (fallbackError) {
-      console.error('Fallback query also failed:', fallbackError)
-      serviceAttendance.value = 'Error'
-    }
-  }
-}
-
-async function createServiceDistributionChart() {
-  if (!serviceDistributionDate.value || !attendanceChart.value) return
-  
-  try {
-    const [year, month, day] = serviceDistributionDate.value.split('-')
-    const dateKey = `${day}_${month}_${year}`
-    
-    console.log('📊 Creating chart for:', serviceDistributionDate.value, '(key:', dateKey, ')')
-    
-    // Get all records with attendance for the specific date
-    const { getFirebaseInstances, collection, getDocs } = await import('@/utils/firebase')
-    const { db } = getFirebaseInstances()
-    
-    if (!db) {
-      throw new Error('Database not initialized')
-    }
-    
-    const morphersCollection = collection(db, 'morphers')
-    const snapshot = await getDocs(morphersCollection)
+    // 2. Process records for Service Distribution and New Guests
     const serviceDistribution: Record<string, number> = {}
+    let guestsCount = 0
     
     snapshot.docs.forEach(doc => {
       const data = doc.data()
+      
+      // Count service distribution
       if (data.attendance && data.attendance[dateKey]) {
         const service = data.attendance[dateKey]
         const serviceName = getServiceName(service)
         serviceDistribution[serviceName] = (serviceDistribution[serviceName] || 0) + 1
       }
-    })
-    
-    console.log('📊 Service distribution:', serviceDistribution)
-    
-    // Destroy existing chart
-    if (chartInstance) {
-      chartInstance.destroy()
-    }
-    
-    const ctx = attendanceChart.value.getContext('2d')
-    if (!ctx) return
-    
-    const labels = Object.keys(serviceDistribution)
-    const data = Object.values(serviceDistribution)
-    
-    // If no data for the selected date, show empty chart
-    if (labels.length === 0) {
-      labels.push('No Attendance Data')
-      data.push(0)
-    }
-    
-    chartInstance = new Chart(ctx, {
-      type: 'pie',
-      data: {
-        labels: labels,
-        datasets: [{
-          data: data,
-          backgroundColor: [
-            '#667eea',  // First Service
-            '#764ba2',  // Second Service  
-            '#f093fb',  // Third Service
-            '#f5576c',  // Fourth Service (if needed)
-            '#4facfe',  // Fifth Service (if needed)
-            '#00f2fe',  // Additional services
-            '#43e97b',
-            '#38f9d7'
-          ],
-          borderWidth: 2,
-          borderColor: '#ffffff'
-        }]
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: {
-          legend: {
-            position: 'bottom',
-            labels: {
-              padding: 20,
-              usePointStyle: true,
-              font: {
-                size: 12
-              }
-            }
-          },
-          tooltip: {
-            callbacks: {
-              label: function(context: any) {
-                const label = context.label || ''
-                const value = context.parsed
-                if (value === 0) {
-                  return 'No attendance recorded for this date'
-                }
-                const total = context.dataset.data.reduce((a: number, b: number) => a + b, 0)
-                const percentage = ((value / total) * 100).toFixed(1)
-                return `${label}: ${value} attendees (${percentage}%)`
-              }
-            }
-          },
-          title: {
-            display: true,
-            text: `Service Distribution - ${formatDate(serviceDistributionDate.value)}`,
-            font: {
-              size: 14
-            },
-            padding: {
-              bottom: 20
-            }
-          }
-        }
+      
+      // Count new guests
+      // transform queryDate to match storage format if needed, but assuming firstTimeOn is YYYY/MM/DD
+      if (data.firstTimeOn === queryDate) {
+        guestsCount++
       }
     })
     
-    console.log('✅ Chart created successfully')
+    newGuestsCount.value = guestsCount.toString()
+    
+    console.log('✅ Stats updated:', {
+      attendance: attendanceCount,
+      guests: guestsCount,
+      distribution: serviceDistribution
+    })
+    
+    // 3. Update Chart
+    await nextTick()
+    renderServiceDistributionChart(serviceDistribution)
+    
   } catch (error) {
-    console.error('Failed to create chart:', error)
+    console.error('Failed to update dashboard stats:', error)
+    serviceAttendance.value = 'Error'
+    newGuestsCount.value = 'Error'
   }
+}
+
+function renderServiceDistributionChart(serviceDistribution: Record<string, number>) {
+  if (!attendanceChart.value) return
+  
+  // Destroy existing chart
+  if (chartInstance) {
+    chartInstance.destroy()
+  }
+  
+  const ctx = attendanceChart.value.getContext('2d')
+  if (!ctx) return
+  
+  const labels = Object.keys(serviceDistribution)
+  const data = Object.values(serviceDistribution)
+  
+  // If no data for the selected date, show empty chart
+  if (labels.length === 0) {
+    labels.push('No Attendance Data')
+    data.push(0)
+  }
+  
+  chartInstance = new Chart(ctx, {
+    type: 'pie',
+    data: {
+      labels: labels,
+      datasets: [{
+        data: data,
+        backgroundColor: [
+          '#667eea',  // First Service
+          '#764ba2',  // Second Service  
+          '#f093fb',  // Third Service
+          '#f5576c',  // Fourth Service (if needed)
+          '#4facfe',  // Fifth Service (if needed)
+          '#00f2fe',  // Additional services
+          '#43e97b',
+          '#38f9d7'
+        ],
+        borderWidth: 2,
+        borderColor: '#ffffff'
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      animation: {
+        duration: 2000,
+        easing: 'easeOutQuart',
+        animateScale: true,
+        animateRotate: true
+      },
+      plugins: {
+        legend: {
+          position: 'bottom',
+          labels: {
+            padding: 20,
+            usePointStyle: true,
+            font: {
+              size: 12
+            }
+          }
+        },
+        tooltip: {
+          callbacks: {
+            label: function(context: any) {
+              const label = context.label || ''
+              const value = context.parsed
+              if (value === 0) {
+                return 'No attendance recorded for this date'
+              }
+              const total = context.dataset.data.reduce((a: number, b: number) => a + b, 0)
+              const percentage = ((value / total) * 100).toFixed(1)
+              return `${label}: ${value} attendees (${percentage}%)`
+            }
+          }
+        },
+        title: {
+          display: true,
+          text: `Service Distribution - ${formatDate(selectedDate.value)}`,
+          font: {
+            size: 14
+          },
+          padding: {
+            bottom: 20
+          }
+        }
+      }
+    }
+  })
 }
 
 // Helper function to get service name from service number

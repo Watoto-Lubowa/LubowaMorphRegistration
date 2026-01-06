@@ -22,18 +22,18 @@ export interface AttendanceRecord {
  */
 const SERVICE_TIMES = {
   SERVICE_1: {
-    start: 8 * 60,      // 8:00 AM = 480 minutes
-    end: 10 * 60 + 15,  // 10:15 AM = 615 minutes
+    start: 7 * 60 + 30, // 7:30 AM = 450 minutes
+    end: 9 * 60 + 30,   // 9:30 AM = 570 minutes
     name: '1st Service (8:00-9:30 AM)'
   },
   SERVICE_2: {
-    start: 10 * 60,     // 10:00 AM = 600 minutes
-    end: 12 * 60 + 15,  // 12:15 PM = 735 minutes
+    start: 9 * 60 + 30, // 9:30 AM = 570 minutes
+    end: 11 * 60 + 30,  // 11:30 AM = 690 minutes
     name: '2nd Service (10:00-11:30 AM)'
   },
   SERVICE_3: {
-    start: 12 * 60,     // 12:00 PM = 720 minutes
-    end: 14 * 60 + 15,  // 2:15 PM = 855 minutes
+    start: 11 * 60 + 30,// 11:30 AM = 690 minutes
+    end: 13 * 60 + 30,  // 1:30 PM = 810 minutes
     name: '3rd Service (12:00-2:00 PM)'
   }
 } as const
@@ -136,10 +136,10 @@ export function parseDateKey(dateKey: string): Date | null {
   try {
     const [day, month, year] = dateKey.split('_').map(Number)
     if (!day || !month || !year) return null
-    
+
     // Month is 0-indexed in JavaScript Date
     const date = new Date(year, month - 1, day)
-    
+
     // Validate the date
     if (date.getDate() === day && date.getMonth() === month - 1 && date.getFullYear() === year) {
       return date
@@ -158,16 +158,16 @@ export function parseDateKey(dateKey: string): Date | null {
  */
 export function autoPopulateAttendance(existingAttendance: Record<string, '1' | '2' | '3'> = {}): Record<string, '1' | '2' | '3'> {
   const currentService = getCurrentService()
-  
+
   if (currentService) {
     const todayKey = formatDateKey()
     const updatedAttendance = { ...existingAttendance }
     updatedAttendance[todayKey] = currentService
-    
+
     console.log('📅 Auto-populated attendance for:', todayKey, 'service:', currentService)
     return updatedAttendance
   }
-  
+
   return existingAttendance
 }
 
@@ -185,7 +185,7 @@ export function addAttendance(
   service: ServiceNumber
 ): AttendanceRecord {
   if (!service) return attendance
-  
+
   const dateKey = formatDateKey(date)
   return {
     ...attendance,
@@ -289,7 +289,7 @@ export function formatAttendanceForDisplay(
   return limitedDates.map((dateKey) => {
     const date = parseDateKey(dateKey)
     const service = attendance[dateKey]
-    
+
     return {
       dateKey,
       date: date ? date.toLocaleDateString() : dateKey,

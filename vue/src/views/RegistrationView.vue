@@ -19,8 +19,8 @@
             >
           </div>
           <div class="success-icon">✅</div>
-          <h2 class="success-title">Check-in Successful!</h2>
-          <p class="success-message">Your attendance has been recorded.</p>
+          <h2 class="success-title">{{ successState.title }}</h2>
+          <p class="success-message">{{ successState.message }}</p>
           <p class="success-name">{{ cachedUserData?.name }}</p>
           <p v-if="successCountdown > 0" class="success-countdown">This page will close in {{ successCountdown }} seconds...</p>
           <p v-else class="success-countdown">You can close this page now.</p>
@@ -248,10 +248,28 @@
               <div class="identity-info">
                 <strong>Parent's Number:</strong> <span id="displayParentsPhone">{{ formattedParentsPhone }}</span>
               </div>
+              <div class="identity-info">
+                <strong>School:</strong> <span id="displaySchool">{{ searchResult.record?.School }}</span>
+              </div>
+              <div class="identity-info">
+                <strong>Class:</strong> <span id="displayClass">{{ searchResult.record?.Class }}</span>
+              </div>
+              
+              <!-- Floating Edit Button -->
+              <button 
+                type="button"
+                @click="editMember"
+                class="floating-edit-btn"
+                :class="{ expanded: isYesButtonVisible }"
+                aria-label="Edit Details"
+              >
+                <span class="icon">✏️</span>
+                <span class="text">Edit</span>
+              </button>
             </div>
             
             <!-- Quick check-in service display (shown when forceUpdateFlow is false) -->
-            <div v-if="!forceUpdateFlow" class="service-display" id="quickCheckInService">
+            <div v-if="!forceUpdateFlow" class="service-display" id="quickCheckInService" ref="serviceCardRef">
               <div class="service-info">
                 <div class="service-icon">🗓️</div>
                 <div class="service-details">
@@ -268,31 +286,43 @@
             </div>
             
             <p class="confirmation-text">Is this you?</p>
-            <div class="confirmation-buttons">
-              <!-- Quick check-in button (only when forceUpdateFlow is false) -->
-              <button 
-                v-if="!forceUpdateFlow && currentService" 
-                type="button" 
-                @click="handleQuickCheckIn" 
-                class="confirm-btn"
-                :disabled="isLoading"
-                :class="{ loading: isLoading }"
-              >
-                <span v-if="!isLoading" class="btn-text">Yes, that's me</span>
-                <span v-else class="btn-loading">Checking in...</span>
-              </button>
-              <!-- Regular "update info" button (when forceUpdateFlow is true OR no service detected) -->
-              <button 
-                v-else 
-                type="button" 
-                @click="editMember" 
-                class="confirm-btn"
-                :disabled="isLoading"
-              >
-                Yes, that's me
-              </button>
-              <button type="button" @click="searchAgain" class="deny-btn" :disabled="isLoading">No, search again</button>
-              <button type="button" v-if="canCreateNew" @click="createNewMember" class="create-new-btn" :disabled="isLoading">➕ Create New Record</button>
+            <div class="confirmation-buttons button-column">
+              <!-- Row 1: Positive Actions (Yes / Edit) -->
+              <div class="button-row">
+                 <!-- Quick check-in available -->
+                 <template v-if="!forceUpdateFlow && currentService">
+                  <button 
+                    ref="yesButtonRef"
+                    type="button" 
+                    @click="handleQuickCheckIn" 
+                    class="confirm-btn"
+                    :disabled="isLoading"
+                    :class="{ loading: isLoading }"
+                  >
+                    <span v-if="!isLoading" class="btn-text">Yes, that's me</span>
+                    <span v-else class="btn-loading">Checking in...</span>
+                  </button>
+                 </template>
+                 
+                 <!-- Fallback / No Service -->
+                 <template v-else>
+                  <button 
+                    ref="yesButtonRef"
+                    type="button" 
+                    @click="editMember" 
+                    class="confirm-btn"
+                    :disabled="isLoading"
+                  >
+                    Yes, that's me
+                  </button>
+                 </template>
+              </div>
+
+              <!-- Row 2: Negative/Alternative Actions -->
+              <div class="button-row">
+                <button type="button" @click="searchAgain" class="deny-btn" :disabled="isLoading">No, search again</button>
+                <button type="button" v-if="canCreateNew" @click="createNewMember" class="create-new-btn" :disabled="isLoading">➕ Create New Record</button>
+              </div>
             </div>
           </div>
         </Transition>
@@ -444,6 +474,34 @@
               </div>
               <small class="field-help">Are you in a Morph cell?</small>
             </div>
+            <div v-if="!editMode" class="field" id="firstTimeGuestField">
+              <label for="firstTimeGuest">First time here at church? <span class="required">*</span></label>
+              <div class="radio-group">
+                <label class="radio-option" style="display: inherit;">
+                  <input 
+                    type="radio" 
+                    name="firstTimeGuest" 
+                    value="1" 
+                    id="firstTimeGuestYes" 
+                    v-model="memberForm.FirstTimeGuest"
+                    @change="formFieldsTouched.firstTimeGuest = true"
+                  >
+                  <span class="radio-label">Yes</span>
+                </label>
+                <label class="radio-option" style="display: inherit;">
+                  <input 
+                    type="radio" 
+                    name="firstTimeGuest" 
+                    value="0" 
+                    id="firstTimeGuestNo" 
+                    v-model="memberForm.FirstTimeGuest"
+                    @change="formFieldsTouched.firstTimeGuest = true"
+                  >
+                  <span class="radio-label">No</span>
+                </label>
+              </div>
+              <small class="field-help" :class="{ 'error-text': formFieldsTouched.firstTimeGuest && !memberForm.FirstTimeGuest }">Let us know if you're new!</small>
+            </div>
           </div>
           
           <!-- Service Attendance -->
@@ -482,7 +540,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, watch, onBeforeUnmount } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useRoute } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
@@ -534,6 +592,7 @@ const memberForm = ref<Partial<MemberData>>({
   Class: '',
   Residence: '',
   Cell: '',
+  FirstTimeGuest: '',
   notes: ''
 })
 
@@ -551,7 +610,8 @@ const formFieldsTouched = ref({
   school: false,
   class: false,
   residence: false,
-  cell: false
+  cell: false,
+  firstTimeGuest: false
 })
 
 // School validation state
@@ -573,6 +633,10 @@ const showQuickConfirm = ref(false)
 // Check QR parameter immediately to prevent login screen flash
 const isFromQR = ref(!!route.query.qr)
 const showSuccessCard = ref(false)
+const successState = ref({
+  title: 'Check-in Successful!',
+  message: 'Your attendance has been recorded.'
+})
 const successCountdown = ref(5)
 
 // Already checked-in state
@@ -582,6 +646,32 @@ const checkedInService = ref<ServiceNumber>(null)
 // Phone validation error tracking
 const phoneInputRef = ref<InstanceType<typeof PhoneInput>>()
 const hasPhoneError = ref(false)
+
+// Intersection Observer for Yes button
+const yesButtonRef = ref<HTMLElement | null>(null)
+const isYesButtonVisible = ref(false)
+let observer: IntersectionObserver | null = null
+
+onMounted(() => {
+  observer = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      isYesButtonVisible.value = entry.isIntersecting
+    })
+  }, {
+    threshold: 0.1 
+  })
+})
+
+onBeforeUnmount(() => {
+  if (observer) observer.disconnect()
+})
+
+watch(yesButtonRef, (el) => {
+  if (el && observer) {
+    observer.disconnect() 
+    observer.observe(el)
+  }
+})
 
 /**
  * Check if a member is already checked in today
@@ -610,12 +700,12 @@ function getCurrentService(): string | null {
   const currentTimeMinutes = currentHour * 60 + currentMinutes
 
   // Service times in minutes from midnight
-  const service1Start = 8 * 60 // 8:00 AM
-  const service1End = 10 * 60 + 15 // 10:15 AM (10am + 15 min buffer)
-  const service2Start = 10 * 60 // 10:00 AM
-  const service2End = 12 * 60 + 15 // 12:15 PM (12pm + 15 min buffer)
-  const service3Start = 12 * 60 // 12:00 PM
-  const service3End = 14 * 60 + 15 // 2:15 PM (2pm + 15 min buffer)
+  const service1Start = 7 * 60 + 30 // 7:30 AM
+  const service1End = 9 * 60 + 30 // 9:30 AM
+  const service2Start = 9 * 60 + 30 // 9:30 AM
+  const service2End = 11 * 60 + 30 // 11:30 AM
+  const service3Start = 11 * 60 + 30 // 11:30 AM
+  const service3End = 13 * 60 + 30 // 1:30 PM
 
   if (currentTimeMinutes >= service1Start && currentTimeMinutes <= service1End) {
     return "1"
@@ -753,7 +843,7 @@ const canCreateNew = computed(() => {
 
 // Form validation matching original implementation requirements
 const isFormValid = computed(() => {
-  return !!(
+  const baseValid = !!(
     memberForm.value.Name?.trim() &&
     memberForm.value.MorphersNumber?.trim() &&
     memberForm.value.School?.trim() &&
@@ -761,6 +851,13 @@ const isFormValid = computed(() => {
     memberForm.value.Residence?.trim() &&
     memberForm.value.Cell
   )
+
+  // If creating a new record, FirstTimeGuest is mandatory
+  if (!editMode.value) {
+    return baseValid && (memberForm.value.FirstTimeGuest === '1' || memberForm.value.FirstTimeGuest === '0')
+  }
+
+  return baseValid
 })
 
 // Record message computed properties
@@ -915,6 +1012,7 @@ async function confirmCachedData() {
         Class: '',
         Residence: '',
         Cell: '',
+        FirstTimeGuest: '',
         notes: ''
       }
       showForm.value = true
@@ -1056,6 +1154,7 @@ function createNewMember() {
     Class: '',
     Residence: '',
     Cell: '',
+    FirstTimeGuest: '',
     notes: ''
   }
   uiStore.info('Creating new record. Complete your registration below.')
@@ -1102,6 +1201,7 @@ function cancelEdit() {
     Class: '',
     Residence: '',
     Cell: '',
+    FirstTimeGuest: '',
     notes: ''
   }
 }
@@ -1116,7 +1216,8 @@ async function handleSave() {
     school: true,
     class: true,
     residence: true,
-    cell: true
+    cell: true,
+    firstTimeGuest: true
   }
 
   // 1. Check all required fields (matching original scripts.js validation)
@@ -1198,7 +1299,7 @@ async function handleSave() {
   uiStore.setLoading(true)
   try {
     // Prepare member data with country codes added back to phone numbers
-    const memberData = {
+    const memberData: Partial<MemberData> = {
       ...memberForm.value,
       MorphersNumber: memberForm.value.MorphersNumber 
         ? getCallingCodeByCountryCode(memberForm.value.MorphersCountryCode || 'UG') + memberForm.value.MorphersNumber
@@ -1206,6 +1307,21 @@ async function handleSave() {
       ParentsNumber: memberForm.value.ParentsNumber
         ? getCallingCodeByCountryCode(memberForm.value.ParentsCountryCode || 'UG') + memberForm.value.ParentsNumber
         : ''
+    }
+
+    // Add firstTimeOn date if user selected "Yes" for First Time Guest
+    if (!editMode.value && memberForm.value.FirstTimeGuest === '1') {
+      const today = new Date()
+      // Format as YYYY/MM/DD
+      const yyyy = today.getFullYear()
+      const mm = String(today.getMonth() + 1).padStart(2, '0')
+      const dd = String(today.getDate()).padStart(2, '0')
+      memberData.firstTimeOn = `${yyyy}/${mm}/${dd}`
+    }
+
+    // Remove FirstTimeGuest UI-only field from payload
+    if ('FirstTimeGuest' in memberData) {
+      delete memberData.FirstTimeGuest
     }
     
     await membersStore.saveMember(memberData as MemberData, currentDocId.value)
@@ -1228,6 +1344,17 @@ async function handleSave() {
         name: memberForm.value.Name,
         phoneNumber: fullPhoneNumber,
         countryCode: memberForm.value.MorphersCountryCode || 'UG'
+      }
+      if (memberForm.value.FirstTimeGuest === '1') {
+        successState.value = {
+          title: "You're all set!",
+          message: "Welcome, and enjoy the service"
+        }
+      } else {
+        successState.value = {
+          title: 'Check-in Successful!',
+          message: 'Your attendance has been recorded.'
+        }
       }
       showSuccessCard.value = true
       startAutoCloseCountdown(successCountdown)
@@ -1271,6 +1398,10 @@ async function handleQuickCheckIn() {
         name: memberData.Name,
         phoneNumber: memberData.MorphersNumber,
         countryCode: memberData.MorphersCountryCode || 'UG'
+      }
+      successState.value = {
+        title: 'Check-in Successful!',
+        message: 'Your attendance has been recorded.'
       }
       showSuccessCard.value = true
       startAutoCloseCountdown(successCountdown)

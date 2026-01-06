@@ -56,6 +56,7 @@ html {
     opacity: 0;
     transform: translateY(30px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
@@ -252,6 +253,36 @@ html {
 .sign-out-btn:hover {
   background: rgba(255, 255, 255, 0.3);
   transform: translateY(-2px);
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.global-date-picker {
+  display: flex;
+  align-items: center;
+  background: white;
+  padding: 5px 15px;
+  border-radius: 25px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.date-icon {
+  margin-right: 10px;
+  font-size: 1.2em;
+}
+
+.header-date-input {
+  border: none;
+  outline: none;
+  font-family: inherit;
+  font-size: 1em;
+  color: #333;
+  background: transparent;
+  cursor: pointer;
 }
 
 /* Stats Grid */
@@ -483,11 +514,13 @@ html {
 
 /* Keep text visible during loading - just disable button */
 .action-btn.loading .btn-text {
-  display: inline; /* Changed from 'none' to 'inline' */
+  display: inline;
+  /* Changed from 'none' to 'inline' */
 }
 
 .action-btn.loading .btn-loading {
-  display: none; /* Changed from 'inline' to 'none' */
+  display: none;
+  /* Changed from 'inline' to 'none' */
 }
 
 /* File Upload Button */
@@ -538,7 +571,7 @@ html {
   align-items: center;
 }
 
-.auth-card .field input[type="email"], 
+.auth-card .field input[type="email"],
 .auth-card .field input[type="password"],
 .auth-card .field input[type="text"] {
   width: 100%;
@@ -560,7 +593,7 @@ html {
   font-style: italic;
 }
 
-.auth-card .field input[type="email"]:focus, 
+.auth-card .field input[type="email"]:focus,
 .auth-card .field input[type="password"]:focus,
 .auth-card .field input[type="text"]:focus {
   border-color: #667eea;
@@ -569,7 +602,7 @@ html {
   transform: translateY(-3px);
 }
 
-.auth-card .field input[type="email"]:hover, 
+.auth-card .field input[type="email"]:hover,
 .auth-card .field input[type="password"]:hover,
 .auth-card .field input[type="text"]:hover {
   border-color: #c8d0f0;
@@ -680,22 +713,30 @@ html {
 
 /* Keep text visible during loading - just disable button */
 .auth-card .button-container button.loading .btn-text {
-  display: inline; /* Changed from 'none' to 'inline' */
+  display: inline;
+  /* Changed from 'none' to 'inline' */
 }
 
 .auth-card .button-container button.loading .btn-loading {
-  display: none; /* Changed from 'inline' to 'none' since we don't want loading text */
+  display: none;
+  /* Changed from 'inline' to 'none' since we don't want loading text */
 }
 
 .auth-card .button-container button.loading {
   pointer-events: none;
-  opacity: 0.6; /* Reduced opacity to show disabled state */
+  opacity: 0.6;
+  /* Reduced opacity to show disabled state */
   cursor: not-allowed;
 }
 
 @keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
+  0% {
+    transform: rotate(0deg);
+  }
+
+  100% {
+    transform: rotate(360deg);
+  }
 }
 
 /* Responsive Design */
@@ -704,32 +745,32 @@ html {
     padding: 10px;
     min-height: 100vh;
   }
-  
+
   .admin-container {
     padding: 10px;
     max-width: 100%;
   }
-  
+
   .admin-header {
     margin-bottom: 30px;
     padding: 0 10px;
   }
-  
+
   .admin-header h1 {
     font-size: 2.2em;
     line-height: 1.2;
   }
-  
+
   .admin-subtitle {
     font-size: 1em;
     margin-top: 8px;
   }
-  
+
   .auth-section {
     min-height: calc(100vh - 200px);
     padding: 0;
   }
-  
+
   .auth-card {
     padding: 25px 20px;
     margin: 10px;
@@ -738,61 +779,73 @@ html {
     box-sizing: border-box;
     border-radius: 20px;
   }
-  
+
   .auth-icon {
     font-size: 3em;
     margin-bottom: 20px;
   }
-  
+
   .auth-card h2 {
     font-size: 1.4em;
     margin-bottom: 12px;
   }
-  
+
   .auth-description {
     font-size: 0.9em;
     margin-bottom: 25px;
   }
-  
+
   .dashboard-header {
     flex-direction: column;
     gap: 20px;
     text-align: center;
     padding: 20px;
   }
-  
+
+  .header-actions {
+    flex-direction: column;
+    width: 100%;
+    gap: 15px;
+  }
+
+  .global-date-picker {
+    width: auto;
+    justify-content: center;
+    box-sizing: border-box;
+  }
+
   .stats-grid {
     grid-template-columns: 1fr;
     gap: 15px;
   }
-  
+
   .charts-grid {
     grid-template-columns: 1fr;
     gap: 20px;
   }
-  
+
   .chart-container {
     height: 250px;
   }
-  
+
   .actions-grid {
     grid-template-columns: 1fr;
     gap: 20px;
   }
-  
+
   .stat-card {
     flex-direction: column;
     text-align: center;
     gap: 15px;
     padding: 20px;
   }
-  
+
   .date-picker-container {
     display: flex;
     flex-direction: column;
     align-items: center;
   }
-  
+
   .date-picker {
     max-width: 200px;
   }
@@ -802,28 +855,28 @@ html {
   body {
     padding: 5px;
   }
-  
+
   .admin-container {
     padding: 5px;
   }
-  
+
   .admin-header {
     margin-bottom: 25px;
   }
-  
+
   .admin-header h1 {
     font-size: 1.8em;
     line-height: 1.1;
   }
-  
+
   .admin-subtitle {
     font-size: 0.95em;
   }
-  
+
   .action-icon {
     font-size: 2.5em;
   }
-  
+
   /* Mobile Auth Form Optimizations */
   .auth-card {
     padding: 20px 15px;
@@ -831,65 +884,66 @@ html {
     border-radius: 15px;
     max-width: calc(100vw - 20px);
   }
-  
+
   .auth-icon {
     font-size: 2.5em;
     margin-bottom: 15px;
   }
-  
+
   .auth-card h2 {
     font-size: 1.3em;
     margin-bottom: 10px;
   }
-  
+
   .auth-description {
     font-size: 0.85em;
     margin-bottom: 20px;
     line-height: 1.4;
   }
-  
+
   /* Form Field Improvements */
   .auth-card .field {
     margin: 20px 0;
   }
-  
+
   .auth-card .field label {
     font-size: 0.85em;
     margin-bottom: 8px;
     gap: 6px;
   }
-  
+
   .auth-card .field label .field-icon {
     width: 18px;
     height: 18px;
     font-size: 1.1em;
   }
-  
+
   .auth-card .field.email-field input,
   .auth-card .field.password-field input {
     padding: 14px 16px 14px 45px;
-    font-size: 16px; /* Prevents zoom on iOS */
+    font-size: 16px;
+    /* Prevents zoom on iOS */
     border-radius: 10px;
     border-width: 2px;
   }
-  
+
   .auth-card .field.email-field::after,
   .auth-card .field.password-field::after {
     left: 14px;
     top: 40px;
     font-size: 16px;
   }
-  
+
   .auth-card .field-help {
     font-size: 0.75em;
     margin-top: 6px;
   }
-  
+
   /* Button Improvements */
   .auth-card .button-container {
     margin: 25px 0 20px 0;
   }
-  
+
   .auth-card .button-container button {
     padding: 16px 25px;
     font-size: 1em;
@@ -898,81 +952,81 @@ html {
     letter-spacing: 0.5px;
     border-radius: 25px;
   }
-  
+
   /* Auth Options */
   .auth-card .auth-options {
     margin: 20px 0 10px 0;
   }
-  
+
   .auth-card .link-btn {
     font-size: 0.9em;
     padding: 12px 20px;
     border-radius: 20px;
   }
-  
+
   /* Dashboard Mobile Optimizations */
   .stat-icon {
     font-size: 2em;
     width: 60px;
     height: 60px;
   }
-  
+
   .stat-info h3 {
     font-size: 1.6em;
   }
-  
+
   .stat-info p {
     font-size: 0.85em;
   }
-  
+
   .button-container {
     flex-direction: column;
     gap: 10px;
   }
-  
+
   .button-container button {
     min-width: unset;
     width: 100%;
   }
-  
+
   .action-card {
     padding: 25px 20px;
   }
-  
+
   .action-card h3 {
     font-size: 1.2em;
     margin-bottom: 12px;
   }
-  
+
   .action-card p {
     font-size: 0.9em;
     margin-bottom: 20px;
   }
-  
+
   .action-btn {
     padding: 14px 20px;
     font-size: 0.95em;
   }
-  
+
   /* Chart responsive adjustments */
   .chart-container {
     height: 220px;
   }
-  
+
   .chart-card {
     padding: 20px 15px;
   }
-  
+
   .date-picker-container {
     display: flex;
     flex-direction: column;
     align-items: center;
   }
-  
+
   .date-picker {
     max-width: 200px;
   }
-  
+
   .chart-card h3 {
     font-size: 1.1em;
     margin-bottom: 15px;
@@ -984,45 +1038,45 @@ html {
   .admin-header h1 {
     font-size: 1.6em;
   }
-  
+
   .auth-card {
     padding: 18px 12px;
     margin: 2px;
     max-width: calc(100vw - 10px);
   }
-  
+
   .auth-icon {
     font-size: 2.2em;
     margin-bottom: 12px;
   }
-  
+
   .auth-card h2 {
     font-size: 1.2em;
   }
-  
+
   .auth-description {
     font-size: 0.8em;
     margin-bottom: 18px;
   }
-  
+
   .auth-card .field.email-field input,
   .auth-card .field.password-field input {
     padding: 12px 14px 12px 42px;
   }
-  
+
   .auth-card .field.email-field::after,
   .auth-card .field.password-field::after {
     left: 12px;
     top: 38px;
     font-size: 14px;
   }
-  
+
   .auth-card .button-container button {
     padding: 14px 20px;
     font-size: 0.95em;
     border-radius: 20px;
   }
-  
+
   .action-card {
     padding: 20px 15px;
   }
@@ -1115,8 +1169,13 @@ html {
 }
 
 @keyframes progress {
-  from { width: 100%; }
-  to { width: 0%; }
+  from {
+    width: 100%;
+  }
+
+  to {
+    width: 0%;
+  }
 }
 
 /* Toast type-specific styles */
@@ -1181,7 +1240,7 @@ html {
     transform: none;
     max-width: none;
   }
-  
+
   .toast {
     min-width: unset;
     max-width: unset;
@@ -1191,15 +1250,15 @@ html {
     font-size: 0.9em;
     border-radius: 10px;
   }
-  
+
   .toast.show {
     transform: translateY(0);
   }
-  
+
   .toast-icon {
     font-size: 1.2em;
   }
-  
+
   .toast-close {
     width: 26px;
     height: 26px;
@@ -1216,7 +1275,7 @@ html {
     padding: 12px 14px;
     font-size: 0.85em;
   }
-  
+
   .toast-content {
     gap: 10px;
   }
@@ -1274,14 +1333,14 @@ html {
   border-radius: 50%;
 }
 
-.toggle-switch input:checked + .toggle-slider {
+.toggle-switch input:checked+.toggle-slider {
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
 }
 
-.toggle-switch input:focus + .toggle-slider {
+.toggle-switch input:focus+.toggle-slider {
   box-shadow: 0 0 1px linear-gradient(135deg, #667eea 0%, #764ba2 100%);
 }
 
-.toggle-switch input:checked + .toggle-slider:before {
+.toggle-switch input:checked+.toggle-slider:before {
   transform: translateX(26px);
 }
