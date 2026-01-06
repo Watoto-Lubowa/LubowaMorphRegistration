@@ -37,9 +37,9 @@ interface ServiceSchedule {
 // Service schedule configuration
 const SERVICE_SCHEDULE: ServiceSchedule = {
   0: [ // Sunday (0 = Sunday in JavaScript Date)
-    { service: 1, start: 8, end: 10.25 },   // 8am - 10:15am (10am + 15 min buffer)
-    { service: 2, start: 10, end: 12.25 },  // 10am - 12:15pm (12pm + 15 min buffer)
-    { service: 3, start: 12, end: 14.25 },  // 12pm - 2:15pm (2pm + 15 min buffer)
+    { service: 1, start: 7.5, end: 9.5 },           // 7:30am - 9:30am
+    { service: 2, start: 9.5, end: 11.5 },          // 9:30am - 11:30am
+    { service: 3, start: 11.5, end: 13.5 },         // 11:30am - 1:30pm
   ],
   1: [ // Monday
     { service: 1, start: 8, end: 10.25 },   // 8am - 10:15am (10am + 15 min buffer)
@@ -79,7 +79,7 @@ const SERVICE_SCHEDULE: ServiceSchedule = {
 function getCorsHeaders(request: Request, env: Env): HeadersInit {
   const origin = request.headers.get('Origin') || '*'
   const allowedOrigins = env.ALLOWED_ORIGINS?.split(',') || ['*']
-  
+
   const corsOrigin = allowedOrigins.includes(origin) || allowedOrigins.includes('*')
     ? origin
     : allowedOrigins[0]
@@ -148,7 +148,7 @@ async function deriveKey(uid: string, secret: string): Promise<CryptoKey> {
   // Combine UID with secret to create salt
   const saltString = `${uid}:${secret}`
   const salt = new TextEncoder().encode(saltString)
-  
+
   // Use the secret as password material
   const passwordMaterial = new TextEncoder().encode(secret)
   const keyMaterial = await crypto.subtle.importKey(
@@ -158,7 +158,7 @@ async function deriveKey(uid: string, secret: string): Promise<CryptoKey> {
     false,
     ['deriveBits', 'deriveKey']
   )
-  
+
   // Derive a 256-bit AES key
   return await crypto.subtle.deriveKey(
     {
@@ -215,15 +215,15 @@ async function decrypt(encryptedBase64: string, secretKey: string): Promise<stri
 function getCurrentServiceWindow(): ServiceWindow | null {
   // Get current time in UTC
   const nowUTC = new Date();
-  
+
   // East Africa Time offset (UTC+3)
   const EAT_OFFSET_HOURS = 3;
-  
+
   // Get current time components in Uganda timezone
   // We add the offset to get the local hour/minute for comparison
   const ugandaTimeMs = nowUTC.getTime() + (EAT_OFFSET_HOURS * 60 * 60 * 1000);
   const ugandaDate = new Date(ugandaTimeMs);
-  
+
   const dayOfWeek = ugandaDate.getUTCDay();
   const currentHour = ugandaDate.getUTCHours();
   const currentMinutes = ugandaDate.getUTCMinutes();
@@ -242,17 +242,17 @@ function getCurrentServiceWindow(): ServiceWindow | null {
   for (const svc of todayServices) {
     const startMinutes = svc.start * 60;
     const endMinutes = svc.end * 60;
-    
+
     console.log(`[DEBUG] Checking service ${svc.service}: ${startMinutes} <= ${currentTimeInMinutes} < ${endMinutes}`);
     if (currentTimeInMinutes >= startMinutes && currentTimeInMinutes < endMinutes) {
       // Create service start/end times in UTC
       // Service times are defined in EAT, so we subtract the offset to get UTC
       const startHour = Math.floor(svc.start);
       const startMin = Math.round((svc.start - startHour) * 60);
-      
+
       const endHour = Math.floor(svc.end);
       const endMin = Math.round((svc.end - endHour) * 60);
-      
+
       // Create dates in UTC by subtracting the EAT offset
       const dateFrom = new Date(nowUTC);
       dateFrom.setUTCHours(startHour - EAT_OFFSET_HOURS, startMin, 0, 0);
@@ -281,7 +281,7 @@ function getCurrentServiceWindow(): ServiceWindow | null {
 async function handleGenerateQR(request: Request, env: Env): Promise<Response> {
   try {
     const serviceWindow = getCurrentServiceWindow();
-    
+
     if (!serviceWindow) {
       return new Response(
         JSON.stringify({
@@ -356,7 +356,7 @@ async function handleGenerateQRForService(request: Request, env: Env): Promise<R
   try {
     const url = new URL(request.url);
     const serviceParam = url.searchParams.get('service');
-    
+
     if (!serviceParam) {
       return new Response(
         JSON.stringify({
@@ -449,7 +449,7 @@ async function handleGenerateQRForService(request: Request, env: Env): Promise<R
     const nextSundayMidnight = new Date(nowUTC);
     nextSundayMidnight.setUTCDate(nextSundayMidnight.getUTCDate() + daysUntilSunday);
     nextSundayMidnight.setUTCHours(0, 0, 0, 0); // Reset to midnight UTC
-    
+
     // Now set the service times (convert EAT hours to UTC by subtracting offset)
     const dateFrom = new Date(nextSundayMidnight);
     dateFrom.setUTCHours(startHour - EAT_OFFSET_HOURS, startMin, 0, 0);
@@ -514,7 +514,7 @@ async function handleEncryptUserData(request: Request, env: Env): Promise<Respon
   try {
     const body = await request.json() as { userData: any }
     const { userData } = body
-    
+
     if (!userData) {
       return new Response(
         JSON.stringify({
@@ -578,7 +578,7 @@ async function handleSecureEncrypt(request: Request, env: Env): Promise<Response
   try {
     const body = await request.json() as { uid: string; userData: any }
     const { uid, userData } = body
-    
+
     if (!uid || !userData) {
       return new Response(
         JSON.stringify({
@@ -597,26 +597,26 @@ async function handleSecureEncrypt(request: Request, env: Env): Promise<Response
 
     // Derive encryption key from UID + server secret
     const key = await deriveKey(uid, env.CACHE_SECRET_KEY)
-    
+
     // Convert to JSON string
     const dataToEncrypt = JSON.stringify(userData)
     const encodedText = new TextEncoder().encode(dataToEncrypt)
-    
+
     // Generate random IV
     const iv = crypto.getRandomValues(new Uint8Array(12))
-    
+
     // Encrypt the data
     const encryptedData = await crypto.subtle.encrypt(
       { name: 'AES-GCM', iv },
       key,
       encodedText
     )
-    
+
     // Combine IV and encrypted data
     const combined = new Uint8Array(iv.length + encryptedData.byteLength)
     combined.set(iv, 0)
     combined.set(new Uint8Array(encryptedData), iv.length)
-    
+
     // Return base64-encoded string
     const encrypted = btoa(String.fromCharCode(...combined))
 
@@ -660,7 +660,7 @@ async function handleSecureDecrypt(request: Request, env: Env): Promise<Response
   try {
     const body = await request.json() as { uid: string; encryptedData: string }
     const { uid, encryptedData } = body
-    
+
     if (!uid || !encryptedData) {
       return new Response(
         JSON.stringify({
@@ -679,19 +679,19 @@ async function handleSecureDecrypt(request: Request, env: Env): Promise<Response
 
     // Derive decryption key from UID + server secret
     const key = await deriveKey(uid, env.CACHE_SECRET_KEY)
-    
+
     // Decode base64 and separate IV and data
     const combined = Uint8Array.from(atob(encryptedData), c => c.charCodeAt(0))
     const iv = combined.slice(0, 12)
     const encryptedBytes = combined.slice(12)
-    
+
     // Decrypt
     const decryptedData = await crypto.subtle.decrypt(
       { name: 'AES-GCM', iv },
       key,
       encryptedBytes
     )
-    
+
     const decrypted = new TextDecoder().decode(decryptedData)
 
     return new Response(
@@ -853,7 +853,7 @@ async function handleValidateQR(request: Request, env: Env): Promise<Response> {
     // Determine the reason for invalidity
     let reason = 'VALID'
     let message = 'QR code is valid'
-    
+
     if (!isValid) {
       if (now < dateFrom) {
         reason = 'NOT_YET_VALID'

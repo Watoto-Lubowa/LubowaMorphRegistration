@@ -29,25 +29,25 @@ export const ERROR_MESSAGES = {
   CONNECTION_FAILED: 'Connection failed. Please check your internet and try again.',
   SERVICE_UNAVAILABLE: 'Service is temporarily unavailable. Please try again later.',
   PERMISSION_DENIED: 'Permission denied. Please contact support for access.',
-  
+
   // Authentication
   AUTH_FAILED: 'Authentication failed. Please check your credentials.',
   UNAUTHORIZED: 'You are not authorized to access this system.',
   INVALID_EMAIL: 'Please enter a valid email address.',
   INVALID_PASSWORD: 'Password is required.',
-  
+
   // Search & Records
   SEARCH_FAILED: 'Search failed. Please try again.',
   RECORD_NOT_FOUND: 'No existing record found.',
   RECORD_ALREADY_EXISTS: 'A record with this information already exists.',
-  
+
   // Form Validation
   INVALID_NAME: 'Please enter a valid name (at least 2 characters).',
   INVALID_PHONE: 'Please enter a valid phone number.',
   INVALID_FULL_NAME: 'Please enter your full name (first and last name).',
   INVALID_SCHOOL: 'Please enter the full school name (no abbreviations).',
   MISSING_REQUIRED_FIELD: 'Please fill in all required fields.',
-  
+
   // Save Operations
   SAVE_FAILED: 'Failed to save data. Please try again.',
   UPDATE_FAILED: 'Failed to update record. Please try again.',
@@ -72,24 +72,24 @@ export const SUCCESS_MESSAGES = {
  */
 export const SERVICE_TIMES = {
   SERVICE_1: {
-    START_HOUR: 8,
-    START_MINUTE: 0,
-    END_HOUR: 10,
-    END_MINUTE: 15,
+    START_HOUR: 7,
+    START_MINUTE: 30,
+    END_HOUR: 9,
+    END_MINUTE: 30,
     NAME: '1st Service (8:00-9:30 AM)',
   },
   SERVICE_2: {
-    START_HOUR: 10,
-    START_MINUTE: 0,
-    END_HOUR: 12,
-    END_MINUTE: 15,
+    START_HOUR: 9,
+    START_MINUTE: 30,
+    END_HOUR: 11,
+    END_MINUTE: 30,
     NAME: '2nd Service (10:00-11:30 AM)',
   },
   SERVICE_3: {
-    START_HOUR: 12,
-    START_MINUTE: 0,
-    END_HOUR: 14,
-    END_MINUTE: 15,
+    START_HOUR: 11,
+    START_MINUTE: 30,
+    END_HOUR: 13,
+    END_MINUTE: 30,
     NAME: '3rd Service (12:00-2:00 PM)',
   },
 } as const

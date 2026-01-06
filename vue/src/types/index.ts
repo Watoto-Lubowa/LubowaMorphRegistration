@@ -19,6 +19,8 @@ export interface MemberData {
   attendance?: AttendanceRecord // Attendance records by date
   createdAt?: any // Firestore Timestamp
   lastUpdated?: any // Firestore Timestamp
+  FirstTimeGuest?: string // "1" = yes, "0" = no
+  firstTimeOn?: string // "YYYY-MM-DD"
   notes?: string
 }
 

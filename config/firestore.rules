@@ -3,7 +3,6 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Helper functions
     function isAuthenticated() {
       return request.auth != null;
     }
@@ -13,8 +12,13 @@ service cloud.firestore {
              request.auth.token.email in [
                'jeromessenyonjo@gmail.com',
                'denis.omoding@watotochurch.com'
-               // Add more admin emails as needed
              ];
+    }
+
+    function attendanceOnlyIncrements() {
+      let oldAttendance = resource.data.get('attendanceCount', 0);
+      let newAttendance = request.resource.data.get('attendanceCount', oldAttendance);
+      return newAttendance >= oldAttendance;
     }
 
     function isValidMorpherData() {
@@ -22,48 +26,41 @@ service cloud.firestore {
              request.resource.data.Name is string &&
              request.resource.data.Name.size() >= 2 &&
              request.resource.data.MorphersNumber is string &&
-             request.resource.data.MorphersNumber.size() >= 7;
+             request.resource.data.MorphersNumber.size() >= 7 &&
+             // Ensure firstTimeOn is valid if present (optional string)
+             (!('firstTimeOn' in request.resource.data) || request.resource.data.firstTimeOn is string);
     }
 
     function isValidUpdate() {
       return request.resource.data.diff(resource.data).affectedKeys()
-             .hasOnly(['Name', 'MorphersNumber', 'ParentsName', 'ParentsNumber',
-                      'School', 'Class', 'Residence', 'Cell', 'attendance', 'lastUpdated']);
+             .hasOnly([
+               'Name', 'MorphersNumber', 'MorphersCountryCode',
+               'ParentsCountryCode', 'ParentsName', 'ParentsNumber',
+               'School', 'Class', 'Residence', 'Cell', 'attendance',
+               'attendanceCount', 'lastUpdated'
+             ]);
     }
 
-    // Main morphers collection rules
     match /morphers/{document} {
-
-      // Allow read access for searching (public read for search functionality)
-      allow read: if true;
-
-      // Allow create for authenticated users with valid data
+      allow read: if isAuthenticated();
       allow create: if isAuthenticated() && isValidMorpherData();
-
-      // Allow updates for authenticated users, with restrictions
-      allow update: if isAuthenticated() && isValidUpdate();
-
-      // Allow delete only for admins
-      allow delete: if isAdmin();
+      allow update: if isAuthenticated() && isValidUpdate() && attendanceOnlyIncrements();
+      allow delete: if false;
     }
 
-    // Admin-only operations collection (for bulk operations, logging, etc.)
     match /admin_operations/{document} {
       allow read, write: if isAdmin();
     }
 
-    // System configuration (read-only for authenticated users)
     match /config/{document} {
       allow read: if isAuthenticated();
       allow write: if isAdmin();
     }
 
-    // Audit logs (admin only)
     match /audit_logs/{document} {
       allow read, write: if isAdmin();
     }
 
-    // Deny all other access by default
     match /{document=**} {
       allow read, write: if false;
     }
