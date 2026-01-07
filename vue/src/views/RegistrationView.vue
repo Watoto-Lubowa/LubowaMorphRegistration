@@ -865,9 +865,9 @@ const recordMessageText = computed(() => {
   if (alreadyCheckedIn.value) {
     return '' // No record message for already checked in state
   } else if (searchResult.value.found && !showForm.value) {
-    return '✅ Identity confirmed! Complete the missing fields below.'
+    return '✅ Identity confirmed! Edit your details if needed.'
   } else if (showForm.value && editMode.value) {
-    return '✅ Identity confirmed! Complete the missing fields below.'
+    return '✅ Identity confirmed! Edit your details if needed.'
   } else if (showForm.value && !editMode.value) {
     return '🆕 New record — complete your registration below.'
   } else if (!searchResult.value.found && searchAttempts.value > 0 && !isLoading.value && !showForm.value && !isSearchingAgain.value) {
