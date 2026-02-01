@@ -39,7 +39,7 @@ const SERVICE_SCHEDULE: ServiceSchedule = {
   0: [ // Sunday (0 = Sunday in JavaScript Date)
     { service: 1, start: 7.5, end: 9.5 },           // 7:30am - 9:30am
     { service: 2, start: 9.5, end: 11.5 },          // 9:30am - 11:30am
-    { service: 3, start: 11.5, end: 13.5 },         // 11:30am - 1:30pm
+    { service: 3, start: 11.5, end: 14 },           // 11:30am - 2:00pm
   ],
   1: [ // Monday
     { service: 1, start: 8, end: 10.25 },   // 8am - 10:15am (10am + 15 min buffer)

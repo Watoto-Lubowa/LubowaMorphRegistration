@@ -29,7 +29,7 @@
 
       <div v-else class="main-container">
         <!-- Logo -->
-        <div style="text-align: center; margin-bottom: 1rem;">
+        <div ref="logoRef" style="text-align: center; margin-bottom: 1rem;">
           <img 
             src="/watoto.svg" 
             alt="Watoto Logo" 
@@ -125,12 +125,24 @@
                   <div class="service-icon">🗓️</div>
                   <div class="service-details">
                     <strong>Current Service:</strong>
+                    <!-- Auto Mode: Show as text -->
                     <span 
+                      v-if="isServiceAutoMode"
                       class="current-service"
                       :class="{ 'no-service': currentService === null }"
                     >
                       {{ currentService === null ? 'No service currently' : currentServiceText }}
                     </span>
+                    <!-- Manual Mode: Show as select -->
+                    <select 
+                      v-else
+                      v-model="manualServiceId"
+                      class="service-select"
+                    >
+                      <option value="1">1st Service (8:00 AM - 10:00 AM)</option>
+                      <option value="2">2nd Service (10:00 AM - 12:00 PM)</option>
+                      <option value="3">3rd Service (12:00 PM - 2:00 PM)</option>
+                    </select>
                   </div>
                 </div>
               </div>
@@ -274,13 +286,25 @@
                 <div class="service-icon">🗓️</div>
                 <div class="service-details">
                   <strong>Current Service:</strong>
+                  <!-- Auto Mode: Show as text -->
                   <span 
+                    v-if="isServiceAutoMode"
                     id="confirmServiceName" 
                     class="current-service"
                     :class="{ 'no-service': currentService === null }"
                   >
                     {{ currentService === null ? 'No service currently' : currentServiceText }}
                   </span>
+                  <!-- Manual Mode: Show as select -->
+                  <select 
+                    v-else
+                    v-model="manualServiceId"
+                    class="service-select"
+                  >
+                    <option value="1">1st Service (8:00 AM - 10:00 AM)</option>
+                    <option value="2">2nd Service (10:00 AM - 12:00 PM)</option>
+                    <option value="3">3rd Service (12:00 PM - 2:00 PM)</option>
+                  </select>
                 </div>
               </div>
             </div>
@@ -534,6 +558,49 @@
           </div>
           </div>
         </Transition>
+
+      </div>
+
+      <!-- Settings Button (Fixed) - Only on /register route -->
+      <button 
+        v-if="route.path === '/register'"
+        @click="showSettings = true"
+        class="floating-settings-btn"
+        :class="{ expanded: isSettingsExpanded }"
+        aria-label="Service Settings"
+      >
+        <span class="icon">⚙️</span>
+        <span class="text">Settings</span>
+      </button>
+
+      <!-- Settings Modal -->
+      <div v-if="showSettings" class="modal-overlay" @click.self="showSettings = false">
+        <div class="settings-card">
+          <div class="settings-header">
+            <h3>Service Settings</h3>
+            <button @click="showSettings = false" class="close-btn">✕</button>
+          </div>
+          
+          <div class="settings-content">
+            <p class="settings-description">
+              Choose how the current service is detected. When Manual mode is enabled, you can select the service directly in the service display.
+            </p>
+            
+            <!-- Mode Toggle -->
+            <div class="mode-toggle-container">
+              <span class="mode-label" :class="{ active: isServiceAutoMode }">Auto Detect</span>
+              <label class="switch">
+                <input type="checkbox" v-model="isServiceAutoModeToggle">
+                <span class="slider round"></span>
+              </label>
+              <span class="mode-label" :class="{ active: !isServiceAutoMode }">Manual</span>
+            </div>
+            
+            <div class="settings-footer">
+               <button @click="showSettings = false" class="btn-primary" style="width: 100%;">Done</button>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -643,6 +710,56 @@ const successCountdown = ref(5)
 const alreadyCheckedIn = ref(false)
 const checkedInService = ref<ServiceNumber>(null)
 
+// NEW Settings & Service Logic
+const showSettings = ref(false)
+const isServiceAutoMode = ref(true)
+const manualServiceId = ref('1')
+const logoRef = ref<HTMLElement | null>(null)
+const isLogoVisible = ref(true)
+
+// Computed: Settings button should be expanded on steps 2 & 3 when logo is visible
+// Step 1: Always collapsed (icon only)
+const isSettingsExpanded = computed(() => {
+  if (currentStep.value === 1) return false // Always icon-only on step 1
+  return isLogoVisible.value // On steps 2 & 3, follow logo visibility
+})
+
+// Computed property for the toggle switch (inverted logic for switch: true=Manual, false=Auto? Or just map it)
+// Let's make the switch: Checked = Manual (false -> true), Unchecked = Auto (true -> false)
+// Wait, clearer to have Checked = Auto? 
+// The toggle usually implies "On/Off". 
+// Let's use a computed wrapper.
+const isServiceAutoModeToggle = computed({
+  get: () => !isServiceAutoMode.value, // Switch ON means Manual Mode
+  set: (val) => isServiceAutoMode.value = !val
+})
+
+watch([isServiceAutoMode, manualServiceId], () => {
+  updateCurrentServiceDisplay()
+})
+
+// Settings Button Observer
+let logoObserver: IntersectionObserver | null = null
+
+onMounted(() => {
+  // Wait for next tick to ensure DOM is ready
+  setTimeout(() => {
+    if (logoRef.value) {
+      logoObserver = new IntersectionObserver(([entry]) => {
+        isLogoVisible.value = entry.isIntersecting
+      }, { 
+        threshold: 0.5,
+        rootMargin: '0px'
+      })
+      logoObserver.observe(logoRef.value)
+    }
+  }, 100)
+})
+
+onBeforeUnmount(() => {
+  if (logoObserver) logoObserver.disconnect()
+})
+
 // Phone validation error tracking
 const phoneInputRef = ref<InstanceType<typeof PhoneInput>>()
 const hasPhoneError = ref(false)
@@ -728,9 +845,14 @@ function getServiceText(service: string | null): string {
 }
 
 function updateCurrentServiceDisplay() {
-  currentService.value = getCurrentService()
+  if (isServiceAutoMode.value) {
+    currentService.value = getCurrentService()
+  } else {
+    currentService.value = manualServiceId.value
+  }
+  
   currentServiceText.value = getServiceText(currentService.value)
-  noService.value = currentService.value === null || false
+  noService.value = currentService.value === null
 }
 
 // Load countries data and force update flow state

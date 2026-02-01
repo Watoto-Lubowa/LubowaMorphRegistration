@@ -33,7 +33,7 @@ const SERVICE_TIMES = {
   },
   SERVICE_3: {
     start: 11 * 60 + 30,// 11:30 AM = 690 minutes
-    end: 13 * 60 + 30,  // 1:30 PM = 810 minutes
+    end: 14 * 60,       // 2:00 PM = 840 minutes
     name: '3rd Service (12:00-2:00 PM)'
   }
 } as const
