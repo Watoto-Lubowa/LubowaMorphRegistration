@@ -929,11 +929,12 @@ function showSettingsButton() {
  * Hide settings button with rotate-out + fade animation
  */
 function hideSettingsButton() {
+  // Set revealed to false FIRST so rotate-out class is applied
+  isSettingsRevealed.value = false
   isSettingsAnimating.value = true
   
-  // Wait for animation to complete before hiding
+  // Wait for animation to complete before clearing animation flag
   setTimeout(() => {
-    isSettingsRevealed.value = false
     isSettingsAnimating.value = false
   }, 600) // Match animation duration
 }
