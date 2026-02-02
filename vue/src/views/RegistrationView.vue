@@ -922,7 +922,7 @@ function showSettingsButton() {
     isSettingsAnimating.value = false
   }, 600) // Match animation duration
   
-  uiStore.success('🎉 Facilitator settings unlocked!')
+  // uiStore.success('🎉 Facilitator settings unlocked!')
 }
 
 /**
