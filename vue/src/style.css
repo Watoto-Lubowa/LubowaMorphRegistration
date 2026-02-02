@@ -2353,86 +2353,77 @@
  * ===================================================================================== */
 
 .floating-settings-btn {
-  position: fixed;
+  position: absolute;
   top: 20px;
   right: 20px;
-  background: white;
-  border: 1px solid #e1e5e9;
+  background: transparent !important;
+  border: none;
   border-radius: 50%;
   width: 50px;
   height: 50px;
   min-width: 50px !important;
   padding: 0;
   cursor: pointer;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-  transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  box-shadow: none !important;
+  transition: transform 0.2s ease;
   display: flex;
   align-items: center;
   justify-content: center;
-  overflow: hidden;
   z-index: 2000;
-  color: #667eea;
+  color: #9ca3af;
+  opacity: 0;
+  pointer-events: none;
+  transform: rotate(0deg);
+  font-size: 1.5em;
+}
+
+.floating-settings-btn.revealed {
+  pointer-events: auto;
+  opacity: 1;
+}
+
+.floating-settings-btn.rotate-in {
+  animation: rotateIn 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+@keyframes rotateIn {
+  0% {
+    opacity: 0;
+    transform: rotate(0deg) scale(0.5);
+  }
+
+  100% {
+    opacity: 1;
+    transform: rotate(360deg) scale(1);
+  }
+}
+
+.floating-settings-btn.rotate-out {
+  animation: rotateOut 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+@keyframes rotateOut {
+  0% {
+    opacity: 1;
+    transform: rotate(360deg) scale(1);
+  }
+
+  100% {
+    opacity: 0;
+    transform: rotate(0deg) scale(0.5);
+  }
 }
 
 .floating-settings-btn:hover {
-  transform: scale(1.1);
-  box-shadow: 0 8px 15px rgba(0, 0, 0, 0.15);
-  color: #764ba2;
-  border-color: #667eea;
-  width: 50px;
+  transform: scale(1.15);
+  color: #6b7280;
 }
 
-.floating-settings-btn .icon {
-  font-size: 1.5em;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  line-height: 1;
-}
 
-.floating-settings-btn .text {
-  max-width: 0;
-  opacity: 0;
-  white-space: nowrap;
-  transition: all 0.3s ease;
-  font-weight: 600;
-  font-size: 0.95em;
-  margin-left: 0;
-  display: inline-block;
-  color: #333;
-}
 
-.floating-settings-btn.expanded {
-  width: auto;
-  border-radius: 30px;
-  padding: 0 20px;
-  background: white;
-}
-
-.floating-settings-btn.expanded:hover {
-  width: auto;
-}
-
-.floating-settings-btn.expanded .text {
-  max-width: 100px;
-  opacity: 1;
-  margin-left: 10px;
-}
-
-/* Mobile: Dock to right edge */
 @media (max-width: 768px) {
   .floating-settings-btn {
-    right: 0;
-    border-top-right-radius: 0;
-    border-bottom-right-radius: 0;
-    padding-left: 5px;
-  }
-
-  .floating-settings-btn.expanded {
-    border-top-right-radius: 0;
-    border-bottom-right-radius: 0;
-    padding: 0 12px 0 20px;
+    right: 10px;
   }
 }
 

@@ -27,13 +27,30 @@
         </div>
       </div>
 
-      <div v-else class="main-container">
+      <div v-else class="main-container" style="position: relative;">
+        <!-- Settings Button - revealed by secret gesture, positioned relative to card -->
+        <button 
+          v-if="route.path === '/register'"
+          @click="handleSettingsClick"
+          class="floating-settings-btn"
+          :class="{ 
+            revealed: isSettingsRevealed, 
+            'rotate-in': isSettingsAnimating && isSettingsRevealed,
+            'rotate-out': isSettingsAnimating && !isSettingsRevealed
+          }"
+          aria-label="Service Settings"
+        >
+          ⚙️
+        </button>
+
         <!-- Logo -->
         <div ref="logoRef" style="text-align: center; margin-bottom: 1rem;">
           <img 
             src="/watoto.svg" 
             alt="Watoto Logo" 
-            style="height: 4rem; width: auto; margin: 0 auto; filter: invert(48%) sepia(79%) saturate(2476%) hue-rotate(228deg) brightness(94%) contrast(90%);"
+            class="logo"
+            @click="handleLogoTap"
+            style="height: 4rem; width: auto; margin: 0 auto; filter: invert(48%) sepia(79%) saturate(2476%) hue-rotate(228deg) brightness(94%) contrast(90%); cursor: pointer;"
           >
         </div>
         
@@ -561,17 +578,7 @@
 
       </div>
 
-      <!-- Settings Button (Fixed) - Only on /register route -->
-      <button 
-        v-if="route.path === '/register'"
-        @click="showSettings = true"
-        class="floating-settings-btn"
-        :class="{ expanded: isSettingsExpanded }"
-        aria-label="Service Settings"
-      >
-        <span class="icon">⚙️</span>
-        <span class="text">Settings</span>
-      </button>
+
 
       <!-- Settings Modal -->
       <div v-if="showSettings" class="modal-overlay" @click.self="showSettings = false">
@@ -717,11 +724,20 @@ const manualServiceId = ref('1')
 const logoRef = ref<HTMLElement | null>(null)
 const isLogoVisible = ref(true)
 
-// Computed: Settings button should be expanded on steps 2 & 3 when logo is visible
-// Step 1: Always collapsed (icon only)
-const isSettingsExpanded = computed(() => {
-  if (currentStep.value === 1) return false // Always icon-only on step 1
-  return isLogoVisible.value // On steps 2 & 3, follow logo visibility
+// Secret gesture state for settings button
+const isSettingsRevealed = ref(false)
+const isSettingsAnimating = ref(false)
+const logoTapCount = ref(0)
+const logoTapTimer = ref<ReturnType<typeof setTimeout> | null>(null)
+const REQUIRED_TAPS = 7
+const TAP_WINDOW_MS = 7000 // 7 seconds
+
+// Watch for settings modal close to trigger hide animation
+watch(showSettings, (newValue, oldValue) => {
+  // When modal closes (goes from true to false) and button was revealed
+  if (oldValue === true && newValue === false && isSettingsRevealed.value) {
+    hideSettingsButton()
+  }
 })
 
 // Computed property for the toggle switch (inverted logic for switch: true=Manual, false=Auto? Or just map it)
@@ -853,6 +869,82 @@ function updateCurrentServiceDisplay() {
   
   currentServiceText.value = getServiceText(currentService.value)
   noService.value = currentService.value === null
+}
+
+/**
+ * Handle logo tap for secret gesture (7 taps in 7 seconds)
+ * Only active on /register route
+ */
+function handleLogoTap() {
+  // Only allow gesture on /register route
+  if (route.path !== '/register') {
+    return
+  }
+  
+  logoTapCount.value++
+  
+  // Clear existing timer if any
+  if (logoTapTimer.value) {
+    clearTimeout(logoTapTimer.value)
+  }
+  
+  // Set new timer to reset count after 7 seconds
+  logoTapTimer.value = globalThis.setTimeout(() => {
+    logoTapCount.value = 0
+    logoTapTimer.value = null
+  }, TAP_WINDOW_MS)
+  
+  // Check if we've reached the required taps
+  if (logoTapCount.value >= REQUIRED_TAPS) {
+    // Clear timer and reset count
+    if (logoTapTimer.value) {
+      clearTimeout(logoTapTimer.value)
+      logoTapTimer.value = null
+    }
+    logoTapCount.value = 0
+    
+    // Reveal the settings button with animation (only if not already revealed)
+    if (!isSettingsRevealed.value) {
+      showSettingsButton()
+    }
+  }
+}
+
+/**
+ * Show settings button with rotate-in + fade animation
+ */
+function showSettingsButton() {
+  isSettingsRevealed.value = true
+  isSettingsAnimating.value = true
+  
+  // Remove animation class after animation completes
+  setTimeout(() => {
+    isSettingsAnimating.value = false
+  }, 600) // Match animation duration
+  
+  uiStore.success('🎉 Facilitator settings unlocked!')
+}
+
+/**
+ * Hide settings button with rotate-out + fade animation
+ */
+function hideSettingsButton() {
+  isSettingsAnimating.value = true
+  
+  // Wait for animation to complete before hiding
+  setTimeout(() => {
+    isSettingsRevealed.value = false
+    isSettingsAnimating.value = false
+  }, 600) // Match animation duration
+}
+
+/**
+ * Handle settings button click (only works after revealed)
+ */
+function handleSettingsClick() {
+  if (isSettingsRevealed.value) {
+    showSettings.value = true
+  }
 }
 
 // Load countries data and force update flow state
