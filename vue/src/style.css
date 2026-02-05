@@ -2354,7 +2354,7 @@
 
 .floating-settings-btn {
   position: absolute;
-  top: 20px;
+  top: 50px;
   right: 20px;
   background: transparent !important;
   border: none;
@@ -2423,6 +2423,7 @@
 
 @media (max-width: 768px) {
   .floating-settings-btn {
+    top: 30px;
     right: 10px;
   }
 }

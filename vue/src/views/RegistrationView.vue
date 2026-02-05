@@ -216,7 +216,7 @@
               :country-code="searchForm.countryCode"
               @update:countryCode="searchForm.countryCode = $event"
               @validationError="(hasError) => hasPhoneError = hasError"
-              @enterPressed="handleSearch"
+              @enterPressed="confirmSearch"
               placeholder="Enter phone number (e.g., 701234567)"
               required
               help-text="Use your number or one of your parents'. Don't start with 0!"
@@ -226,7 +226,7 @@
               <button 
                 type="button" 
                 id="searchBtn" 
-                @click="handleSearch"
+                @click="confirmSearch"
                 :disabled="!canSearch || isLoading"
                 class="search-btn"
                 :class="{ loading: isLoading }"
@@ -553,7 +553,7 @@
               <input 
                 type="date" 
                 id="attendanceDate" 
-                :value="new Date().toISOString().split('T')[0]"
+                :value="effectiveDate.toISOString().split('T')[0]"
                 readonly
               >
               <div class="service-detection">
@@ -565,7 +565,7 @@
           
           <div class="button-container">
             <button 
-              @click="handleSave"
+              @click="confirmSave"
               :disabled="isLoading || !isFormValid"
               :class="{ loading: isLoading }"
             >
@@ -588,24 +588,94 @@
             <button @click="showSettings = false" class="close-btn">✕</button>
           </div>
           
+
+          
           <div class="settings-content">
             <p class="settings-description">
               Choose how the current service is detected. When Manual mode is enabled, you can select the service directly in the service display.
             </p>
             
-            <!-- Mode Toggle -->
-            <div class="mode-toggle-container">
-              <span class="mode-label" :class="{ active: isServiceAutoMode }">Auto Detect</span>
+            <!-- Service Detection Section -->
+            <h4 class="toggle-section-header">Service Detection Mode</h4>
+            <div class="toggle-row">
+              <div class="toggle-label-container">
+                <Transition :name="isServiceAutoMode ? 'slide-down' : 'slide-up'" mode="out-in">
+                  <span :key="isServiceAutoMode" class="mode-label active">
+                    {{ isServiceAutoMode ? 'Auto Detect' : 'Manual' }}
+                  </span>
+                </Transition>
+              </div>
               <label class="switch">
                 <input type="checkbox" v-model="isServiceAutoModeToggle">
                 <span class="slider round"></span>
               </label>
-              <span class="mode-label" :class="{ active: !isServiceAutoMode }">Manual</span>
             </div>
-            
+
+            <!-- Registration Date Section -->
+            <div style="margin-top: 1.5rem; padding-top: 1.5rem; border-top: 1px solid #eee;">
+               <p class="settings-description" style="margin-bottom: 1rem;">
+                  <strong>Service Date:</strong> {{ effectiveDate.toDateString() }}
+               </p>
+
+               <h4 class="toggle-section-header">Registration Date</h4>
+                <div class="toggle-row">
+                  <div class="toggle-label-container">
+                    <Transition :name="isDateAutoMode ? 'slide-down' : 'slide-up'" mode="out-in">
+                      <span :key="isDateAutoMode" class="mode-label active">
+                        {{ isDateAutoMode ? 'Today' : 'Manual Date' }}
+                      </span>
+                    </Transition>
+                  </div>
+                  <label class="switch">
+                    <input type="checkbox" v-model="isDateAutoModeToggle">
+                    <span class="slider round"></span>
+                  </label>
+                </div>
+
+                <Transition name="expand">
+                  <div v-if="!isDateAutoMode" style="margin-top: 1rem; margin-bottom: 1.5rem; display: flex; flex-direction: column; align-items: center;">
+                     <div class="date-picker-wrapper" :class="{ 'error-border': !isEffectiveDateSunday || isFutureDate }">
+                       <span class="date-icon">📅</span>
+                       <input 
+                         type="date" 
+                         v-model="manualDate" 
+                         class="settings-date-input"
+                         :max="maxSelectableDate"
+                       >
+                     </div>
+                     <p v-if="isFutureDate" class="error-text" style="font-size: 0.85rem; margin-top: 0.5rem; text-align: center; color: #ef4444;">
+                        ⚠️ Future dates are not allowed.
+                     </p>
+                     <p v-else-if="!isEffectiveDateSunday" class="error-text" style="font-size: 0.85rem; margin-top: 0.5rem; text-align: center;">
+                        ⚠️ Warning: Selected date is not a Sunday.
+                     </p>
+                  </div>
+                </Transition>
+            </div>
+
             <div class="settings-footer">
                <button @click="showSettings = false" class="btn-primary" style="width: 100%;">Done</button>
             </div>
+          </div>
+        </div>
+      </div>
+      <!-- Date Warning Modal -->
+      <div v-if="showNonSundayWarning" class="modal-overlay" style="z-index: 1000;" @click.self="cancelPendingAction">
+        <div class="settings-card warning-card">
+          <div class="settings-header">
+            <h3 style="color: #ef4444;">⚠️ Date Warning</h3>
+            <button @click="cancelPendingAction" class="close-btn">✕</button>
+          </div>
+          <div class="settings-content">
+             <p style="font-size: 1.1em; color: #374151; margin-bottom: 1.5rem; line-height: 1.5;">
+                The {{ isFutureDate ? 'future date' : 'current date' }} <strong>{{ effectiveDate.toDateString() }}</strong> is <strong style="color: #ef4444;">NOT a Sunday</strong>{{ isFutureDate ? ' and is in the future' : '' }}.
+                <br><br>
+                Services usually only happen on Sundays{{ isFutureDate ? ', and registrations for future dates are unusual' : '' }}. Are you sure you want to proceed?
+             </p>
+             <div class="settings-footer" style="display: flex; gap: 1rem;">
+                <button @click="cancelPendingAction" class="btn-secondary" style="flex: 1;">Cancel</button>
+                <button @click="confirmPendingAction" class="btn-primary" style="flex: 1; background-color: #ef4444; border-color: #ef4444;">Yes, Proceed</button>
+             </div>
           </div>
         </div>
       </div>
@@ -632,7 +702,7 @@ import {
 } from '@/utils/validation'
 import { getCachedUserData, saveCachedUserData } from '@/utils/qrCache'
 import { startAutoCloseCountdown } from '@/utils/transitions'
-import { formatDateKey, getServiceText as getServiceName, type ServiceNumber } from '@/utils/attendance'
+import { formatDateKey, getCurrentService, getServiceText as getServiceName, type ServiceNumber } from '@/utils/attendance'
 import type { MemberData } from '@/types'
 
 
@@ -724,6 +794,48 @@ const manualServiceId = ref('1')
 const logoRef = ref<HTMLElement | null>(null)
 const isLogoVisible = ref(true)
 
+// Date logic
+const isDateAutoMode = ref(true)
+const manualDate = ref(new Date().toISOString().split('T')[0])
+const showNonSundayWarning = ref(false)
+const pendingAction = ref<(() => void) | null>(null)
+
+const effectiveDate = computed(() => {
+  if (isDateAutoMode.value) {
+    return new Date()
+  }
+  // Create date from manual input (YYYY-MM-DD)
+  // Note: Date(string) creates UTC usually, but we want local day interpretation logic.
+  // Using split and explicitly setting year/month/day avoids timezone shifts on different browsers effectively for "date only"
+  if (!manualDate.value) return new Date()
+  
+  const [y, m, d] = manualDate.value.split('-').map(Number)
+  return new Date(y, m - 1, d)
+})
+
+const isEffectiveDateSunday = computed(() => {
+  return effectiveDate.value.getDay() === 0
+})
+
+const isFutureDate = computed(() => {
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  const effective = new Date(effectiveDate.value)
+  effective.setHours(0, 0, 0, 0)
+  return effective > today
+})
+
+const maxSelectableDate = computed(() => {
+  // Today's date in YYYY-MM-DD format for the max attribute
+  const today = new Date()
+  return today.toISOString().split('T')[0]
+})
+
+const isDateAutoModeToggle = computed({
+  get: () => !isDateAutoMode.value,
+  set: (val: boolean) => isDateAutoMode.value = !val
+})
+
 // Secret gesture state for settings button
 const isSettingsRevealed = ref(false)
 const isSettingsAnimating = ref(false)
@@ -750,9 +862,40 @@ const isServiceAutoModeToggle = computed({
   set: (val) => isServiceAutoMode.value = !val
 })
 
-watch([isServiceAutoMode, manualServiceId], () => {
+watch([isServiceAutoMode, manualServiceId, effectiveDate], () => {
   updateCurrentServiceDisplay()
 })
+
+const confirmSearch = () => {
+    if (!isEffectiveDateSunday.value) {
+        pendingAction.value = handleSearch
+        showNonSundayWarning.value = true
+    } else {
+        handleSearch()
+    }
+}
+
+const confirmSave = () => {
+     if (!isEffectiveDateSunday.value) {
+        pendingAction.value = handleSave
+        showNonSundayWarning.value = true
+    } else {
+        handleSave()
+    }
+}
+
+const confirmPendingAction = () => {
+    showNonSundayWarning.value = false
+    if (pendingAction.value) {
+        pendingAction.value()
+        pendingAction.value = null
+    }
+}
+
+const cancelPendingAction = () => {
+    showNonSundayWarning.value = false
+    pendingAction.value = null
+}
 
 // Settings Button Observer
 let logoObserver: IntersectionObserver | null = null
@@ -825,50 +968,26 @@ function isCheckedInToday(attendanceRecord?: Record<string, string>): { isChecke
   return { isCheckedIn: false, service: null }
 }
 
-// Service time detection functions
-function getCurrentService(): string | null {
-  const now = new Date()
-  const currentHour = now.getHours()
-  const currentMinutes = now.getMinutes()
-  const currentTimeMinutes = currentHour * 60 + currentMinutes
-
-  // Service times in minutes from midnight
-  const service1Start = 7 * 60 + 30 // 7:30 AM
-  const service1End = 9 * 60 + 30 // 9:30 AM
-  const service2Start = 9 * 60 + 30 // 9:30 AM
-  const service2End = 11 * 60 + 30 // 11:30 AM
-  const service3Start = 11 * 60 + 30 // 11:30 AM
-  const service3End = 13 * 60 + 30 // 1:30 PM
-
-  if (currentTimeMinutes >= service1Start && currentTimeMinutes <= service1End) {
-    return "1"
-  } else if (currentTimeMinutes >= service2Start && currentTimeMinutes <= service2End) {
-    return "2"
-  } else if (currentTimeMinutes >= service3Start && currentTimeMinutes <= service3End) {
-    return "3"
-  }
-  
-  return null // Outside service hours
-}
-
-function getServiceText(service: string | null): string {
-  switch(service) {
-    case "1": return "1st Service (8:00 AM - 10:00 AM)"
-    case "2": return "2nd Service (10:00 AM - 12:00 PM)"
-    case "3": return "3rd Service (12:00 PM - 2:00 PM)"
-    default: return "No Service"
-  }
-}
-
 function updateCurrentServiceDisplay() {
+  // Determine current service based on mode and date
   if (isServiceAutoMode.value) {
-    currentService.value = getCurrentService()
+    // Pass effective date to detection
+    const detected = getCurrentService(effectiveDate.value)
+    if (detected) {
+      currentService.value = detected
+      currentServiceText.value = getServiceName(detected)
+      noService.value = false
+    } else {
+      currentService.value = null
+      currentServiceText.value = 'No Service' 
+      noService.value = true
+    }
   } else {
-    currentService.value = manualServiceId.value
+    // Manual Mode
+    currentService.value = manualServiceId.value as ServiceNumber
+    currentServiceText.value = getServiceName(currentService.value)
+    noService.value = false
   }
-  
-  currentServiceText.value = getServiceText(currentService.value)
-  noService.value = currentService.value === null
 }
 
 /**
@@ -1730,5 +1849,138 @@ button .btn-text {
   display: inline-block;
 }
 
+/* Date Picker Wrapper Styles (match AdminView) */
+.date-picker-wrapper {
+  display: flex;
+  align-items: center;
+  background: white;
+  padding: 5px 15px;
+  border-radius: 25px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  border: 2px solid transparent;
+  transition: all 0.3s ease;
+}
+
+.date-picker-wrapper.error-border {
+  border-color: #ef4444;
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.1);
+}
+
+.date-picker-wrapper .date-icon {
+  margin-right: 10px;
+  font-size: 1.2em;
+  flex-shrink: 0;
+}
+
+.date-picker-wrapper .settings-date-input {
+  border: none;
+  outline: none;
+  font-family: inherit;
+  font-size: 1em;
+  color: #333;
+  background: transparent;
+  cursor: pointer;
+  padding: 5px 0;
+}
+
+/* Toggle Section Headers */
+.toggle-section-header {
+  margin: 0 0 0.75rem 0;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #555;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* Toggle Row Grid Layout */
+.toggle-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.75rem 1rem;
+  background: #f8f9fa;
+  border-radius: 12px;
+}
+
+.toggle-label-container {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  min-height: 1.5rem;
+  overflow: hidden;
+  position: relative;
+}
+
+/* Directional Slide Transitions */
+/* Slide Up - when toggling from Auto to Manual */
+.slide-up-enter-active,
+.slide-up-leave-active {
+  transition: all 0.3s ease;
+}
+
+.slide-up-enter-from {
+  opacity: 0;
+  transform: translateY(-10px);
+}
+
+.slide-up-leave-to {
+  opacity: 0;
+  transform: translateY(10px);
+}
+
+.slide-up-enter-to,
+.slide-up-leave-from {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* Slide Down - when toggling from Manual to Auto */
+.slide-down-enter-active,
+.slide-down-leave-active {
+  transition: all 0.3s ease;
+}
+
+.slide-down-enter-from {
+  opacity: 0;
+  transform: translateY(10px);
+}
+
+.slide-down-leave-to {
+  opacity: 0;
+  transform: translateY(-10px);
+}
+
+.slide-down-enter-to,
+.slide-down-leave-from {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* Expand Transition for Date Picker */
+.expand-enter-active,
+.expand-leave-active {
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  overflow: hidden;
+}
+
+.expand-enter-from,
+.expand-leave-to {
+  max-height: 0;
+  opacity: 0;
+  transform: translateY(-10px);
+}
+
+.expand-enter-to,
+.expand-leave-from {
+  max-height: 200px;
+  opacity: 1;
+  transform: translateY(0);
+}
+
 /* (Use global .field-error styles for error glow to match PhoneInput) */
+
+
+
 </style>

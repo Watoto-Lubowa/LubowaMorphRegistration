@@ -43,13 +43,32 @@ const SERVICE_TIMES = {
  * 
  * @returns ServiceNumber ('1', '2', '3') if within service hours, null otherwise
  */
-export function getCurrentService(): ServiceNumber {
-  const now = new Date()
+export function getCurrentService(date: Date = new Date()): ServiceNumber {
+  const now = date
   const currentHour = now.getHours()
   const currentMinutes = now.getMinutes()
   const currentTimeMinutes = currentHour * 60 + currentMinutes
 
-  console.log(`🕐 Current time: ${currentHour}:${currentMinutes.toString().padStart(2, '0')} (${currentTimeMinutes} minutes)`)
+  console.log(`🕐 Current time (${now.toDateString()}): ${currentHour}:${currentMinutes.toString().padStart(2, '0')} (${currentTimeMinutes} minutes)`)
+
+  // If the date is not today, we can't really "detect" the service time based on current time unless we assume full services ran on that day.
+  // Ideally, for manual dates, keying off time might be irrelevant if we just want to select "Service 1" for that day. 
+  // However, to keep it compatible with "Service Settings" (where we might pick a time?), let's just keep the time check.
+  // But wait, if I pick a date in the past, `new Date()` time will be NOW. 
+  // If I pick "Last Sunday", time is 00:00 if I just do `new Date('2023-...')`.
+  // So `getCurrentService` is a bit ambiguous for past dates without time.
+  // Use Case: "Entering data for particular Sunday". 
+  // Usually this means "I am entering data for last Sunday Service 1". 
+  // The service detection logic in `RegistrationView` uses `getCurrentService` to default the selection.
+  // If I pick a past date, `currentTimeMinutes` will likely be irrelevant if I don't set time.
+  // BUT the requirement says: "base on the current date. Now if this current date is a Sunday, it should proceed normally."
+  // And the settings allow Manual Service Selection.
+  // So if I pick a date, Auto Service Detection might fail if I don't set the time.
+  // Let's just strictly use the time components of the passed date object.
+  // If the passed date object has current real time (because created with `new Date()`), it works for today.
+  // If created from string "YYYY-MM-DD", it will be 00:00 (UTC or Local??). 
+  // If local 00:00, then `currentTimeMinutes` is 0, so "Outside service hours".
+  // This is fine, because the user can then Manually Select the service.
 
   if (currentTimeMinutes >= SERVICE_TIMES.SERVICE_1.start && currentTimeMinutes <= SERVICE_TIMES.SERVICE_1.end) {
     console.log('🔵 In Service 1 time range')
@@ -156,11 +175,11 @@ export function parseDateKey(dateKey: string): Date | null {
  * @param existingAttendance - Existing attendance record
  * @returns Updated attendance record with today's service if applicable
  */
-export function autoPopulateAttendance(existingAttendance: Record<string, '1' | '2' | '3'> = {}): Record<string, '1' | '2' | '3'> {
-  const currentService = getCurrentService()
+export function autoPopulateAttendance(existingAttendance: Record<string, '1' | '2' | '3'> = {}, date: Date = new Date()): Record<string, '1' | '2' | '3'> {
+  const currentService = getCurrentService(date)
 
   if (currentService) {
-    const todayKey = formatDateKey()
+    const todayKey = formatDateKey(date)
     const updatedAttendance = { ...existingAttendance }
     updatedAttendance[todayKey] = currentService
 
