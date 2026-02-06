@@ -901,7 +901,8 @@ watch([isServiceAutoMode, manualServiceId, effectiveDate], () => {
 })
 
 const confirmSearch = () => {
-    if (!isEffectiveDateSunday.value && !hasConfirmedNonSundayDate.value) {
+    // Only show warning on /register route, not /qr route
+    if (route.path === '/register' && !isEffectiveDateSunday.value && !hasConfirmedNonSundayDate.value) {
         pendingAction.value = 'search'
         showNonSundayWarning.value = true
     } else {
@@ -910,8 +911,9 @@ const confirmSearch = () => {
 }
 
 const confirmSave = () => { // 2. Check for Sunday if in Manual Date mode
+  // Only show warnings on /register route, not /qr route
   // Using explicit flags for persistent confirmation
-  if (!isDateAutoMode.value && !isEffectiveDateSunday.value && !hasConfirmedNonSundayDate.value) {
+  if (route.path === '/register' && !isDateAutoMode.value && !isEffectiveDateSunday.value && !hasConfirmedNonSundayDate.value) {
      pendingAction.value = 'save'
      showNonSundayWarning.value = true
      return
@@ -921,7 +923,7 @@ const confirmSave = () => { // 2. Check for Sunday if in Manual Date mode
   // (Optional: logic to warn if selected service time doesn't match date, but user just wants integrity check)
   // For now, we reuse the Non-Sunday warning if they explicitly picked a Manual Service on a non-Sunday date 
   // AND haven't confirmed it yet. This splits the "integrity" check.
-  if (isServiceAutoMode.value === false && !isEffectiveDateSunday.value && !hasConfirmedNonSundayService.value) {
+  if (route.path === '/register' && isServiceAutoMode.value === false && !isEffectiveDateSunday.value && !hasConfirmedNonSundayService.value) {
      pendingAction.value = 'save'
      showNonSundayWarning.value = true
      return
