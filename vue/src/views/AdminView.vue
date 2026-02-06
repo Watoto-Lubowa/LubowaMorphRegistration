@@ -229,6 +229,77 @@
         </div>
       </div>
     </div>
+    <!-- Export Options Modal -->
+    <Transition name="fade">
+      <div v-if="showExportModal" class="modal-overlay" @click.self="closeExportModal">
+        <div class="settings-card" style="background-color: #f8f9fa;">
+          <div class="settings-header">
+            <h3>Export Options</h3>
+            <button @click="closeExportModal" class="close-btn">✕</button>
+          </div>
+          
+          <div class="settings-content">
+            <p class="settings-description">
+              Select a date range to filter the attendance records.
+            </p>
+            
+            <div style="display: flex; flex-direction: column; gap: 15px; margin-bottom: 20px;">
+              <div class="field">
+                <label for="exportStartDate">Start Date (Inclusive)</label>
+                <input 
+                  type="date" 
+                  id="exportStartDate" 
+                  v-model="exportStartDate"
+                  :max="exportEndDate || undefined"
+                  style="background: #fff; border: 1px solid #e1e5e9; padding: 12px; border-radius: 8px; width: 100%;"
+                >
+              </div>
+              
+              <div class="field">
+                <label for="exportEndDate">End Date (Inclusive)</label>
+                <input 
+                  type="date" 
+                  id="exportEndDate" 
+                  v-model="exportEndDate"
+                  :min="exportStartDate || undefined"
+                  style="background: #fff; border: 1px solid #e1e5e9; padding: 12px; border-radius: 8px; width: 100%;"
+                >
+              </div>
+
+              <!-- Test Mode Toggle -->
+              <!-- <div class="action-card" style="padding: 15px; margin: 0; background: #fff; border: 1px solid #e1e5e9; border-radius: 8px;">
+                <div style="display: flex; align-items: center; justify-content: space-between;">
+                  <div style="display: flex; flex-direction: column; justify-content: center; align-items: flex-start;">
+                    <h4 style="margin: 0; font-size: 1rem; line-height: 1.4;">Test Mode</h4>
+                    <p style="margin: 0; font-size: 0.85rem; color: #666; line-height: 1.4;">Limit to first 100 records</p>
+                  </div>
+                  <label class="toggle-switch" style="margin: 0;">
+                    <input 
+                      type="checkbox" 
+                      v-model="exportLimit100"
+                    >
+                    <span class="toggle-slider"></span>
+                  </label>
+                </div>
+              </div> -->
+            </div>
+
+            <div class="settings-footer" style="display: flex; gap: 10px;">
+               <button 
+                @click="executeDownload" 
+                class="btn-primary" 
+                style="flex: 1;"
+                :disabled="isDownloading || !exportStartDate || !exportEndDate"
+               >
+                 <span v-if="!isDownloading">Download</span>
+                 <span v-else>Downloading...</span>
+               </button>
+               <button @click="closeExportModal" class="btn-secondary" style="flex: 1;">Cancel</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </Transition>
   </div>
 </template>
 
@@ -269,6 +340,12 @@ const enforceGPS = ref(true)
 const gpsEnforcementStatusText = ref('Loading...')
 const isDownloading = ref(false)
 const isGeneratingQRs = ref(false)
+
+// Export Modal State
+const showExportModal = ref(false)
+const exportStartDate = ref('')
+const exportEndDate = ref('')
+const exportLimit100 = ref(false)
 
 // Chart instance
 const attendanceChart = ref<HTMLCanvasElement>()
@@ -984,6 +1061,37 @@ async function downloadAll() {
     return
   }
   
+  // Set default dates if not set (e.g., this month)
+  if (!exportStartDate.value) {
+    const today = new Date()
+    const firstDay = new Date(today.getFullYear(), today.getMonth(), 1)
+    exportStartDate.value = firstDay.toISOString().split('T')[0]
+    exportEndDate.value = today.toISOString().split('T')[0]
+  }
+
+  showExportModal.value = true
+}
+
+function closeExportModal() {
+  showExportModal.value = false
+}
+
+async function executeDownload() {
+  if (!isAuthenticated.value || !isAdmin.value) {
+    uiStore.error('Access denied: Admin privileges required')
+    return
+  }
+
+  if (!exportStartDate.value || !exportEndDate.value) {
+    uiStore.error('Please select both start and end dates')
+    return
+  }
+
+  if (exportStartDate.value > exportEndDate.value) {
+     uiStore.error('Start date cannot be after end date')
+     return
+  }
+  
   isDownloading.value = true
   
   try {
@@ -994,17 +1102,30 @@ async function downloadAll() {
       throw new Error('Database not initialized')
     }
     
-    const { collection, getDocs, Timestamp } = await import('@/utils/firebase')
-    const morphersCollection = collection(db, 'morphers')
+    const { collection, getDocs, Timestamp, query, limit } = await import('@/utils/firebase')
+    let morphersCollection: any = collection(db, 'morphers')
+    
+    // Apply limit if test mode is enabled
+    if (exportLimit100.value) {
+       morphersCollection = query(morphersCollection, limit(100))
+    }
+
     const snapshot = await getDocs(morphersCollection)
     
     if (snapshot.empty) {
       uiStore.info('No records to download')
       return
     }
+
+    // Parse date range for filtering
+    const startObj = new Date(exportStartDate.value)
+    const endObj = new Date(exportEndDate.value)
+    // Set time to ensure inclusive boundaries
+    startObj.setHours(0, 0, 0, 0)
+    endObj.setHours(23, 59, 59, 999)
     
     const data = snapshot.docs.map(doc => {
-      const record = doc.data()
+      const record = doc.data() as Record<string, any>
       const flatRecord: Record<string, any> = {}
       
       // Handle basic fields
@@ -1012,8 +1133,21 @@ async function downloadAll() {
         if (key === 'attendance') {
           // Flatten attendance object - convert each attendance date to a column
           if (record.attendance && typeof record.attendance === 'object') {
-            Object.keys(record.attendance).forEach(date => {
-              flatRecord[`attendance_${date}`] = record.attendance[date]
+            Object.keys(record.attendance).forEach(dateKey => {
+               // dateKey format is "DD_MM_YYYY"
+               // Parse date key to Date object for comparison
+               const parts = dateKey.split('_')
+               if (parts.length === 3) {
+                  const day = parseInt(parts[0])
+                  const month = parseInt(parts[1]) - 1 // JS months are 0-based
+                  const year = parseInt(parts[2])
+                  const attDate = new Date(year, month, day)
+                  
+                  // Filter by date range
+                  if (attDate >= startObj && attDate <= endObj) {
+                     flatRecord[`attendance_${dateKey}`] = record.attendance[dateKey]
+                  }
+               }
             })
           }
         } else if (record[key] && typeof record[key] === 'object') {
@@ -1046,7 +1180,64 @@ async function downloadAll() {
       Object.keys(record).forEach(key => allHeaders.add(key))
     })
     
-    const headers = Array.from(allHeaders).sort()
+    const attendanceHeaders: string[] = []
+    const otherHeaders: string[] = []
+    
+    allHeaders.forEach(header => {
+      if (header.startsWith('attendance_')) {
+        attendanceHeaders.push(header)
+      } else {
+        otherHeaders.push(header)
+      }
+    })
+    
+    // Sort others alphabetically
+    otherHeaders.sort()
+
+    // Special Requirement: firstTimeOn should come before attendanceCount
+    const ftoIndex = otherHeaders.indexOf('firstTimeOn')
+    if (ftoIndex !== -1) {
+      otherHeaders.splice(ftoIndex, 1) // Remove firstTimeOn
+      const acIndex = otherHeaders.indexOf('attendanceCount')
+      if (acIndex !== -1) {
+        otherHeaders.splice(acIndex, 0, 'firstTimeOn') // Insert before attendanceCount
+      } else {
+        otherHeaders.push('firstTimeOn') // Fallback if attendanceCount missing
+      }
+    }
+
+    // Sort attendance headers chronologically
+    attendanceHeaders.sort((a, b) => {
+      const getDateParts = (str: string) => {
+        const parts = str.replace('attendance_', '').split('_')
+        return {
+          day: parseInt(parts[0]),
+          month: parseInt(parts[1]),
+          year: parseInt(parts[2])
+        }
+      }
+      const dateA = getDateParts(a)
+      const dateB = getDateParts(b)
+      if (dateA.year !== dateB.year) return dateA.year - dateB.year
+      if (dateA.month !== dateB.month) return dateA.month - dateB.month
+      return dateA.day - dateB.day
+    })
+
+    // Construct final headers: Insert attendance headers after 'attendanceCount'
+    const headers: string[] = []
+    const countIndex = otherHeaders.indexOf('attendanceCount')
+    
+    if (countIndex !== -1) {
+      // Insert attendance columns right after attendanceCount
+      headers.push(...otherHeaders.slice(0, countIndex + 1))
+      headers.push(...attendanceHeaders)
+      headers.push(...otherHeaders.slice(countIndex + 1))
+    } else {
+      // Fallback if attendanceCount not found (shouldn't happen on standard records)
+      headers.push(...otherHeaders)
+      headers.push(...attendanceHeaders)
+    }
+
     const headerRow = headers.join(',') + '\n'
     
     const rows = data.map(record => {
@@ -1075,6 +1266,7 @@ async function downloadAll() {
     URL.revokeObjectURL(url)
     
     uiStore.success(`Downloaded ${data.length} records successfully`)
+    closeExportModal()
   } catch (error) {
     console.error('Download error:', error)
     uiStore.error('Failed to download data')

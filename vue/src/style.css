@@ -2642,3 +2642,17 @@ input:checked+.slider:before {
   border-color: #667eea;
   box-shadow: 0 0 15px rgba(102, 126, 234, 0.15);
 }
+
+/* Generic Fade Transition */
+.fade-enter-active {
+  animation: fadeIn 0.3s ease-out;
+}
+
+.fade-leave-active {
+  animation: fadeOut 0.3s ease-in;
+}
+
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+}

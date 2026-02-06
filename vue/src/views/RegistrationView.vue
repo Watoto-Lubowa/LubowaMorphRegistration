@@ -690,6 +690,7 @@
       </div>
       </Transition>
       <!-- Date Warning Modal -->
+      <Transition name="fade">
       <div v-if="showNonSundayWarning" class="modal-overlay" style="z-index: 1000;" @click.self="cancelPendingAction">
         <div class="settings-card warning-card">
           <div class="settings-header">
@@ -703,12 +704,13 @@
                 Services usually only happen on Sundays{{ isFutureDate ? ', and registrations for future dates are unusual' : '' }}. Are you sure you want to proceed?
              </p>
              <div class="settings-footer" style="display: flex; gap: 1rem;">
+                <button @click="proceedWithNonSunday" class="btn-primary" style="flex: 1; background-color: #ef4444; border-color: #ef4444;">Yes</button>
                 <button @click="cancelPendingAction" class="btn-secondary" style="flex: 1;">Cancel</button>
-                <button @click="proceedWithNonSunday" class="btn-primary" style="flex: 1; background-color: #ef4444; border-color: #ef4444;">Yes, Proceed</button>
              </div>
           </div>
         </div>
       </div>
+      </Transition>
     </div>
   </div>
 </template>
