@@ -123,17 +123,38 @@
           </div>
 
           <!-- Quick Confirm Section (for returning QR users with cached data) -->
-          <div v-else-if="showQuickConfirm && cachedUserData" class="form-section" id="quickConfirmSection" key="quick-confirm">
+          <div v-else-if="showQuickConfirm && cachedUserData && searchResult.record" class="form-section" id="quickConfirmSection" key="quick-confirm">
             <h3 style="text-align: center;">Welcome Back! 👋</h3>
             <div class="record-found">
               <p style="text-align: center; margin-bottom: 1rem;">Is this you?</p>
               <div class="identity-display">
                 <div class="identity-info">
-                  <strong>Name:</strong> <span>{{ cachedUserData.name }}</span>
+                  <strong>Name:</strong> <span>{{ searchResult.record.Name }}</span>
                 </div>
                 <div class="identity-info">
-                  <strong>Phone:</strong> <span>{{ formattedCachedPhone }}</span>
+                  <strong>Phone:</strong> <span>{{ formattedMorphersPhone }}</span>
                 </div>
+                <div class="identity-info">
+                  <strong>Parent's Number:</strong> <span>{{ formattedParentsPhone }}</span>
+                </div>
+                <div class="identity-info">
+                  <strong>School:</strong> <span>{{ searchResult.record.School }}</span>
+                </div>
+                <div class="identity-info">
+                  <strong>Class:</strong> <span>{{ searchResult.record.Class }}</span>
+                </div>
+                
+                <!-- Floating Edit Button -->
+                <button 
+                  type="button"
+                  @click="editMemberFromQuickConfirm"
+                  class="floating-edit-btn"
+                  :class="{ expanded: isYesButtonVisible }"
+                  aria-label="Edit Details"
+                >
+                  <span class="icon">✏️</span>
+                  <span class="text">Edit</span>
+                </button>
               </div>
               
               <!-- Reuse same service display as quick check-in section -->
@@ -168,6 +189,7 @@
             </div>
             <div class="no-record-options" style="display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap;">
               <button 
+                ref="yesButtonRef"
                 type="button" 
                 @click="confirmCachedData" 
                 class="search-again-btn"
@@ -189,7 +211,7 @@
           </div>
 
           <!-- Identity Section (show for initial search, while loading, or after clicking search again) -->
-          <div v-else-if="(!searchResult.found && !showForm && !alreadyCheckedIn) && (searchAttempts === 0 || isLoading || isSearchingAgain)" class="form-section" id="identitySection" key="identity">
+          <div v-else-if="(!searchResult.found && !showForm && !alreadyCheckedIn && !isCheckingQRCache) && (searchAttempts === 0 || isLoading || isSearchingAgain)" class="form-section" id="identitySection" key="identity">
             <div class="field">
               <label for="name">
                 <span id="nameLabel">First Name</span>
@@ -262,7 +284,7 @@
 
           <!-- Confirmation Section (replaces identity section after successful search) -->
           <div 
-            v-else-if="searchResult.found && !showForm && !alreadyCheckedIn" 
+            v-else-if="searchResult.found && !showForm && !alreadyCheckedIn && !isCheckingQRCache" 
             class="form-section" 
             id="confirmationSection" 
             key="confirmation"
@@ -807,6 +829,7 @@ const noService = ref(false);
 // QR cache state
 const cachedUserData = ref<{ name: string; phoneNumber: string; countryCode: string } | null>(null)
 const showQuickConfirm = ref(false)
+const isCheckingQRCache = ref(false) // Prevent flash while checking cache and searching
 // Check QR parameter immediately to prevent login screen flash
 const isFromQR = ref(!!route.query.qr)
 const showSuccessCard = ref(false)
@@ -1270,7 +1293,8 @@ const isFormValid = computed(() => {
 const recordMessageText = computed(() => {
   if (alreadyCheckedIn.value) {
     return '' // No record message for already checked in state
-  } else if (searchResult.value.found && !showForm.value) {
+  } else if (searchResult.value.found && !showForm.value && !showQuickConfirm.value) {
+    // Only show for manual search flow, not quick confirm flow
     return '✅ Identity confirmed! Edit your details if needed.'
   } else if (showForm.value && editMode.value) {
     return '✅ Identity confirmed! Edit your details if needed.'
@@ -1316,16 +1340,6 @@ const formattedParentsPhone = computed(() => {
   return ''
 })
 
-const formattedCachedPhone = computed(() => {
-  if (cachedUserData.value?.phoneNumber) {
-    return formatPhoneForDisplay(
-      cachedUserData.value.phoneNumber,
-      cachedUserData.value.countryCode || 'UG'
-    )
-  }
-  return ''
-})
-
 /**
  * Check if user came from QR code and load cached data
  */
@@ -1346,8 +1360,29 @@ async function checkQRAccess() {
         if (cached) {
           console.log('[RegistrationView] Cached data found:', cached)
           cachedUserData.value = cached
-          showQuickConfirm.value = true
-          uiStore.success('Welcome back! Confirm your details below.')
+          isCheckingQRCache.value = true // Prevent form flash
+          
+          // Immediately search for the member using cached credentials
+          console.log('[RegistrationView] Searching for member with cached credentials...')
+          uiStore.setLoading(true)
+          
+          try {
+            const countryCallingCode = getCallingCodeByCountryCode(cached.countryCode || 'UG')
+            await membersStore.searchMember(
+              cached.name.split(' ')[0], // First name
+              cached.phoneNumber,
+              countryCallingCode
+            )
+            
+            // Show quick confirm - confirmCachedData will handle flow logic
+            showQuickConfirm.value = true
+            uiStore.success('Welcome back! Confirm your details below.')
+          } catch (searchError) {
+            console.error('[RegistrationView] Error searching for member:', searchError)
+          } finally {
+            uiStore.setLoading(false)
+            isCheckingQRCache.value = false // Allow forms to show now
+          }
         } else {
           console.log('[RegistrationView] No cached data found')
         }
@@ -1361,7 +1396,8 @@ async function checkQRAccess() {
 }
 
 /**
- * Quick confirm - user confirms cached data and submits
+ * Quick confirm - user confirms their identity and proceeds with check-in
+ * NOTE: Search is already done in checkQRAccess, so searchResult is populated
  */
 async function confirmCachedData() {
   if (!cachedUserData.value || !currentUser.value?.uid) return
@@ -1369,15 +1405,7 @@ async function confirmCachedData() {
   try {
     uiStore.setLoading(true)
     
-    // Search for the member using cached data
-    const countryCallingCode = getCallingCodeByCountryCode(cachedUserData.value.countryCode || 'UG')
-    await membersStore.searchMember(
-      cachedUserData.value.name.split(' ')[0], // First name
-      cachedUserData.value.phoneNumber,
-      countryCallingCode
-    )
-    
-    // If found, check if already checked in today
+    // Check if found and handle different scenarios
     if (searchResult.value.found) {
       const checkInStatus = isCheckedInToday(searchResult.value.record?.attendance)
       
@@ -1410,10 +1438,11 @@ async function confirmCachedData() {
         uiStore.success('Record found! Update if needed and submit.')
       }
     } else {
-      // Create new with cached data
+      // Record not found - user needs to create new record
+      console.log('[RegistrationView] No record found for cached credentials')
       memberForm.value = {
         Name: cachedUserData.value.name,
-        MorphersNumber: cachedUserData.value.phoneNumber.replace('+256', ''),
+        MorphersNumber: cachedUserData.value.phoneNumber.replace(/^\+256/, ''),
         MorphersCountryCode: 'UG',
         ParentsName: '',
         ParentsNumber: '',
@@ -1432,7 +1461,7 @@ async function confirmCachedData() {
     }
   } catch (error) {
     console.error('Error confirming cached data:', error)
-    uiStore.error('Failed to load your information')
+    uiStore.error('Failed to complete check-in. Please reach out to a facilitator.')
   } finally {
     uiStore.setLoading(false)
   }
@@ -1444,6 +1473,8 @@ async function confirmCachedData() {
 function useDifferentDetails() {
   showQuickConfirm.value = false
   cachedUserData.value = null
+  // Clear search result to show identity section instead of confirmation section
+  clearSearch()
   uiStore.info('Enter your details to search or create a new record.')
 }
 
@@ -1551,6 +1582,16 @@ function editMember() {
   }
 }
 
+/**
+ * Edit member from quick confirm screen (QR flow)
+ * This is called when QR users click the Edit button on the quick confirm screen
+ */
+function editMemberFromQuickConfirm() {
+  // Hide the quick confirm section and call regular editMember
+  showQuickConfirm.value = false
+  editMember()
+}
+
 function createNewMember() {
   showForm.value = true
   editMode.value = false
@@ -1569,6 +1610,36 @@ function createNewMember() {
     notes: ''
   }
   uiStore.info('Creating new record. Complete your registration below.')
+}
+
+/**
+ * Shared function to display success card and start auto-close countdown
+ * Used by both handleQuickCheckIn and handleSave for QR users
+ */
+function showSuccessCardAndClose(name: string, phoneNumber: string, countryCode: string, isFirstTime: boolean = false) {
+  // Set cached user data
+  cachedUserData.value = {
+    name,
+    phoneNumber,
+    countryCode
+  }
+  
+  // Set success state message based on whether it's a first-time guest
+  if (isFirstTime) {
+    successState.value = {
+      title: "You're all set!",
+      message: "Welcome, and enjoy the service"
+    }
+  } else {
+    successState.value = {
+      title: 'Check-in Successful!',
+      message: 'Your attendance has been recorded.'
+    }
+  }
+  
+  // Show success card and start countdown
+  showSuccessCard.value = true
+  startAutoCloseCountdown(successCountdown)
 }
 
 function clearSearch() {
@@ -1758,29 +1829,15 @@ async function handleSave() {
         phoneNumber: fullPhoneNumber,
         countryCode: memberForm.value.MorphersCountryCode || 'UG'
       }).catch(err => console.error('[RegistrationView] Failed to cache user data:', err))
-    }
-    
-    // Show success card for ALL QR users (both cached and first-time)
-    if (isFromQR.value && currentUser.value?.isAnonymous && memberForm.value.Name) {
-      const fullPhoneNumber = getCallingCodeByCountryCode(memberForm.value.MorphersCountryCode || 'UG') + memberForm.value.MorphersNumber
-      cachedUserData.value = {
-        name: memberForm.value.Name,
-        phoneNumber: fullPhoneNumber,
-        countryCode: memberForm.value.MorphersCountryCode || 'UG'
-      }
-      if (memberForm.value.FirstTimeGuest === '1') {
-        successState.value = {
-          title: "You're all set!",
-          message: "Welcome, and enjoy the service"
-        }
-      } else {
-        successState.value = {
-          title: 'Check-in Successful!',
-          message: 'Your attendance has been recorded.'
-        }
-      }
-      showSuccessCard.value = true
-      startAutoCloseCountdown(successCountdown)
+      
+      // Use shared function to show success card and start auto-close
+      const isFirstTime = memberForm.value.FirstTimeGuest === '1'
+      showSuccessCardAndClose(
+        memberForm.value.Name,
+        fullPhoneNumber,
+        memberForm.value.MorphersCountryCode || 'UG',
+        isFirstTime
+      )
       
       return // Exit early to prevent clearSearch/cancelEdit
     }
@@ -1821,18 +1878,13 @@ async function handleQuickCheckIn() {
         countryCode: memberData.MorphersCountryCode || 'UG'
       }).catch(err => console.error('[RegistrationView] Failed to cache user data:', err))
       
-      // Show success card for QR users after quick check-in
-      cachedUserData.value = {
-        name: memberData.Name,
-        phoneNumber: memberData.MorphersNumber,
-        countryCode: memberData.MorphersCountryCode || 'UG'
-      }
-      successState.value = {
-        title: 'Check-in Successful!',
-        message: 'Your attendance has been recorded.'
-      }
-      showSuccessCard.value = true
-      startAutoCloseCountdown(successCountdown)
+      // Use shared function to show success card and start auto-close
+      showSuccessCardAndClose(
+        memberData.Name,
+        memberData.MorphersNumber,
+        memberData.MorphersCountryCode || 'UG',
+        false // Quick check-in is never for first-time guests
+      )
       
       return // Exit early to prevent clearSearch
     }
