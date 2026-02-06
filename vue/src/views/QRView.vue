@@ -1,31 +1,30 @@
 <template>
-  <div class="min-h-screen flex items-center justify-center py-8">
-    <!-- Show RegistrationView if validation succeeded (no wrapper needed - it has its own) -->
-    <RegistrationView v-if="validationSuccess" />
+  <!-- Show RegistrationView if validation succeeded (DIRECTLY, no extra wrappers) -->
+  <RegistrationView v-if="validationSuccess" />
 
-    <!-- Error/Loading states with their own container -->
-    <div v-else class="w-full">
-      <div class="main-container">
-        <!-- Logo -->
-        <div style="text-align: center; margin-bottom: 2rem;">
-          <img 
-            src="/watoto.svg" 
-            alt="Watoto Logo" 
-            style="height: 4rem; width: auto; margin: 0 auto; filter: invert(48%) sepia(79%) saturate(2476%) hue-rotate(228deg) brightness(94%) contrast(90%);"
-          >
+  <!-- Error/Loading states with their own centering wrapper -->
+  <div v-else class="min-h-screen flex items-center justify-center py-8 w-full">
+    <div class="main-container">
+      <!-- Logo -->
+      <div style="text-align: center; margin-bottom: 2rem;">
+        <img 
+          src="/watoto.svg" 
+          alt="Watoto Logo" 
+          style="height: 4rem; width: auto; margin: 0 auto; filter: invert(48%) sepia(79%) saturate(2476%) hue-rotate(228deg) brightness(94%) contrast(90%);"
+        >
+      </div>
+
+      <Transition name="section-fade" mode="out-in">
+        <!-- Loading State -->
+        <div v-if="isProcessing" class="form-section" style="text-align: center; padding: 3rem;" key="loading">
+          <div style="font-size: 4rem; margin-bottom: 1rem;">⏳</div>
+          <h3 style="text-align: center;">{{ loadingMessage }}</h3>
+          <p style="color: #666; margin-top: 0.5rem; text-align: center;">Please wait a moment...</p>
         </div>
 
-        <Transition name="section-fade" mode="out-in">
-          <!-- Loading State -->
-          <div v-if="isProcessing" class="form-section" style="text-align: center; padding: 3rem;" key="loading">
-            <div style="font-size: 4rem; margin-bottom: 1rem;">⏳</div>
-            <h3 style="text-align: center;">{{ loadingMessage }}</h3>
-            <p style="color: #666; margin-top: 0.5rem; text-align: center;">Please wait a moment...</p>
-          </div>
-
-          <!-- Location Permission Request -->
-          <div v-else-if="needsLocationPermission" class="form-section" key="location-permission">
-            <h3 style="text-align: center;">📍 Location Required</h3>
+        <!-- Location Permission Request -->
+        <div v-else-if="needsLocationPermission" class="form-section" key="location-permission">
+          <h3 style="text-align: center;">📍 Location Required</h3>
           <div class="no-record-message">
             <div style="text-align: center; margin-bottom: 1.5rem;">
               <div style="font-size: 4rem; margin-bottom: 1rem;">🛡️</div>
@@ -133,15 +132,9 @@
                 </ul>
               </div>
             </div>
-            <!-- <div style="text-align: center; margin-top: 1.5rem; padding-top: 1.5rem; border-top: 1px solid #e5e7eb;">
-              <p style="color: #666; font-size: 0.9rem;">
-                Administrators: <router-link to="/admin/register" style="color: #6366f1; text-decoration: underline; font-weight: 600;">Access the admin registration page</router-link>
-              </p>
-            </div> -->
           </div>
         </div>
-        </Transition>
-      </div>
+      </Transition>
     </div>
   </div>
 </template>
@@ -413,19 +406,20 @@ function getServiceName(serviceNumber: number): string {
 
 <style scoped>
 .main-container {
-  max-width: 600px;
+  max-width: 800px; /* Match global style.css */
   margin: 0 auto;
   background: white;
-  padding: 2rem;
-  border-radius: 12px;
+  padding: 40px; /* Match global style.css */
+  border-radius: 15px; /* Match global style.css */
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
 }
 
 .form-section {
-  background: #f9fafb;
-  padding: 2rem;
-  border-radius: 8px;
-  margin-top: 1rem;
+  background: #fafafa; /* Match global style.css #fafafa */
+  padding: 25px; /* Match global style.css 25px */
+  border-radius: 12px; /* Match global style.css 12px */
+  border: 1px solid #e1e5e9; /* Match global style.css #e1e5e9 */
+  margin-top: 30px; /* Match global style.css margin: 30px 0 */
 }
 
 .no-record-message {
