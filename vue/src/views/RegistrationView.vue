@@ -1452,7 +1452,7 @@ function handleLoginSuccess() {
 async function handleSearch() {
   if (!canSearch.value) return
   
-  isSearchingAgain.value = false // Clear the flag when starting a new search
+  // isSearchingAgain.value = false // MOVED: Clear this flag AFTER setting loading to true to prevent UI flicker
   alreadyCheckedIn.value = false // Reset checked-in state
   
   // Validate phone format for Uganda numbers ONLY (using strict format rules)
@@ -1474,6 +1474,7 @@ async function handleSearch() {
   // For non-Uganda countries, the preexisting validation will handle it
   
   uiStore.setLoading(true)
+  isSearchingAgain.value = false // Clear flag now that loading state maintains UI visibility
 
   const countryCallingCode = getCallingCodeByCountryCode(searchForm.value.countryCode)
 
