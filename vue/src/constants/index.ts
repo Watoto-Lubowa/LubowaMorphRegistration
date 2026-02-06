@@ -67,32 +67,32 @@ export const SUCCESS_MESSAGES = {
   PASSWORD_RESET_SENT: 'Password reset email sent! Please check your inbox.',
 } as const
 
-/**
- * Service time configuration
- */
-export const SERVICE_TIMES = {
-  SERVICE_1: {
-    START_HOUR: 7,
-    START_MINUTE: 30,
-    END_HOUR: 9,
-    END_MINUTE: 30,
-    NAME: '1st Service (8:00-9:30 AM)',
-  },
-  SERVICE_2: {
-    START_HOUR: 9,
-    START_MINUTE: 30,
-    END_HOUR: 11,
-    END_MINUTE: 30,
-    NAME: '2nd Service (10:00-11:30 AM)',
-  },
-  SERVICE_3: {
-    START_HOUR: 11,
-    START_MINUTE: 30,
-    END_HOUR: 13,
-    END_MINUTE: 30,
-    NAME: '3rd Service (12:00-2:00 PM)',
-  },
-} as const
+// /**
+//  * Service time configuration
+//  */
+// export const SERVICE_TIMES = {
+//   SERVICE_1: {
+//     START_HOUR: 7,
+//     START_MINUTE: 30,
+//     END_HOUR: 9,
+//     END_MINUTE: 30,
+//     NAME: '1st Service (8:00-9:30 AM)',
+//   },
+//   SERVICE_2: {
+//     START_HOUR: 9,
+//     START_MINUTE: 30,
+//     END_HOUR: 11,
+//     END_MINUTE: 30,
+//     NAME: '2nd Service (10:00-11:30 AM)',
+//   },
+//   SERVICE_3: {
+//     START_HOUR: 11,
+//     START_MINUTE: 30,
+//     END_HOUR: 13,
+//     END_MINUTE: 30,
+//     NAME: '3rd Service (12:00-2:00 PM)',
+//   },
+// } as const
 
 /**
  * Toast notification types

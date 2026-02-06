@@ -20,7 +20,7 @@ export interface AttendanceRecord {
 /**
  * Service time ranges in minutes from midnight
  */
-const SERVICE_TIMES = {
+export const SERVICE_TIMES = {
   SERVICE_1: {
     start: 7 * 60 + 30, // 7:30 AM = 450 minutes
     end: 9 * 60 + 30,   // 9:30 AM = 570 minutes
@@ -170,18 +170,24 @@ export function parseDateKey(dateKey: string): Date | null {
 }
 
 /**
- * Auto-populate today's attendance if within service hours
+ * Auto-populate today's attendance if within service hours or if service is provided
  * 
  * @param existingAttendance - Existing attendance record
- * @returns Updated attendance record with today's service if applicable
+ * @param date - Date object (defaults to today)
+ * @param forcedService - Optional service number to enforce (overrides detection)
+ * @returns Updated attendance record with the service if applicable
  */
-export function autoPopulateAttendance(existingAttendance: Record<string, '1' | '2' | '3'> = {}, date: Date = new Date()): Record<string, '1' | '2' | '3'> {
-  const currentService = getCurrentService(date)
+export function autoPopulateAttendance(
+  existingAttendance: Record<string, '1' | '2' | '3'> = {},
+  date: Date = new Date(),
+  forcedService?: ServiceNumber
+): Record<string, '1' | '2' | '3'> {
+  const currentService = forcedService || getCurrentService(date)
 
   if (currentService) {
     const todayKey = formatDateKey(date)
     const updatedAttendance = { ...existingAttendance }
-    updatedAttendance[todayKey] = currentService
+    updatedAttendance[todayKey] = currentService as '1' | '2' | '3'
 
     console.log('📅 Auto-populated attendance for:', todayKey, 'service:', currentService)
     return updatedAttendance

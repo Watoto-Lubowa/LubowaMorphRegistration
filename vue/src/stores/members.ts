@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
-import { 
+import {
   getFirebaseInstances,
   collection,
   doc,
@@ -17,7 +17,7 @@ import {
 import type { MemberData, SearchResult, AttendanceRecord } from '@/types'
 import { useUIStore } from './ui'
 import { ERROR_MESSAGES } from '@/config'
-import { autoPopulateAttendance } from '@/utils/attendance'
+import { autoPopulateAttendance, type ServiceNumber } from '@/utils/attendance'
 import { generatePhoneVariants, matchesMultipleNames, formatPhoneForStorage } from '@/utils/validation'
 
 export const useMembersStore = defineStore('members', () => {
@@ -32,11 +32,11 @@ export const useMembersStore = defineStore('members', () => {
 
   async function searchMember(firstName: string, phoneNumber: string, countryCallingCode: string): Promise<SearchResult> {
     const uiStore = useUIStore()
-    
+
     // Increment search attempts
     searchAttempts.value++
     console.log(`📊 Search attempt #${searchAttempts.value}`)
-    
+
     try {
       const { db } = getFirebaseInstances()
       if (!db) {
@@ -45,16 +45,18 @@ export const useMembersStore = defineStore('members', () => {
 
       // Perform progressive search matching original implementation
       const searchResult = await performProgressiveSearch(firstName, phoneNumber, countryCallingCode)
-      
+
       if (searchResult.found && searchResult.record && searchResult.docId) {
         // Update store state
         currentMember.value = searchResult.record
         currentMemberId.value = searchResult.docId
-        
-        // Load attendance and auto-populate current service
-        currentAttendance.value = autoPopulateAttendance(searchResult.record.attendance || {})
+
+        // Load attendance (do not auto-populate yet, wait for save/check-in)
+        currentAttendance.value = searchResult.record.attendance || {}
       }
-      
+
+      console.log('🔍 Search result:', searchResult);
+
       return searchResult
     } catch (error: any) {
       console.error('Search error:', error)
@@ -69,14 +71,14 @@ export const useMembersStore = defineStore('members', () => {
     const normalizedPhone = phoneNumber.replace(/\s+/g, '')
     console.log('📞 Normalized phone:', normalizedPhone)
     console.log('🔍 Starting progressive search...')
-    
+
     // Progressive search: start with full first name, then reduce length
     for (let i = firstName.length; i >= 3; i--) {
       const searchName = firstName.substring(0, i)
       console.log(`🔎 Searching with name: "${searchName}"`)
-      
+
       const result = await searchWithName(searchName, normalizedPhone, countryCallingCode)
-      
+
       if (result.found) {
         searchResult.value = result
         console.log('🎯 Record found, breaking search loop')
@@ -99,7 +101,7 @@ export const useMembersStore = defineStore('members', () => {
       }
 
       const morphersCollection = collection(db, 'morphers')
-      
+
       // First try: compound query with name "starts with" filter
       const compoundResult = await searchWithCompoundQuery(morphersCollection, searchName, normalizedPhone, countryCallingCode)
       if (compoundResult.found) {
@@ -109,17 +111,17 @@ export const useMembersStore = defineStore('members', () => {
       // Second try: phone-only search with enhanced name matching
       console.log(`🔄 No "starts with" match for "${searchName}", trying "contains" search...`)
       const phoneResult = await searchWithPhoneOnly(morphersCollection, searchName, normalizedPhone, countryCallingCode)
-      
+
       return phoneResult
-      
+
     } catch (error: any) {
       console.error("🔴 Search error:", error)
-      
+
       if (error.message === 'Search timeout') {
         console.error('🕒 Search timed out')
         return { found: false }
       }
-      
+
       // Return empty result on error
       return { found: false }
     }
@@ -129,18 +131,18 @@ export const useMembersStore = defineStore('members', () => {
   async function searchWithCompoundQuery(morphersCollection: any, searchName: string, normalizedPhone: string, countryCallingCode: string): Promise<SearchResult> {
     const phoneVariants = generatePhoneVariants(normalizedPhone, countryCallingCode)
     console.log('📞 Searching with phone variants:', phoneVariants)
-    
+
     if (phoneVariants.length === 0) {
       console.log('❌ No valid phone search conditions generated')
       return { found: false }
     }
-    
+
     // Create phone search conditions for both child and parent numbers
     const phoneSearchConditions = [
       ...phoneVariants.map(phone => where("MorphersNumber", "==", phone)),
       ...phoneVariants.map(phone => where("ParentsNumber", "==", phone))
     ]
-    
+
     const q = query(
       morphersCollection,
       and(
@@ -149,13 +151,13 @@ export const useMembersStore = defineStore('members', () => {
         where("Name", "<=", searchName + '\uf8ff')
       )
     )
-    
+
     const snapshot = await getDocs(q)
-    
+
     for (const docSnapshot of snapshot.docs) {
       const data = docSnapshot.data() as MemberData
       console.log('📄 Found document:', data.Name)
-      
+
       if (data.Name && data.Name.toLowerCase().startsWith(searchName.toLowerCase())) {
         console.log('✅ Match found:', data.Name)
         return {
@@ -173,29 +175,29 @@ export const useMembersStore = defineStore('members', () => {
   async function searchWithPhoneOnly(morphersCollection: any, searchName: string, normalizedPhone: string, countryCallingCode: string): Promise<SearchResult> {
     const phoneVariants = generatePhoneVariants(normalizedPhone, countryCallingCode)
     console.log('📞 Phone-only search with variants:', phoneVariants)
-    
+
     if (phoneVariants.length === 0) {
       console.log('❌ No valid phone search conditions generated for phone-only search')
       return { found: false }
     }
-    
+
     const phoneSearchConditions = [
       ...phoneVariants.map(phone => where("MorphersNumber", "==", phone)),
       ...phoneVariants.map(phone => where("ParentsNumber", "==", phone))
     ]
-    
+
     const phoneOnlyQuery = query(
       morphersCollection,
       or(...phoneSearchConditions)
     )
-    
+
     const phoneSnapshot = await getDocs(phoneOnlyQuery)
-    
+
     // Enhanced name matching for phone-only results
     for (const docSnapshot of phoneSnapshot.docs) {
       const data = docSnapshot.data() as MemberData
       console.log('📄 Phone match found:', data.Name)
-      
+
       if (data.Name && matchesMultipleNames(searchName, data.Name)) {
         console.log('✅ Enhanced name match found:', data.Name)
         return {
@@ -209,7 +211,11 @@ export const useMembersStore = defineStore('members', () => {
     return { found: false }
   }
 
-  async function saveMember(memberData: MemberData, docId?: string) {
+  async function saveMember(
+    memberData: MemberData,
+    docId?: string,
+    attendanceContext?: { date: Date, service: ServiceNumber }
+  ) {
     const uiStore = useUIStore()
     try {
       const { db } = getFirebaseInstances()
@@ -218,24 +224,37 @@ export const useMembersStore = defineStore('members', () => {
       }
 
       const morphersRef = collection(db, 'morphers')
-      
+
       // Use currentMemberId if available and no docId provided
       const targetDocId = docId || currentMemberId.value
-      
+
       // Format phone numbers for storage (E.164 format)
       const formattedData = {
         ...memberData,
-        MorphersNumber: memberData.MorphersNumber 
+        MorphersNumber: memberData.MorphersNumber
           ? formatPhoneForStorage(memberData.MorphersNumber, memberData.MorphersCountryCode || 'UG')
           : '',
         ParentsNumber: memberData.ParentsNumber
           ? formatPhoneForStorage(memberData.ParentsNumber, memberData.ParentsCountryCode || 'UG')
           : ''
       }
-      
+
+      // Apply attendance update if context is provided
+      if (attendanceContext && attendanceContext.service) {
+        currentAttendance.value = autoPopulateAttendance(
+          currentAttendance.value,
+          attendanceContext.date,
+          attendanceContext.service
+        )
+      } else if (!docId) {
+        // Only auto-populate default attendance for NEW members if no context provided
+        // (For existing members, we rely on explicit check-in actions or context)
+        currentAttendance.value = autoPopulateAttendance(currentAttendance.value)
+      }
+
       const payload = {
         ...formattedData,
-        attendance: currentAttendance.value, // Include current attendance
+        attendance: currentAttendance.value, // Include updated attendance
         attendanceCount: Object.keys(currentAttendance.value).length, // Include attendance count
         lastUpdated: Timestamp.now()
       }
@@ -280,7 +299,7 @@ export const useMembersStore = defineStore('members', () => {
 
       const membersRef = collection(db, 'morphers')
       const querySnapshot = await getDocs(membersRef)
-      
+
       members.value = querySnapshot.docs.map(doc => ({
         ...doc.data(),
         id: doc.id
@@ -302,10 +321,10 @@ export const useMembersStore = defineStore('members', () => {
       }
 
       await deleteDoc(doc(collection(db, 'members'), docId))
-      
+
       // Remove from local array
       members.value = members.value.filter(m => m.id !== docId)
-      
+
       uiStore.success('Member deleted successfully!')
       return true
     } catch (error: any) {
@@ -320,11 +339,11 @@ export const useMembersStore = defineStore('members', () => {
     currentMember.value = null
     currentMemberId.value = null
   }
-  
+
   function resetSearchCounter() {
     searchAttempts.value = 0
   }
-  
+
   function clearAttendance() {
     currentAttendance.value = {}
   }
@@ -339,7 +358,7 @@ export const useMembersStore = defineStore('members', () => {
       }
 
       const configSnapshot = await getDocs(query(collection(db, 'config')))
-      
+
       if (configSnapshot.empty) {
         console.log('No forceUpdateFlow config found, using default (false)')
         forceUpdateFlow.value = false
@@ -376,7 +395,7 @@ export const useMembersStore = defineStore('members', () => {
   }
 
   // Quick check-in: Save attendance without form completion
-  async function quickCheckIn() {
+  async function quickCheckIn(attendanceContext?: { date: Date, service: ServiceNumber }) {
     const uiStore = useUIStore()
     try {
       if (!currentMember.value || !currentMemberId.value) {
@@ -384,7 +403,7 @@ export const useMembersStore = defineStore('members', () => {
       }
 
       // Save attendance without updating other member data
-      await saveMember(currentMember.value, currentMemberId.value)     
+      await saveMember(currentMember.value, currentMemberId.value, attendanceContext)
       return true
     } catch (error: any) {
       console.error('Quick check-in error:', error)
@@ -403,7 +422,7 @@ export const useMembersStore = defineStore('members', () => {
     currentAttendance,
     forceUpdateFlow,
     enforceGPS,
-    
+
     // Actions
     searchMember,
     saveMember,

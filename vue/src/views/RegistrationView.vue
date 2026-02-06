@@ -142,25 +142,27 @@
                   <div class="service-icon">🗓️</div>
                   <div class="service-details">
                     <strong>Current Service:</strong>
-                    <!-- Auto Mode: Show as text -->
-                    <span 
-                      v-if="isServiceAutoMode"
-                      class="current-service"
-                      :class="{ 'no-service': currentService === null }"
-                    >
-                      {{ currentService === null ? 'No service currently' : currentServiceText }}
-                    </span>
-                    <!-- Manual Mode: Show as select -->
-                    <select 
-                      v-else
-                      v-model="manualServiceId"
-                      class="service-select"
-                    >
-                      <option value="1">1st Service (8:00 AM - 10:00 AM)</option>
-                      <option value="2">2nd Service (10:00 AM - 12:00 PM)</option>
-                      <option value="3">3rd Service (12:00 PM - 2:00 PM)</option>
-                    </select>
-                  </div>
+                    
+                    <!-- Auto Mode: Show as text matching quick check-in style -->
+                      <span 
+                        v-if="isServiceAutoMode"
+                        class="current-service"
+                        :class="{ 'no-service': currentService === null }"
+                      >
+                        {{ currentService === null ? 'No service currently' : currentServiceText }}
+                      </span>
+
+                      <!-- Manual Mode: Show as select matching quick check-in style -->
+                      <select 
+                        v-else
+                        v-model="manualServiceId"
+                        class="service-select"
+                      >
+                        <option value="1">{{ SERVICE_TIMES.SERVICE_1.name }}</option>
+                        <option value="2">{{ SERVICE_TIMES.SERVICE_2.name }}</option>
+                        <option value="3">{{ SERVICE_TIMES.SERVICE_3.name }}</option>
+                      </select>
+                    </div>
                 </div>
               </div>
             </div>
@@ -302,7 +304,13 @@
               <div class="service-info">
                 <div class="service-icon">🗓️</div>
                 <div class="service-details">
-                  <strong>Current Service:</strong>
+                  <div style="display: flex; justify-content: space-between; width: 100%; align-items: center;">
+                    <strong>Current Service:</strong>
+                    <span v-if="!isDateAutoMode" style="font-weight: normal; font-size: 0.9em; opacity: 0.9;">
+                      {{ effectiveDate.toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' }) }}
+                    </span>
+                  </div>
+                  
                   <!-- Auto Mode: Show as text -->
                   <span 
                     v-if="isServiceAutoMode"
@@ -318,9 +326,9 @@
                     v-model="manualServiceId"
                     class="service-select"
                   >
-                    <option value="1">1st Service (8:00 AM - 10:00 AM)</option>
-                    <option value="2">2nd Service (10:00 AM - 12:00 PM)</option>
-                    <option value="3">3rd Service (12:00 PM - 2:00 PM)</option>
+                    <option value="1">{{ SERVICE_TIMES.SERVICE_1.name }}</option>
+                    <option value="2">{{ SERVICE_TIMES.SERVICE_2.name }}</option>
+                    <option value="3">{{ SERVICE_TIMES.SERVICE_3.name }}</option>
                   </select>
                 </div>
               </div>
@@ -553,12 +561,32 @@
               <input 
                 type="date" 
                 id="attendanceDate" 
-                :value="effectiveDate.toISOString().split('T')[0]"
+                :value="effectiveDate.getFullYear() + '-' + String(effectiveDate.getMonth() + 1).padStart(2, '0') + '-' + String(effectiveDate.getDate()).padStart(2, '0')"
                 readonly
               >
               <div class="service-detection">
                 <span class="service-label">Current Service:</span>
-                <span id="currentService" :class="{'current-service': !noService, 'no-service': noService}">{{ currentServiceText }}</span>
+                
+                
+                <!-- Auto Mode: Show as text matching quick check-in style -->
+                <span 
+                  v-if="isServiceAutoMode"
+                  class="current-service"
+                  :class="{ 'no-service': currentService === null }"
+                >
+                  {{ currentService === null ? 'No service currently' : currentServiceText }}
+                </span>
+
+                <!-- Manual Mode: Show as select matching quick check-in style -->
+                <select 
+                  v-else
+                  v-model="manualServiceId"
+                  class="service-select"
+                >
+                  <option value="1">{{ SERVICE_TIMES.SERVICE_1.name }}</option>
+                  <option value="2">{{ SERVICE_TIMES.SERVICE_2.name }}</option>
+                  <option value="3">{{ SERVICE_TIMES.SERVICE_3.name }}</option>
+                </select>
               </div>
             </div>
           </div>
@@ -581,6 +609,7 @@
 
 
       <!-- Settings Modal -->
+      <Transition name="fade">
       <div v-if="showSettings" class="modal-overlay" @click.self="showSettings = false">
         <div class="settings-card">
           <div class="settings-header">
@@ -600,7 +629,7 @@
             <div class="toggle-row">
               <div class="toggle-label-container">
                 <Transition :name="isServiceAutoMode ? 'slide-down' : 'slide-up'" mode="out-in">
-                  <span :key="isServiceAutoMode" class="mode-label active">
+                  <span :key="isServiceAutoMode.toString()" class="mode-label active">
                     {{ isServiceAutoMode ? 'Auto Detect' : 'Manual' }}
                   </span>
                 </Transition>
@@ -612,7 +641,7 @@
             </div>
 
             <!-- Registration Date Section -->
-            <div style="margin-top: 1.5rem; padding-top: 1.5rem; border-top: 1px solid #eee;">
+            <div style="margin-top: 1.5rem; padding-top: 1.5rem; padding-bottom: 1.5rem; border-top: 1px solid #eee;">
                <p class="settings-description" style="margin-bottom: 1rem;">
                   <strong>Service Date:</strong> {{ effectiveDate.toDateString() }}
                </p>
@@ -621,7 +650,7 @@
                 <div class="toggle-row">
                   <div class="toggle-label-container">
                     <Transition :name="isDateAutoMode ? 'slide-down' : 'slide-up'" mode="out-in">
-                      <span :key="isDateAutoMode" class="mode-label active">
+                      <span :key="isDateAutoMode.toString()" class="mode-label active">
                         {{ isDateAutoMode ? 'Today' : 'Manual Date' }}
                       </span>
                     </Transition>
@@ -659,6 +688,7 @@
           </div>
         </div>
       </div>
+      </Transition>
       <!-- Date Warning Modal -->
       <div v-if="showNonSundayWarning" class="modal-overlay" style="z-index: 1000;" @click.self="cancelPendingAction">
         <div class="settings-card warning-card">
@@ -674,7 +704,7 @@
              </p>
              <div class="settings-footer" style="display: flex; gap: 1rem;">
                 <button @click="cancelPendingAction" class="btn-secondary" style="flex: 1;">Cancel</button>
-                <button @click="confirmPendingAction" class="btn-primary" style="flex: 1; background-color: #ef4444; border-color: #ef4444;">Yes, Proceed</button>
+                <button @click="proceedWithNonSunday" class="btn-primary" style="flex: 1; background-color: #ef4444; border-color: #ef4444;">Yes, Proceed</button>
              </div>
           </div>
         </div>
@@ -704,6 +734,7 @@ import { getCachedUserData, saveCachedUserData } from '@/utils/qrCache'
 import { startAutoCloseCountdown } from '@/utils/transitions'
 import { formatDateKey, getCurrentService, getServiceText as getServiceName, type ServiceNumber } from '@/utils/attendance'
 import type { MemberData } from '@/types'
+import { SERVICE_TIMES } from '@/utils/attendance'
 
 
 const authStore = useAuthStore()
@@ -768,7 +799,7 @@ const schoolValidation = ref({
 const currentStep = ref(1)
 const countries = ref<any[]>([])
 const currentServiceText = ref('No Service')
-const currentService = ref<string | null>(null)
+const currentService = ref<ServiceNumber | null>(null)
 const noService = ref(false);
 
 // QR cache state
@@ -777,11 +808,12 @@ const showQuickConfirm = ref(false)
 // Check QR parameter immediately to prevent login screen flash
 const isFromQR = ref(!!route.query.qr)
 const showSuccessCard = ref(false)
-const successState = ref({
-  title: 'Check-in Successful!',
-  message: 'Your attendance has been recorded.'
-})
-const successCountdown = ref(5)
+const successState = ref({ title: '', message: '' })
+const successCountdown = ref(3)
+
+// Persistent confirmation flags
+const hasConfirmedNonSundayDate = ref(false)
+const hasConfirmedNonSundayService = ref(false)
 
 // Already checked-in state
 const alreadyCheckedIn = ref(false)
@@ -798,7 +830,7 @@ const isLogoVisible = ref(true)
 const isDateAutoMode = ref(true)
 const manualDate = ref(new Date().toISOString().split('T')[0])
 const showNonSundayWarning = ref(false)
-const pendingAction = ref<(() => void) | null>(null)
+const pendingAction = ref<'save' | 'quickCheckIn' | 'search' | null>(null)
 
 const effectiveDate = computed(() => {
   if (isDateAutoMode.value) {
@@ -867,29 +899,54 @@ watch([isServiceAutoMode, manualServiceId, effectiveDate], () => {
 })
 
 const confirmSearch = () => {
-    if (!isEffectiveDateSunday.value) {
-        pendingAction.value = handleSearch
+    if (!isEffectiveDateSunday.value && !hasConfirmedNonSundayDate.value) {
+        pendingAction.value = 'search'
         showNonSundayWarning.value = true
     } else {
         handleSearch()
     }
 }
 
-const confirmSave = () => {
-     if (!isEffectiveDateSunday.value) {
-        pendingAction.value = handleSave
-        showNonSundayWarning.value = true
-    } else {
-        handleSave()
-    }
+const confirmSave = () => { // 2. Check for Sunday if in Manual Date mode
+  // Using explicit flags for persistent confirmation
+  if (!isDateAutoMode.value && !isEffectiveDateSunday.value && !hasConfirmedNonSundayDate.value) {
+     pendingAction.value = 'save'
+     showNonSundayWarning.value = true
+     return
+  }
+
+  // 3. Check for specific service selection validity in Manual Service mode
+  // (Optional: logic to warn if selected service time doesn't match date, but user just wants integrity check)
+  // For now, we reuse the Non-Sunday warning if they explicitly picked a Manual Service on a non-Sunday date 
+  // AND haven't confirmed it yet. This splits the "integrity" check.
+  if (isServiceAutoMode.value === false && !isEffectiveDateSunday.value && !hasConfirmedNonSundayService.value) {
+     pendingAction.value = 'save'
+     showNonSundayWarning.value = true
+     return
+  }
+  handleSave()
 }
 
-const confirmPendingAction = () => {
-    showNonSundayWarning.value = false
-    if (pendingAction.value) {
-        pendingAction.value()
-        pendingAction.value = null
-    }
+function proceedWithNonSunday() {
+  showNonSundayWarning.value = false
+  
+  // Set persistent flags based on what triggered the warning
+  if (!isDateAutoMode.value) {
+    hasConfirmedNonSundayDate.value = true
+  }
+  // If we are also in manual service mode (or independently), confirm that too
+  if (isServiceAutoMode.value === false) {
+    hasConfirmedNonSundayService.value = true
+  }
+
+  if (pendingAction.value === 'save') {
+    handleSave()
+  } else if (pendingAction.value === 'quickCheckIn') {
+    handleQuickCheckIn()
+  } else if (pendingAction.value === 'search') {
+    handleSearch()
+  }
+  pendingAction.value = null
 }
 
 const cancelPendingAction = () => {
@@ -920,7 +977,6 @@ onBeforeUnmount(() => {
 })
 
 // Phone validation error tracking
-const phoneInputRef = ref<InstanceType<typeof PhoneInput>>()
 const hasPhoneError = ref(false)
 
 // Intersection Observer for Yes button
@@ -973,20 +1029,31 @@ function updateCurrentServiceDisplay() {
   if (isServiceAutoMode.value) {
     // Pass effective date to detection
     const detected = getCurrentService(effectiveDate.value)
+    
     if (detected) {
       currentService.value = detected
       currentServiceText.value = getServiceName(detected)
       noService.value = false
     } else {
-      currentService.value = null
-      currentServiceText.value = 'No Service' 
-      noService.value = true
+      // If Manual Date Mode is ON and detection failed (likely because time is 00:00),
+      // default to Service 1 so we can record attendance for backlog dates.
+      if (!isDateAutoMode.value) {
+         currentService.value = '1'
+         currentServiceText.value = getServiceName('1')
+         noService.value = false
+      } else {
+         currentService.value = null
+         currentServiceText.value = 'No Service' 
+         noService.value = true
+      }
     }
   } else {
     // Manual Mode
-    currentService.value = manualServiceId.value as ServiceNumber
-    currentServiceText.value = getServiceName(currentService.value)
-    noService.value = false
+    if (manualServiceId.value) {
+        currentService.value = manualServiceId.value as ServiceNumber
+        currentServiceText.value = getServiceName(currentService.value)
+        noService.value = false
+    }
   }
 }
 
@@ -996,7 +1063,8 @@ function updateCurrentServiceDisplay() {
  */
 function handleLogoTap() {
   // Only allow gesture on /register route
-  if (route.path !== '/register') {
+  // AND Prevent unlocking if user cam via QR code
+  if (route.path !== '/register' || isFromQR.value) {
     return
   }
   
@@ -1319,8 +1387,12 @@ async function confirmCachedData() {
       }
       
       // If quick check-in is active (not force update flow) and service is running, do quick check-in
-      if (!forceUpdateFlow.value && currentService.value) {
-        await membersStore.quickCheckIn()
+      if (!forceUpdateFlow.value && (currentService.value || !isDateAutoMode.value)) {
+        // Pass context to quickCheckIn
+        await membersStore.quickCheckIn({
+            date: effectiveDate.value,
+            service: currentService.value as ServiceNumber
+        })
         clearSearch()
         showQuickConfirm.value = false
         
@@ -1419,7 +1491,7 @@ async function handleSearch() {
     // Check if user is already checked in today
     if (searchResult.value.found && searchResult.value.record) {
       const checkInStatus = isCheckedInToday(searchResult.value.record.attendance)
-      if (checkInStatus.isCheckedIn) {
+      if (checkInStatus.isCheckedIn && isDateAutoMode.value && isServiceAutoMode.value) {
         alreadyCheckedIn.value = true
         checkedInService.value = checkInStatus.service
         console.log('🎯 User already checked in today, showing already-checked-in screen')
@@ -1657,8 +1729,20 @@ async function handleSave() {
     if ('FirstTimeGuest' in memberData) {
       delete memberData.FirstTimeGuest
     }
+
+    // console.log("MemberData", memberData)
+    console.log("Effective Date for Attendance:", effectiveDate.value.toDateString())
+    console.log("Service Recorded:", currentService.value)
     
-    await membersStore.saveMember(memberData as MemberData, currentDocId.value)
+    // Pass attendance context to saveMember
+    await membersStore.saveMember(
+        memberData as MemberData, 
+        currentDocId.value,
+        {
+            date: effectiveDate.value,
+            service: currentService.value as ServiceNumber
+        }
+    )
     
     // Cache and show success card for QR-based anonymous users
     if (isFromQR.value && currentUser.value?.uid && currentUser.value?.isAnonymous && memberForm.value.Name && memberForm.value.MorphersNumber) {
@@ -1711,7 +1795,12 @@ async function handleQuickCheckIn() {
   try {
     console.log('Starting quick check-in process')
     uiStore.setLoading(true)
-    await membersStore.quickCheckIn()
+    
+       // Pass context to quickCheckIn
+    await membersStore.quickCheckIn({
+        date: effectiveDate.value,
+        service: currentService.value as ServiceNumber
+    })
 
     // Use searchResult.record (the confirmed member record) for caching, not memberForm
     const memberData = searchResult.value.record
@@ -1796,6 +1885,17 @@ async function handleQuickCheckIn() {
   font-size: 1rem;
   color: #999;
   font-style: italic;
+}
+
+/* Fade Transition for Modals */
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.3s ease;
+}
+
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
 }
 
 @keyframes scaleIn {
@@ -1962,6 +2062,28 @@ button .btn-text {
 .expand-enter-active,
 .expand-leave-active {
   transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  overflow: hidden;
+}
+
+/* Service Selector Styling to match Auto Mode Text */
+.service-detection .service-select {
+  font-weight: 700;
+  color: #27ae60;
+  background: white;
+  padding: 5px 5px;
+  border-radius: 4px;
+  border: 1px solid #27ae60;
+  font-size: 1em;
+  font-family: inherit;
+  outline: none;
+  cursor: pointer;
+  
+  /* Flexbox overflow handling */
+  flex: 1;
+  min-width: 0; /* Allow shrinking below content size */
+  width: 100%;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   overflow: hidden;
 }
 
