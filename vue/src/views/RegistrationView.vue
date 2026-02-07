@@ -390,11 +390,9 @@
               </div>
             </div>
           </div>
-        </Transition>
 
-        <!-- Form Completion Section matching original -->
-        <Transition name="section-fade" mode="out-in">
-          <div v-if="showForm" class="form-section" id="completionSection" key="completion">
+          <!-- Form Completion Section -->
+          <div v-else-if="showForm" class="form-section" id="completionSection" key="completion">
             <h3>Register Your Attendance</h3>
             <p class="section-description">Update your details if you need to.</p>
           
