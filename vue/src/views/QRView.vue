@@ -7,11 +7,9 @@
     <div class="main-container">
       <!-- Logo -->
       <div style="text-align: center; margin-bottom: 2rem;">
-        <img 
-          src="/watoto.svg" 
-          alt="Watoto Logo" 
-          style="height: 4rem; width: auto; margin: 0 auto; filter: invert(48%) sepia(79%) saturate(2476%) hue-rotate(228deg) brightness(94%) contrast(90%);"
-        >
+        <div style="width: 6rem; height: 6rem; margin: 0 auto; user-select: none; -webkit-tap-highlight-color: transparent; outline: none;">
+          <WatotoLogo />
+        </div>
       </div>
 
       <Transition name="section-fade" mode="out-in">
@@ -147,6 +145,7 @@ import { useMembersStore } from '@/stores/members'
 import { validateQRCodeWithServer } from '@/utils/cloudflareWorker'
 import { validateUserLocation, formatDistance } from '@/utils/geolocation'
 import RegistrationView from './RegistrationView.vue'
+import WatotoLogo from '@/components/WatotoLogo.vue'
 
 const route = useRoute()
 const authStore = useAuthStore()

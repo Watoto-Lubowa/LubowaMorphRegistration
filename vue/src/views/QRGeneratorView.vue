@@ -17,6 +17,7 @@ import { useUIStore } from '@/stores/ui'
 import { generateServiceQR } from '@/utils/cloudflareWorker'
 import QRCode from 'qrcode' // npm install qrcode
 import LoginForm from '@/components/LoginForm.vue'
+import WatotoLogo from '@/components/WatotoLogo.vue'
 
 const authStore = useAuthStore()
 const uiStore = useUIStore()
@@ -212,12 +213,10 @@ function getServiceName(serviceNumber: number): string {
     <div v-else class="w-full">
       <div class="main-container">
         <!-- Logo -->
-        <div style="text-align: center; margin-bottom: 1rem;">
-          <img 
-            src="/watoto.svg" 
-            alt="Watoto Logo" 
-            style="height: 4rem; width: auto; margin: 0 auto; filter: invert(48%) sepia(79%) saturate(2476%) hue-rotate(228deg) brightness(94%) contrast(90%);"
-          >
+        <div style="text-align: center; margin-bottom: 2rem;">
+          <div style="width: 6rem; height: 6rem; margin: 0 auto; user-select: none; -webkit-tap-highlight-color: transparent; outline: none;">
+            <WatotoLogo />
+          </div>
         </div>
         
         <!-- Header -->
@@ -283,7 +282,7 @@ function getServiceName(serviceNumber: number): string {
                 />
                 <button
                   @click="copyUrl"
-                  class="btn-secondary"
+                  class="btn-primary"
                   style="min-width: auto; padding: 0.75rem 1rem;"
                 >
                   📋
@@ -296,14 +295,14 @@ function getServiceName(serviceNumber: number): string {
               <button
                 @click="downloadQR"
                 class="search-btn"
-                style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); width: 100%;"
+                style="background: #16a34a; width: 100%;"
               >
                 💾 Download
               </button>
               <button
                 @click="printQR"
                 class="search-btn"
-                style="background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%); width: 100%;"
+                style="background: #0ea5e9; width: 100%;"
               >
                 🖨️ Print
               </button>

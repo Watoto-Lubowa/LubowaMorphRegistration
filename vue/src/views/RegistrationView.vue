@@ -12,11 +12,9 @@
         <div class="success-card">
           <!-- Logo -->
           <div style="text-align: center; margin-bottom: 1.5rem;">
-            <img 
-              src="/watoto.svg" 
-              alt="Watoto Logo" 
-              style="height: 4rem; width: auto; margin: 0 auto; filter: invert(48%) sepia(79%) saturate(2476%) hue-rotate(228deg) brightness(94%) contrast(90%);"
-            >
+            <div style="width: 6rem; height: 6rem; margin: 0 auto;">
+              <WatotoLogo />
+            </div>
           </div>
           <div class="success-icon">✅</div>
           <h2 class="success-title">{{ successState.title }}</h2>
@@ -43,16 +41,12 @@
           ⚙️
         </button>
 
-        <!-- Logo -->
-        <div ref="logoRef" style="text-align: center; margin-bottom: 1rem;">
-          <img 
-            src="/watoto.svg" 
-            alt="Watoto Logo" 
-            class="logo"
-            @click="handleLogoTap"
-            style="height: 4rem; width: auto; margin: 0 auto; filter: invert(48%) sepia(79%) saturate(2476%) hue-rotate(228deg) brightness(94%) contrast(90%); cursor: pointer;"
-          >
-        </div>
+          <!-- Logo -->
+          <div ref="logoRef" style="text-align: center; margin-bottom: 2rem;">
+            <div @click="handleLogoTap" style="cursor: pointer; width: 6rem; height: 6rem; margin: 0 auto; user-select: none; -webkit-tap-highlight-color: transparent; outline: none;">
+              <WatotoLogo />
+            </div>
+          </div>
         
         <!-- Header matching original -->
         <h2>Lubowa Morph Registration</h2>
@@ -192,7 +186,7 @@
                 ref="yesButtonRef"
                 type="button" 
                 @click="confirmCachedData" 
-                class="search-again-btn"
+                class="confirm-btn"
                 :disabled="isLoading"
                 :class="{ loading: isLoading }"
               >
@@ -202,7 +196,7 @@
               <button 
                 type="button" 
                 @click="useDifferentDetails" 
-                class="search-again-btn"
+                class="create-new-btn"
                 :disabled="isLoading"
               >
                 🔄 Use different details
@@ -726,7 +720,7 @@
                 Services usually only happen on Sundays{{ isFutureDate ? ', and registrations for future dates are unusual' : '' }}. Are you sure you want to proceed?
              </p>
              <div class="settings-footer" style="display: flex; gap: 1rem;">
-                <button @click="proceedWithNonSunday" class="btn-primary" style="flex: 1; background-color: #ef4444; border-color: #ef4444;">Yes</button>
+                <button @click="proceedWithNonSunday" class="btn-primary" style="flex: 1;">Yes</button>
                 <button @click="cancelPendingAction" class="btn-secondary" style="flex: 1;">Cancel</button>
              </div>
           </div>
@@ -760,6 +754,8 @@ import { formatDateKey, getCurrentService, getServiceText as getServiceName, typ
 import type { MemberData } from '@/types'
 import { SERVICE_TIMES } from '@/utils/attendance'
 
+
+import WatotoLogo from '@/components/WatotoLogo.vue'
 
 const authStore = useAuthStore()
 const membersStore = useMembersStore()
@@ -2125,11 +2121,11 @@ button .btn-text {
 /* Service Selector Styling to match Auto Mode Text */
 .service-detection .service-select {
   font-weight: 700;
-  color: #27ae60;
+  color: #2563eb;
   background: white;
   padding: 5px 5px;
   border-radius: 4px;
-  border: 1px solid #27ae60;
+  border: 1px solid #2563eb;
   font-size: 1em;
   font-family: inherit;
   outline: none;

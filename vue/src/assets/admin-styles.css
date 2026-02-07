@@ -85,18 +85,18 @@ html {
   left: 0;
   right: 0;
   height: 4px;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, #2563eb 0%, #1e3a8a 100%);
   border-radius: 25px 25px 0 0;
 }
 
 .auth-icon {
   font-size: 3.5em;
   margin-bottom: 25px;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, #2563eb 0%, #1e3a8a 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
-  filter: drop-shadow(0 2px 4px rgba(102, 126, 234, 0.3));
+  filter: drop-shadow(0 2px 4px rgba(37, 99, 235, 0.3));
 }
 
 .auth-card h2 {
@@ -146,7 +146,7 @@ html {
 .auth-card .link-btn {
   background: none;
   border: none;
-  color: #667eea;
+  color: #3b82f6;
   text-decoration: none;
   cursor: pointer;
   font-size: 0.95em;
@@ -165,8 +165,8 @@ html {
 }
 
 .auth-card .link-btn:hover {
-  color: #764ba2;
-  background: rgba(102, 126, 234, 0.1);
+  color: #1e3a8a;
+  background: rgba(59, 130, 246, 0.1);
   transform: translateY(-1px);
 }
 
@@ -204,7 +204,7 @@ html {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, #2563eb 0%, #1e3a8a 100%);
   color: white;
   padding: 25px;
   border-radius: 15px;
@@ -314,7 +314,7 @@ html {
   font-size: 2.5em;
   width: 70px;
   height: 70px;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, #2563eb 0%, #1e3a8a 100%);
   border-radius: 50%;
   display: flex;
   align-items: center;
@@ -355,8 +355,8 @@ html {
 
 .date-picker:focus {
   outline: none;
-  border-color: #667eea;
-  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
 }
 
 .date-label {
@@ -470,14 +470,14 @@ html {
 }
 
 .action-btn:not(.secondary):not(.danger) {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, #2563eb 0%, #1e3a8a 100%);
   color: white;
-  box-shadow: 0 5px 15px rgba(102, 126, 234, 0.3);
+  box-shadow: 0 5px 15px rgba(37, 99, 235, 0.3);
 }
 
 .action-btn:not(.secondary):not(.danger):hover {
   transform: translateY(-3px);
-  box-shadow: 0 10px 25px rgba(102, 126, 234, 0.4);
+  box-shadow: 0 10px 25px rgba(37, 99, 235, 0.4);
 }
 
 .action-btn.secondary {
@@ -596,9 +596,9 @@ html {
 .auth-card .field input[type="email"]:focus,
 .auth-card .field input[type="password"]:focus,
 .auth-card .field input[type="text"]:focus {
-  border-color: #667eea;
+  border-color: #3b82f6;
   background: white;
-  box-shadow: 0 0 25px rgba(102, 126, 234, 0.2);
+  box-shadow: 0 0 25px rgba(59, 130, 246, 0.2);
   transform: translateY(-3px);
 }
 
@@ -671,9 +671,9 @@ html {
   width: 100%;
   position: relative;
   overflow: hidden;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, #2563eb 0%, #1e3a8a 100%);
   color: white;
-  box-shadow: 0 10px 30px rgba(102, 126, 234, 0.4);
+  box-shadow: 0 10px 30px rgba(37, 99, 235, 0.4);
   font-family: inherit;
 }
 
@@ -690,7 +690,7 @@ html {
 
 .auth-card .button-container button:hover:not(:disabled) {
   transform: translateY(-4px) scale(1.02);
-  box-shadow: 0 15px 40px rgba(102, 126, 234, 0.5);
+  box-shadow: 0 15px 40px rgba(37, 99, 235, 0.5);
 }
 
 .auth-card .button-container button:hover:not(:disabled)::before {
@@ -1334,11 +1334,11 @@ html {
 }
 
 .toggle-switch input:checked+.toggle-slider {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: #1d4ed8;
 }
 
 .toggle-switch input:focus+.toggle-slider {
-  box-shadow: 0 0 1px linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  box-shadow: 0 0 1px #1d4ed8;
 }
 
 .toggle-switch input:checked+.toggle-slider:before {
