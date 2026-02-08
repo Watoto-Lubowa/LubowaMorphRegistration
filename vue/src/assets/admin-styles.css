@@ -85,14 +85,14 @@ html {
   left: 0;
   right: 0;
   height: 4px;
-  background: linear-gradient(135deg, #2563eb 0%, #1e3a8a 100%);
+  background: linear-gradient(135deg, #163A59 0%, #0F2D47 100%);
   border-radius: 25px 25px 0 0;
 }
 
 .auth-icon {
   font-size: 3.5em;
   margin-bottom: 25px;
-  background: linear-gradient(135deg, #2563eb 0%, #1e3a8a 100%);
+  background: linear-gradient(135deg, #163A59 0%, #0F2D47 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -127,7 +127,7 @@ html {
 
 .auth-status.info {
   background: #e3f2fd;
-  color: #1565c0;
+  color: #163A59;
   border: 1px solid #bbdefb;
 }
 
@@ -146,7 +146,7 @@ html {
 .auth-card .link-btn {
   background: none;
   border: none;
-  color: #3b82f6;
+  color: #1E4D75;
   text-decoration: none;
   cursor: pointer;
   font-size: 0.95em;
@@ -165,7 +165,7 @@ html {
 }
 
 .auth-card .link-btn:hover {
-  color: #1e3a8a;
+  color: #0F2D47;
   background: rgba(59, 130, 246, 0.1);
   transform: translateY(-1px);
 }
@@ -204,7 +204,7 @@ html {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  background: linear-gradient(135deg, #2563eb 0%, #1e3a8a 100%);
+  background: linear-gradient(135deg, #163A59 0%, #0F2D47 100%);
   color: white;
   padding: 25px;
   border-radius: 15px;
@@ -314,7 +314,7 @@ html {
   font-size: 2.5em;
   width: 70px;
   height: 70px;
-  background: linear-gradient(135deg, #2563eb 0%, #1e3a8a 100%);
+  background: linear-gradient(135deg, #163A59 0%, #0F2D47 100%);
   border-radius: 50%;
   display: flex;
   align-items: center;
@@ -355,7 +355,7 @@ html {
 
 .date-picker:focus {
   outline: none;
-  border-color: #3b82f6;
+  border-color: #1E4D75;
   box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
 }
 
@@ -470,7 +470,7 @@ html {
 }
 
 .action-btn:not(.secondary):not(.danger) {
-  background: linear-gradient(135deg, #2563eb 0%, #1e3a8a 100%);
+  background: linear-gradient(135deg, #163A59 0%, #0F2D47 100%);
   color: white;
   box-shadow: 0 5px 15px rgba(37, 99, 235, 0.3);
 }
@@ -596,7 +596,7 @@ html {
 .auth-card .field input[type="email"]:focus,
 .auth-card .field input[type="password"]:focus,
 .auth-card .field input[type="text"]:focus {
-  border-color: #3b82f6;
+  border-color: #1E4D75;
   background: white;
   box-shadow: 0 0 25px rgba(59, 130, 246, 0.2);
   transform: translateY(-3px);
@@ -671,7 +671,7 @@ html {
   width: 100%;
   position: relative;
   overflow: hidden;
-  background: linear-gradient(135deg, #2563eb 0%, #1e3a8a 100%);
+  background: linear-gradient(135deg, #163A59 0%, #0F2D47 100%);
   color: white;
   box-shadow: 0 10px 30px rgba(37, 99, 235, 0.4);
   font-family: inherit;
