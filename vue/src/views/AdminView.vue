@@ -598,14 +598,14 @@ function renderServiceDistributionChart(serviceDistribution: Record<string, numb
       datasets: [{
         data: data,
         backgroundColor: [
-          '#2563eb',  // First Service (Royal Blue)
-          '#1e3a8a',  // Second Service (Deep Blue)
-          '#3b82f6',  // Third Service (Primary Blue)
-          '#60a5fa',  // Fourth Service (Light Blue)
-          '#93c5fd',  // Fifth Service (Pale Blue)
+          '#163A59',  // First Service
+          '#0F2D47',  // Second Service
+          '#1E4D75',  // Third Service
+          '#2D5A7B',  // Fourth Service
+          '#78A5C4',  // Fifth Service
           '#0f172a',  // Additional (Dark Slate)
-          '#0ea5e9',  // Sky Blue
-          '#38bdf8'
+          '#A8C5D9',  // Light variant
+          '#C5D9E8'   // Lightest variant
         ],
         borderWidth: 2,
         borderColor: '#ffffff'
@@ -1346,7 +1346,7 @@ async function executeDownload() {
 
 /* Ensure proper body styling for admin view */
 html, body {
-  background: linear-gradient(135deg, #2563eb 0%, #1e3a8a 100%);
+  background: linear-gradient(135deg, #163A59 0%, #0F2D47 100%);
   min-height: 100vh;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 }

@@ -295,21 +295,21 @@ function getServiceName(serviceNumber: number): string {
               <button
                 @click="downloadQR"
                 class="search-btn"
-                style="background: #16a34a; width: 100%;"
+                style="background: #163A59; width: 100%;"
               >
                 💾 Download
               </button>
               <button
                 @click="printQR"
                 class="search-btn"
-                style="background: #0ea5e9; width: 100%;"
+                style="background: #2D5A7B; width: 100%;"
               >
                 🖨️ Print
               </button>
               <button
                 @click="generateQR"
                 class="search-btn"
-                style="width: 100%;"
+                style="background: #78A5C4; width: 100%;"
               >
                 🔄 Regenerate
               </button>

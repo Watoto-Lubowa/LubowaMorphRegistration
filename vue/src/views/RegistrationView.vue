@@ -2119,11 +2119,11 @@ button .btn-text {
 /* Service Selector Styling to match Auto Mode Text */
 .service-detection .service-select {
   font-weight: 700;
-  color: #2563eb;
+  color: #163A59;
   background: white;
   padding: 5px 5px;
   border-radius: 4px;
-  border: 1px solid #2563eb;
+  border: 1px solid #163A59;
   font-size: 1em;
   font-family: inherit;
   outline: none;
