@@ -32,6 +32,8 @@ import {
   browserSessionPersistence,
   GoogleAuthProvider,
   signInWithPopup,
+  signInWithRedirect,
+  getRedirectResult,
   type User
 } from 'firebase/auth'
 import { 
@@ -99,6 +101,8 @@ export {
   browserSessionPersistence,
   GoogleAuthProvider,
   signInWithPopup,
+  signInWithRedirect,
+  getRedirectResult,
   type User,
   type Firestore,
   type Auth,

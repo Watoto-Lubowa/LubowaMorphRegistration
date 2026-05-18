@@ -140,7 +140,7 @@
         </div>
         
         <div class="header-actions">
-          <Transition name="fade">
+          <Transition name="slide-fade">
             <div class="global-date-picker" v-show="activeTab === 'stats'">
               <span class="date-icon">📅</span>
               <input 
@@ -324,7 +324,7 @@
                   </div>
                   <div class="field role-select-field">
                     <select v-model="newAuthRole">
-                      <option value="user">User (Registration Assistant)</option>
+                      <option value="user">User (Registration Volunteer)</option>
                       <option value="admin">Admin (System Manager)</option>
                     </select>
                   </div>
@@ -354,47 +354,169 @@
                 <thead>
                   <tr>
                     <th>Email Address</th>
-                    <th>Role</th>
-                    <th>Added By</th>
-                    <th>Added At</th>
-                    <th style="text-align: center;">Actions</th>
+                    <th style="width: 120px; white-space: nowrap;">Status</th>
+                    <th style="width: 130px; white-space: nowrap;">Role</th>
+                    <th style="width: 160px; white-space: nowrap;">Added By</th>
+                    <th style="width: 170px; white-space: nowrap;">Added At</th>
+                    <th style="width: 180px; text-align: center; white-space: nowrap;">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
                   <tr v-if="filteredAuthorizedEmails.length === 0">
-                    <td colspan="5" class="empty-table-cell">
+                    <td colspan="6" class="empty-table-cell">
                       No matching authorized email records found.
                     </td>
                   </tr>
-                  <tr v-for="record in filteredAuthorizedEmails" :key="record.email">
-                    <td class="email-cell">
-                      <span class="envelope-icon">📧</span>
-                      <span>{{ record.email }}</span>
+                  <tr v-for="record in paginatedAuthorizedEmails" :key="record.email" :style="editingEmail === record.email ? 'background: #f7fafc;' : ''">
+                    <td>
+                      <div class="email-cell" style="display: flex; align-items: center; gap: 8px; max-width: 160px; min-width: 0;">
+                        <span class="envelope-icon" style="flex-shrink: 0;">📧</span>
+                        <span 
+                          :title="record.email" 
+                          style="text-overflow: ellipsis; white-space: nowrap; overflow: hidden; display: block; font-weight: 500;"
+                        >
+                          {{ record.email }}
+                        </span>
+                      </div>
                     </td>
                     <td>
-                      <span class="role-badge" :class="record.role">
-                        {{ record.role === 'admin' ? '🔑 Admin' : '👤 User' }}
+                      <!-- Dedicated Status Column Badge -->
+                      <span v-if="isPermanentAdmin(record.email)" class="role-badge" style="background: #edf2f7; color: #4a5568; font-weight: 700; padding: 6px 12px; border-radius: 50px; font-size: 0.8em; display: inline-flex; align-items: center; gap: 4px; border: 1px dashed #cbd5e0; white-space: nowrap;">
+                        🔒 Protected
+                      </span>
+                      <span v-else-if="record.status === 'pending'" class="role-badge pending" style="background: #fffaf0; color: #dd6b20; border: 1px solid #fbd38d; font-weight: 700; padding: 6px 12px; border-radius: 50px; font-size: 0.8em; display: inline-flex; align-items: center; gap: 4px; white-space: nowrap;">
+                        ⏳ Pending
+                      </span>
+                      <span v-else class="role-badge user" style="background: #e6fffa; color: #047481; border: 1px solid #b2f5ea; font-weight: 700; padding: 6px 12px; border-radius: 50px; font-size: 0.8em; display: inline-flex; align-items: center; gap: 4px; white-space: nowrap;">
+                        🟢 Active
                       </span>
                     </td>
-                    <td class="added-by-cell">{{ record.addedBy }}</td>
-                    <td>{{ formatDateTime(record.addedAt) }}</td>
-                    <td style="text-align: center;">
-                      <!-- Disable delete button for fallback super-admins to prevent lockout -->
-                      <button 
-                        v-if="!isPermanentAdmin(record.email)"
-                        @click="confirmRevokeAccess(record.email)" 
-                        class="revoke-btn"
-                        title="Revoke Access"
+                    <td>
+                      <!-- Editable Role Column Cell-Linked Popover Select Box -->
+                      <template v-if="editingEmail === record.email">
+                        <select 
+                          v-model="editingRole"
+                          style="background: #ffffff; border: 2px solid #3182ce; padding: 6px 10px; border-radius: 8px; font-weight: 600; font-size: 0.85em; color: #2d3748; outline: none; cursor: pointer; font-family: inherit; white-space: nowrap;"
+                        >
+                          <option value="user">👤 User</option>
+                          <option value="admin">🔑 Admin</option>
+                        </select>
+                      </template>
+                      <template v-else>
+                        <span 
+                          v-if="!isPermanentAdmin(record.email)"
+                          @click="startEditingRole(record)"
+                          class="role-badge clickable" 
+                          :class="record.role"
+                          title="Click to edit role"
+                          style="cursor: pointer; padding: 6px 12px; border-radius: 50px; font-size: 0.85em; font-weight: 700; display: inline-flex; align-items: center; gap: 4px; transition: all 0.2s; white-space: nowrap;"
+                        >
+                          {{ record.role === 'admin' ? '🔑 Admin ✏️' : '👤 User ✏️' }}
+                        </span>
+                        <span 
+                          v-else
+                          class="role-badge" 
+                          :class="record.role"
+                          style="white-space: nowrap; padding: 6px 12px; border-radius: 50px; font-size: 0.85em; font-weight: 700; display: inline-flex; align-items: center; gap: 4px;"
+                        >
+                          {{ record.role === 'admin' ? '🔑 Admin' : '👤 User' }}
+                        </span>
+                      </template>
+                    </td>
+                    <td class="added-by-cell">
+                      <div 
+                        :title="record.addedBy"
+                        style="text-overflow: ellipsis; white-space: nowrap; overflow: hidden; max-width: 150px; font-weight: 500;"
                       >
-                        🗑️ Revoke
-                      </button>
-                      <span v-else class="permanent-badge" title="Permanent Fallback Account">
+                        {{ record.addedBy }}
+                      </div>
+                    </td>
+                    <td style="white-space: nowrap;">{{ formatDateTime(record.addedAt) }}</td>
+                    <td style="text-align: center;">
+                      <!-- Inline Editing Actions -->
+                      <template v-if="editingEmail === record.email">
+                        <div style="display: flex; gap: 8px; justify-content: center; align-items: center;">
+                          <button 
+                            @click="saveEditingRole(record.email)" 
+                            class="approve-btn"
+                            style="background: #38a169; color: white; border: none; padding: 8px 14px; border-radius: 8px; font-weight: 600; font-size: 0.85em; cursor: pointer; transition: all 0.2s; display: inline-flex; align-items: center; gap: 4px;"
+                          >
+                            ✔️ Save
+                          </button>
+                          <button 
+                            @click="cancelEditingRole" 
+                            style="background: #edf2f7; color: #4a5568; border: none; padding: 8px 14px; border-radius: 8px; font-weight: 600; font-size: 0.85em; cursor: pointer; transition: all 0.2s; display: inline-flex; align-items: center; gap: 4px;"
+                          >
+                            ❌ Cancel
+                          </button>
+                        </div>
+                      </template>
+                      
+                      <!-- Default Access Management Actions -->
+                      <template v-else-if="!isPermanentAdmin(record.email)">
+                        <div style="display: flex; gap: 8px; justify-content: center; align-items: center;">
+                          <button 
+                            v-if="record.status === 'pending'"
+                            @click="approvePendingAccess(record.email)" 
+                            class="approve-btn"
+                            style="background: #38a169; color: white; border: none; padding: 8px 14px; border-radius: 8px; font-weight: 600; font-size: 0.85em; cursor: pointer; transition: all 0.2s; display: inline-flex; align-items: center; gap: 4px;"
+                          >
+                            ✔️ Approve
+                          </button>
+                          <button 
+                            @click="confirmRevokeAccess(record.email)" 
+                            class="revoke-btn"
+                            :title="record.status === 'pending' ? 'Reject Access' : 'Revoke Access'"
+                          >
+                            🗑️ {{ record.status === 'pending' ? 'Reject' : 'Revoke' }}
+                          </button>
+                        </div>
+                      </template>
+                      
+                      <!-- Hardcoded accounts cannot be modified -->
+                      <span v-else class="permanent-badge" title="Permanent Fallback Account" style="margin: 0 auto; display: inline-flex; white-space: nowrap;">
                         🔒 Protected
                       </span>
                     </td>
                   </tr>
                 </tbody>
               </table>
+            </div>
+            <!-- Responsive Table Pagination Footer -->
+            <div v-if="filteredAuthorizedEmails.length > 0" class="pagination-footer">
+              <span class="pagination-info">
+                Showing {{ (currentPage - 1) * itemsPerPage + 1 }} - {{ Math.min(currentPage * itemsPerPage, filteredAuthorizedEmails.length) }} of {{ filteredAuthorizedEmails.length }} records
+              </span>
+              
+              <div v-if="totalPages > 1" class="pagination-controls">
+                <button 
+                  @click="currentPage > 1 && currentPage--" 
+                  :disabled="currentPage === 1"
+                  class="page-action-btn prev"
+                >
+                  ⏮️ Prev
+                </button>
+                
+                <div class="pagination-pages">
+                  <button 
+                    v-for="pageNum in totalPages" 
+                    :key="pageNum"
+                    @click="currentPage = pageNum"
+                    class="page-num-btn"
+                    :class="{ active: currentPage === pageNum }"
+                  >
+                    {{ pageNum }}
+                  </button>
+                </div>
+
+                <button 
+                  @click="currentPage < totalPages && currentPage++" 
+                  :disabled="currentPage === totalPages"
+                  class="page-action-btn next"
+                >
+                  Next ⏭️
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -476,30 +598,33 @@
     <!-- Revoke Access Confirmation Modal -->
     <Transition name="fade">
       <div v-if="showDeleteConfirmModal" class="modal-overlay" @click.self="showDeleteConfirmModal = false">
-        <div class="settings-card" style="background-color: #fff; max-width: 400px; text-align: center;">
-          <div class="settings-header" style="border-bottom: none;">
-            <h3>⚠️ Revoke Access?</h3>
-            <button @click="showDeleteConfirmModal = false" class="close-btn">✕</button>
+        <div class="settings-card" style="background-color: #fff; max-width: 420px; border-radius: 20px; box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15); border: 1px solid rgba(0,0,0,0.05); overflow: hidden; padding: 0;">
+          <div class="settings-header" style="border-bottom: none; padding: 24px 24px 8px 24px; display: flex; align-items: center; justify-content: space-between;">
+            <h3 style="font-family: 'Outfit', sans-serif; font-size: 1.35em; color: #1a202c; display: flex; align-items: center; gap: 8px; margin: 0;">
+              <span>⚠️</span> Revoke Access?
+            </h3>
+            <button @click="showDeleteConfirmModal = false" class="close-btn" style="background: none; border: none; font-size: 1.2em; color: #a0aec0; cursor: pointer; transition: color 0.2s;">✕</button>
           </div>
           
-          <div class="settings-content" style="padding: 20px 0;">
-            <p style="color: #666; margin-bottom: 20px; line-height: 1.6;">
-              Are you absolutely sure you want to revoke access for <strong style="color: #333;">{{ emailToRevoke }}</strong>? 
+          <div class="settings-content" style="padding: 8px 24px 28px 24px; text-align: center;">
+            <p style="color: #4a5568; margin-bottom: 24px; line-height: 1.6; font-size: 0.98em;">
+              Are you absolutely sure you want to revoke access for <br>
+              <strong style="color: #1a202c; display: inline-block; background: rgba(0,0,0,0.05); padding: 6px 14px; border-radius: 6px; margin: 8px 0; word-break: break-all; font-weight: 700;">
+                {{ emailToRevoke }}
+              </strong>?<br>
               They will no longer be able to log into the system with this email address.
             </p>
             
-            <div style="display: flex; gap: 10px;">
+            <div style="display: flex; gap: 12px;">
               <button 
                 @click="executeRevokeAccess" 
-                class="action-btn danger" 
-                style="flex: 1; padding: 12px; border-radius: 8px; border: none; background: #e53e3e; color: white; cursor: pointer; font-weight: bold; transition: all 0.2s;"
+                style="flex: 1; padding: 12px 20px; border-radius: 10px; border: none; background: #e53e3e; color: white; cursor: pointer; font-weight: 600; font-size: 0.95em; transition: all 0.2s; display: inline-flex; align-items: center; justify-content: center;"
               >
                 Yes, Revoke
               </button>
               <button 
                 @click="showDeleteConfirmModal = false" 
-                class="action-btn" 
-                style="flex: 1; padding: 12px; background: #e2e8f0; color: #4a5568; box-shadow: none; border-radius: 8px; border: none; cursor: pointer; font-weight: bold; transition: all 0.2s;"
+                style="flex: 1; padding: 12px 20px; background: #edf2f7; color: #4a5568; border-radius: 10px; border: none; cursor: pointer; font-weight: 600; font-size: 0.95em; transition: all 0.2s; display: inline-flex; align-items: center; justify-content: center;"
               >
                 Cancel
               </button>
@@ -512,7 +637,7 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref, nextTick, watch, computed } from 'vue'
+import { onMounted, onUnmounted, ref, nextTick, watch, computed } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useAuthStore } from '@/stores/auth'
 import { useMembersStore } from '@/stores/members'
@@ -554,9 +679,11 @@ const isDownloading = ref(false)
 const isGeneratingQRs = ref(false)
 
 // Access Management State
-const authorizedEmails = ref<{ email: string; role: string; addedBy: string; addedAt: string }[]>([])
+const authorizedEmails = ref<{ email: string; role: string; status: string; addedBy: string; addedAt: string }[]>([])
 const newAuthEmail = ref('')
 const newAuthRole = ref('user')
+const editingEmail = ref<string | null>(null)
+const editingRole = ref<string>('user')
 const authSearchQuery = ref('')
 const isAddingAuth = ref(false)
 const showDeleteConfirmModal = ref(false)
@@ -720,19 +847,22 @@ async function loadAuthorizedEmails() {
     list.push({
       email: 'jeromessenyonjo@gmail.com',
       role: 'admin',
-      addedBy: 'System Fallback',
+      status: 'allowed',
+      addedBy: 'System',
       addedAt: new Date('2026-01-01T00:00:00.000Z').toISOString()
     })
     list.push({
       email: 'denis.omoding@watotochurch.com',
       role: 'admin',
-      addedBy: 'System Fallback',
+      status: 'allowed',
+      addedBy: 'System',
       addedAt: new Date('2026-01-01T00:00:00.000Z').toISOString()
     })
     list.push({
       email: 'volunteer.lubowa@watotochurch.com',
       role: 'user',
-      addedBy: 'System Fallback',
+      status: 'allowed',
+      addedBy: 'System',
       addedAt: new Date('2026-01-01T00:00:00.000Z').toISOString()
     })
     
@@ -744,6 +874,7 @@ async function loadAuthorizedEmails() {
         list.push({
           email: email,
           role: data.role || 'user',
+          status: data.status || 'allowed',
           addedBy: data.addedBy || 'Admin',
           addedAt: data.addedAt || new Date().toISOString()
         })
@@ -810,6 +941,68 @@ async function authorizeNewEmail() {
   }
 }
 
+async function approvePendingAccess(email: string) {
+  const targetEmail = email.toLowerCase().trim()
+  try {
+    const { getFirebaseInstances } = await import('@/utils/firebase')
+    const { db } = getFirebaseInstances()
+    if (!db) throw new Error('Database not initialized')
+    
+    const { doc, updateDoc } = await import('@/utils/firebase')
+    const docRef = doc(db, 'authorized_emails', targetEmail)
+    
+    await updateDoc(docRef, {
+      status: 'allowed',
+      addedBy: authStore.userEmail || 'Admin',
+      addedAt: new Date().toISOString()
+    })
+    
+    uiStore.success(`Successfully approved access for ${targetEmail}`)
+    
+    // Reload list
+    await loadAuthorizedEmails()
+  } catch (error) {
+    console.error('Failed to approve access:', error)
+    uiStore.error('Failed to approve access')
+  }
+}
+
+function startEditingRole(record: any) {
+  if (isPermanentAdmin(record.email)) return
+  editingEmail.value = record.email
+  editingRole.value = record.role
+}
+
+function cancelEditingRole() {
+  editingEmail.value = null
+  editingRole.value = 'user'
+}
+
+async function saveEditingRole(email: string) {
+  const targetEmail = email.toLowerCase().trim()
+  try {
+    const { getFirebaseInstances } = await import('@/utils/firebase')
+    const { db } = getFirebaseInstances()
+    if (!db) throw new Error('Database not initialized')
+    
+    const { doc, updateDoc } = await import('@/utils/firebase')
+    const docRef = doc(db, 'authorized_emails', targetEmail)
+    
+    await updateDoc(docRef, {
+      role: editingRole.value,
+      lastUpdatedBy: authStore.userEmail || 'Admin',
+      lastUpdatedAt: new Date().toISOString()
+    })
+    
+    uiStore.success(`Successfully updated role for ${targetEmail} to ${editingRole.value === 'admin' ? 'Admin' : 'User'}`)
+    cancelEditingRole()
+    await loadAuthorizedEmails()
+  } catch (error) {
+    console.error('Failed to update role:', error)
+    uiStore.error('Failed to update role')
+  }
+}
+
 function confirmRevokeAccess(email: string) {
   emailToRevoke.value = email
   showDeleteConfirmModal.value = true
@@ -871,6 +1064,38 @@ const filteredAuthorizedEmails = computed(() => {
     record.email.toLowerCase().includes(query) || 
     record.role.toLowerCase().includes(query)
   )
+})
+
+// Responsive Pagination State
+const windowWidth = ref(window.innerWidth)
+const handleResize = () => {
+  windowWidth.value = window.innerWidth
+}
+onMounted(() => {
+  window.addEventListener('resize', handleResize)
+})
+onUnmounted(() => {
+  window.removeEventListener('resize', handleResize)
+})
+
+const itemsPerPage = computed(() => {
+  return windowWidth.value <= 768 ? 5 : 10
+})
+
+const currentPage = ref(1)
+
+watch([filteredAuthorizedEmails, itemsPerPage], () => {
+  currentPage.value = 1
+})
+
+const totalPages = computed(() => {
+  return Math.ceil(filteredAuthorizedEmails.value.length / itemsPerPage.value)
+})
+
+const paginatedAuthorizedEmails = computed(() => {
+  const start = (currentPage.value - 1) * itemsPerPage.value
+  const end = start + itemsPerPage.value
+  return filteredAuthorizedEmails.value.slice(start, end)
 })
 
 async function resetPassword() {

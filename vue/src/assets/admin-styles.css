@@ -1774,34 +1774,40 @@ html {
     letter-spacing: 0.5px;
   }
   
-  /* Assign labels */
+  /* Assign labels for 6 columns */
   .access-table td:nth-child(1)::before { content: "Email Address"; }
-  .access-table td:nth-child(2)::before { content: "Role"; }
-  .access-table td:nth-child(3)::before { content: "Added By"; }
-  .access-table td:nth-child(4)::before { content: "Added At"; }
-  .access-table td:nth-child(5)::before { content: "Actions"; }
+  .access-table td:nth-child(2)::before { content: "Status"; }
+  .access-table td:nth-child(3)::before { content: "Role"; }
+  .access-table td:nth-child(4)::before { content: "Added By"; }
+  .access-table td:nth-child(5)::before { content: "Added At"; }
+  .access-table td:nth-child(6)::before { content: "Actions"; }
   
   /* Ordering: Put Actions column FIRST */
   .access-table td:nth-child(1) { order: 2; }
   .access-table td:nth-child(2) { order: 3; }
   .access-table td:nth-child(3) { order: 4; }
   .access-table td:nth-child(4) { order: 5; }
-  .access-table td:nth-child(5) { 
+  .access-table td:nth-child(5) { order: 6; }
+  .access-table td:nth-child(6) { 
     order: 1; 
     background: #f8fafc;
-    padding: 12px 10px !important;
+    padding: 12px !important;
     border-radius: 8px;
     border: 1px solid #e2e8f0 !important;
     margin-bottom: 8px;
-    padding-left: 45% !important;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: 100%;
+    box-sizing: border-box;
   }
 
-  .access-table td:nth-child(5)::before {
-    left: 10px;
+  .access-table td:nth-child(6)::before {
+    display: none !important;
   }
   
-  /* Hide bottom dashed line on last element of the card */
-  .access-table td:nth-child(4) {
+  /* Hide bottom dashed line on last data element of the card (Added At is nth-child(5)) */
+  .access-table td:nth-child(5) {
     border-bottom: none !important;
   }
 
@@ -1817,4 +1823,158 @@ html {
   .access-table td.empty-table-cell::before {
     display: none !important;
   }
+}
+
+/* ==========================================
+   Table Pagination Controls
+   ========================================== */
+.pagination-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px;
+  background: #ffffff;
+  border-top: 1px solid #edf2f7;
+  border-radius: 0 0 16px 16px;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.pagination-info {
+  font-size: 0.85em;
+  color: #718096;
+  font-weight: 500;
+}
+
+.pagination-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.pagination-pages {
+  display: flex;
+  gap: 6px;
+}
+
+.page-num-btn {
+  border: 1px solid #e2e8f0;
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-weight: 700;
+  font-size: 0.85em;
+  cursor: pointer;
+  background: #ffffff;
+  color: #4a5568;
+  transition: all 0.2s ease;
+}
+
+.page-num-btn:hover {
+  background: #f7fafc;
+  border-color: #cbd5e0;
+}
+
+.page-num-btn.active {
+  background: #3182ce;
+  color: #ffffff;
+  border-color: #3182ce;
+}
+
+.page-num-btn.active:hover {
+  background: #2b6cb0;
+}
+
+.page-action-btn {
+  background: #163A59;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 0.85em;
+  padding: 8px 14px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.page-action-btn:hover:not(:disabled) {
+  background: #0f2d47;
+  transform: translateY(-1px);
+}
+
+.page-action-btn:disabled {
+  background: #e2e8f0;
+  color: #a0aec0;
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+@media (max-width: 768px) {
+  .pagination-footer {
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    padding: 16px;
+  }
+  
+  .pagination-info {
+    width: 100%;
+    text-align: center;
+    margin-bottom: 4px;
+  }
+  
+  .pagination-controls {
+    width: 100%;
+    justify-content: center;
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+
+  .pagination-pages {
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    order: 1;
+    margin-bottom: 4px;
+  }
+  
+  .page-action-btn.prev {
+    order: 2;
+  }
+  
+  .page-action-btn.next {
+    order: 3;
+  }
+}
+
+/* ==========================================
+   Date Picker Slide-Fade Transition
+   ========================================== */
+.slide-fade-enter-active {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  max-height: 80px;
+  opacity: 1;
+  overflow: hidden;
+}
+
+.slide-fade-leave-active {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  max-height: 80px;
+  opacity: 1;
+  overflow: hidden;
+}
+
+.slide-fade-enter-from,
+.slide-fade-leave-to {
+  opacity: 0;
+  max-height: 0px;
+  padding-top: 0px !important;
+  padding-bottom: 0px !important;
+  margin-top: 0px !important;
+  margin-bottom: 0px !important;
+  transform: translateY(-10px);
 }

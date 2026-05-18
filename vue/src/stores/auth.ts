@@ -11,6 +11,8 @@ import {
   sendPasswordResetEmail as firebaseSendPasswordReset,
   GoogleAuthProvider,
   signInWithPopup,
+  signInWithRedirect,
+  getRedirectResult,
   type User
 } from '@/utils/firebase'
 import { appConfig, ERROR_MESSAGES } from '@/config'
@@ -181,28 +183,37 @@ export const useAuthStore = defineStore('auth', () => {
       // Set session persistence
       await setPersistence(auth, browserSessionPersistence)
 
-      // Sign in with popup
-      const userCredential = await signInWithPopup(auth, provider)
-      const user = userCredential.user
-      const email = user.email || ''
+      // Check if user is on a mobile device
+      const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
 
-      currentUser.value = user
-      isAuthenticated.value = true
+      if (isMobile) {
+        // Use redirect on mobile to bypass pop-up blockers and third-party iframe blocks
+        await signInWithRedirect(auth, provider)
+        return true
+      } else {
+        // Use popup on desktop for a smoother experience
+        const userCredential = await signInWithPopup(auth, provider)
+        const user = userCredential.user
+        const email = user.email || ''
 
-      // Check authorization
-      const { isAuthorized, isPending } = await checkAuthorization(email)
+        currentUser.value = user
+        isAuthenticated.value = true
 
-      if (!isAuthorized && !isPending) {
-        await signOutUser()
-        throw new Error('This Gmail account is not authorized to access the system.')
-      }
+        // Check authorization
+        const { isAuthorized, isPending } = await checkAuthorization(email)
 
-      if (isPending) {
+        if (!isAuthorized && !isPending) {
+          await signOutUser()
+          throw new Error('This Gmail account is not authorized to access the system.')
+        }
+
+        if (isPending) {
+          return true
+        }
+
+        uiStore.success('Google sign in successful!')
         return true
       }
-
-      uiStore.success('Google sign in successful!')
-      return true
     } catch (error: any) {
       console.error('Google sign in error:', error)
       let errorMessage = error.message || ERROR_MESSAGES.AUTH_FAILED
@@ -292,6 +303,30 @@ export const useAuthStore = defineStore('auth', () => {
   function initializeAuthListener() {
     const { auth } = getFirebaseInstances()
     if (!auth) return
+
+    const uiStore = useUIStore()
+
+    // Capture the redirect result if returning from a mobile Google sign-in redirect
+    getRedirectResult(auth).then(async (result) => {
+      if (result && result.user) {
+        const user = result.user
+        currentUser.value = user
+        isAuthenticated.value = true
+        
+        const { isAuthorized, isPending } = await checkAuthorization(user.email || '')
+        if (!isAuthorized && !isPending) {
+          await signOutUser()
+          uiStore.error('This Gmail account is not authorized to access the system.')
+        } else if (isPending) {
+          uiStore.info('Your registration request is pending admin approval.')
+        } else {
+          uiStore.success('Google sign in successful!')
+        }
+      }
+    }).catch((error) => {
+      console.error('Redirect sign-in result error:', error)
+      uiStore.error(error.message || 'Failed to complete Google sign-in.')
+    })
 
     onAuthStateChanged(auth, async (user) => {
       if (user) {
