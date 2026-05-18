@@ -11,7 +11,6 @@ import {
   sendPasswordResetEmail as firebaseSendPasswordReset,
   GoogleAuthProvider,
   signInWithPopup,
-  signInWithRedirect,
   getRedirectResult,
   type User
 } from '@/utils/firebase'
@@ -183,37 +182,31 @@ export const useAuthStore = defineStore('auth', () => {
       // Set session persistence
       await setPersistence(auth, browserSessionPersistence)
 
-      // Check if user is on a mobile device
-      const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
+      // Check if user is on a mobile device (temporarily commented out to use unified popup flow)
+      // const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
 
-      if (isMobile) {
-        // Use redirect on mobile to bypass pop-up blockers and third-party iframe blocks
-        await signInWithRedirect(auth, provider)
-        return true
-      } else {
-        // Use popup on desktop for a smoother experience
-        const userCredential = await signInWithPopup(auth, provider)
-        const user = userCredential.user
-        const email = user.email || ''
+      // Use popup on all devices for a smoother, redirect-free login experience
+      const userCredential = await signInWithPopup(auth, provider)
+      const user = userCredential.user
+      const email = user.email || ''
 
-        currentUser.value = user
-        isAuthenticated.value = true
+      currentUser.value = user
+      isAuthenticated.value = true
 
-        // Check authorization
-        const { isAuthorized, isPending } = await checkAuthorization(email)
+      // Check authorization
+      const { isAuthorized, isPending } = await checkAuthorization(email)
 
-        if (!isAuthorized && !isPending) {
-          await signOutUser()
-          throw new Error('This Gmail account is not authorized to access the system.')
-        }
+      if (!isAuthorized && !isPending) {
+        await signOutUser()
+        throw new Error('This Gmail account is not authorized to access the system.')
+      }
 
-        if (isPending) {
-          return true
-        }
-
-        uiStore.success('Google sign in successful!')
+      if (isPending) {
         return true
       }
+
+      uiStore.success('Google sign in successful!')
+      return true
     } catch (error: any) {
       console.error('Google sign in error:', error)
       let errorMessage = error.message || ERROR_MESSAGES.AUTH_FAILED
