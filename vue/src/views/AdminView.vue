@@ -13,8 +13,12 @@
       <div class="auth-card" style="max-width: 600px; text-align: center; padding: 45px; border-radius: 25px; box-shadow: 0 20px 60px rgba(0,0,0,0.12); margin: 40px auto; animation: fadeInUp 0.5s ease-out;">
         <div style="font-size: 4.5em; margin-bottom: 25px; animation: pulse 2s infinite;">⏳</div>
         <h2 style="font-size: 1.8em; margin-bottom: 15px; color: #2d3748; background: none; -webkit-text-fill-color: initial; padding: 0;">Access Pending Approval</h2>
-        <p style="color: #4a5568; font-size: 1.1em; line-height: 1.6; margin-bottom: 30px;">
-          Your account <strong>({{ authStore.userEmail }})</strong> is currently pending administrator approval.
+        <p style="color: #4a5568; font-size: 1.15em; line-height: 1.65; margin-bottom: 30px;">
+          Your account <br>
+          <span style="display: inline-block; background: rgba(0, 0, 0, 0.05); border: 1px solid rgba(0, 0, 0, 0.08); padding: 8px 18px; border-radius: 50px; color: #1a202c; font-weight: 600; font-size: 0.95em; margin: 10px 0; word-break: break-all;">
+            {{ authStore.userEmail }}
+          </span> <br>
+          is currently pending administrator approval.
           <br><br>
           Please contact your system administrator to authorize your access to the Morph portal.
         </p>

@@ -155,7 +155,6 @@ export const useAuthStore = defineStore('auth', () => {
       }
       
       if (isPending) {
-        uiStore.info('Your account access is pending administrator approval.')
         return true
       }
       
@@ -199,7 +198,6 @@ export const useAuthStore = defineStore('auth', () => {
       }
 
       if (isPending) {
-        uiStore.info('Your account access is pending administrator approval.')
         return true
       }
 

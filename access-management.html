@@ -1,0 +1,814 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Access Management Simulator - Lubowa Morph</title>
+  <!-- Modern Premium Typography -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  
+  <style>
+    :root {
+      --primary-color: #163A59;
+      --accent-color: #3182ce;
+      --success-color: #38a169;
+      --danger-color: #e53e3e;
+      --background-gradient: linear-gradient(135deg, #163A59 0%, #0D2235 50%, #06101A 100%);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      min-height: 100vh;
+      background: var(--background-gradient);
+      padding: 40px 20px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      color: #2d3748;
+    }
+
+    .simulation-header {
+      text-align: center;
+      margin-bottom: 30px;
+      color: #ffffff;
+    }
+
+    .simulation-header h1 {
+      font-family: 'Outfit', sans-serif;
+      font-size: 2.2em;
+      margin-bottom: 10px;
+    }
+
+    /* Desktop vs Mobile Toggle Buttons */
+    .view-selector {
+      display: flex;
+      background: rgba(255, 255, 255, 0.1);
+      padding: 6px;
+      border-radius: 14px;
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      margin-bottom: 30px;
+      gap: 5px;
+    }
+
+    .view-btn {
+      background: none;
+      border: none;
+      color: rgba(255, 255, 255, 0.7);
+      padding: 10px 20px;
+      font-weight: 600;
+      font-size: 0.95em;
+      border-radius: 10px;
+      cursor: pointer;
+      transition: all 0.25s;
+      font-family: inherit;
+    }
+
+    .view-btn.active {
+      background: #ffffff;
+      color: var(--primary-color);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    }
+
+    /* Core Container (with dynamic width based on simulated viewport) */
+    .app-viewport {
+      width: 100%;
+      max-width: 1100px;
+      transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    .app-viewport.sim-mobile {
+      max-width: 430px;
+    }
+
+    /* Access Card Container */
+    .access-card {
+      background: #ffffff;
+      border-radius: 24px;
+      padding: 35px;
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.3);
+      width: 100%;
+      transition: all 0.3s;
+    }
+
+    .access-header {
+      margin-bottom: 25px;
+      border-bottom: 1px solid #edf2f7;
+      padding-bottom: 20px;
+    }
+
+    .access-header h2 {
+      font-family: 'Outfit', sans-serif;
+      font-size: 1.6em;
+      color: #1a202c;
+      margin-bottom: 5px;
+    }
+
+    .access-header p {
+      color: #718096;
+      font-size: 0.95em;
+    }
+
+    /* Live Search Field */
+    .filter-container {
+      margin-bottom: 20px;
+    }
+
+    .search-field {
+      position: relative;
+      width: 100%;
+      max-width: 320px;
+    }
+
+    .search-field input {
+      width: 100%;
+      padding: 12px 16px;
+      padding-left: 40px;
+      border: 2px solid #e2e8f0;
+      border-radius: 12px;
+      font-size: 0.95em;
+      transition: all 0.25s;
+      font-family: inherit;
+    }
+
+    .search-field input:focus {
+      border-color: var(--accent-color);
+      outline: none;
+      box-shadow: 0 0 0 3px rgba(49, 130, 206, 0.15);
+    }
+
+    .search-field .search-icon {
+      position: absolute;
+      left: 14px;
+      top: 50%;
+      transform: translateY(-50%);
+      font-size: 1.1em;
+      color: #a0aec0;
+    }
+
+    /* Stately Table Elements */
+    .table-container {
+      overflow-x: auto;
+      border-radius: 14px;
+      border: 1px solid #e2e8f0;
+    }
+
+    .access-table {
+      width: 100%;
+      border-collapse: collapse;
+      text-align: left;
+    }
+
+    .access-table th, .access-table td {
+      padding: 16px 20px;
+      border-bottom: 1px solid #edf2f7;
+    }
+
+    .access-table th {
+      background: #f8fafc;
+      color: #4a5568;
+      font-weight: 700;
+      font-size: 0.85em;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .access-table tr {
+      transition: all 0.25s;
+    }
+
+    .access-table tr:hover {
+      background: #f8fafc;
+    }
+
+    /* Email badge and Envelope icon */
+    .email-cell {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-weight: 500;
+      color: #2d3748;
+    }
+
+    .envelope-icon {
+      font-size: 1.1em;
+      color: #a0aec0;
+    }
+
+    /* Badges style */
+    .role-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 6px 12px;
+      border-radius: 50px;
+      font-size: 0.85em;
+      font-weight: 700;
+    }
+
+    .role-badge.admin {
+      background: #ebf8ff;
+      color: #2b6cb0;
+    }
+
+    .role-badge.user {
+      background: #f0fff4;
+      color: #276749;
+    }
+
+    .role-badge.pending {
+      background: #fffaf0;
+      color: #dd6b20;
+      animation: flash 1.5s infinite alternate;
+    }
+
+    @keyframes flash {
+      from { opacity: 0.7; }
+      to { opacity: 1; }
+    }
+
+    /* Buttons */
+    .btn-approve {
+      background: var(--success-color);
+      border: none;
+      color: #ffffff;
+      padding: 8px 16px;
+      border-radius: 8px;
+      font-weight: 600;
+      font-size: 0.85em;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      transition: all 0.2s;
+      margin-right: 8px;
+    }
+
+    .btn-approve:hover {
+      background: #2f855a;
+      transform: translateY(-1px);
+    }
+
+    .revoke-btn {
+      background: none;
+      border: 1px solid #fed7d7;
+      color: var(--danger-color);
+      padding: 8px 16px;
+      border-radius: 8px;
+      font-weight: 600;
+      font-size: 0.85em;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      transition: all 0.2s;
+    }
+
+    .revoke-btn:hover {
+      background: #fff5f5;
+      border-color: #f5c6cb;
+      transform: translateY(-1px);
+    }
+
+    .permanent-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 6px 12px;
+      background-color: #edf2f7;
+      color: #718096;
+      border-radius: 6px;
+      font-size: 0.85em;
+      font-weight: 500;
+      border: 1px dashed #cbd5e0;
+    }
+
+    /* ========================================================
+       Simulated Mobile Layout Overrides (Triggered by selector)
+       ======================================================== */
+    .sim-mobile .access-card {
+      padding: 20px;
+      border-radius: 20px;
+    }
+
+    .sim-mobile .search-field {
+      max-width: 100%;
+    }
+
+    .sim-mobile .table-container {
+      border: none;
+      overflow-x: visible;
+    }
+
+    .sim-mobile .access-table, 
+    .sim-mobile .access-table thead, 
+    .sim-mobile .access-table tbody, 
+    .sim-mobile .access-table th, 
+    .sim-mobile .access-table td, 
+    .sim-mobile .access-table tr { 
+      display: block; 
+    }
+    
+    .sim-mobile .access-table thead tr { 
+      position: absolute;
+      top: -9999px;
+      left: -9999px;
+    }
+    
+    .sim-mobile .access-table tr { 
+      border: 2px solid #e2e8f0;
+      margin-bottom: 20px;
+      border-radius: 16px;
+      padding: 16px;
+      background: #ffffff;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.02);
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    
+    .sim-mobile .access-table td { 
+      border: none !important;
+      border-bottom: 1px dashed #edf2f7 !important; 
+      position: relative;
+      padding: 12px 0 !important;
+      padding-left: 45% !important; 
+      text-align: left !important;
+      font-size: 0.95em;
+      display: flex;
+      align-items: center;
+    }
+    
+    .sim-mobile .access-table td::before { 
+      position: absolute;
+      left: 0;
+      width: 40%; 
+      font-weight: 700;
+      color: #4a5568;
+      text-transform: uppercase;
+      font-size: 0.75em;
+      letter-spacing: 0.5px;
+    }
+    
+    .sim-mobile .access-table td:nth-child(1)::before { content: "Email Address"; }
+    .sim-mobile .access-table td:nth-child(2)::before { content: "Role"; }
+    .sim-mobile .access-table td:nth-child(3)::before { content: "Added By"; }
+    .sim-mobile .access-table td:nth-child(4)::before { content: "Added At"; }
+    .sim-mobile .access-table td:nth-child(5)::before { content: "Actions"; }
+    
+    /* Flexbox Ordering - Pushing actions to index 1! */
+    .sim-mobile .access-table td:nth-child(1) { order: 2; }
+    .sim-mobile .access-table td:nth-child(2) { order: 3; }
+    .sim-mobile .access-table td:nth-child(3) { order: 4; }
+    .sim-mobile .access-table td:nth-child(4) { order: 5; }
+    .sim-mobile .access-table td:nth-child(5) { 
+      order: 1; 
+      background: #f8fafc;
+      padding: 12px 10px !important;
+      border-radius: 8px;
+      border: 1px solid #e2e8f0 !important;
+      margin-bottom: 8px;
+      padding-left: 45% !important;
+    }
+
+    .sim-mobile .access-table td:nth-child(5)::before {
+      left: 10px;
+    }
+    
+    .sim-mobile .access-table td:nth-child(4) {
+      border-bottom: none !important;
+    }
+
+    /* Modal Overlay confirmation card */
+    .modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(15, 23, 42, 0.6);
+      backdrop-filter: blur(4px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+      opacity: 0;
+      pointer-events: none;
+      transition: all 0.3s;
+    }
+
+    .modal-overlay.active {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .confirm-card {
+      background: #ffffff;
+      border-radius: 20px;
+      padding: 30px;
+      max-width: 400px;
+      width: 90%;
+      text-align: center;
+      box-shadow: 0 20px 40px rgba(0,0,0,0.25);
+      transform: scale(0.9);
+      transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    .modal-overlay.active .confirm-card {
+      transform: scale(1);
+    }
+
+    .modal-icon {
+      font-size: 3em;
+      margin-bottom: 15px;
+    }
+
+    .modal-title {
+      font-family: 'Outfit', sans-serif;
+      font-size: 1.4em;
+      color: #1a202c;
+      margin-bottom: 10px;
+    }
+
+    .modal-desc {
+      color: #718096;
+      font-size: 0.95em;
+      line-height: 1.5;
+      margin-bottom: 25px;
+    }
+
+    .modal-buttons {
+      display: flex;
+      gap: 12px;
+    }
+
+    .modal-btn {
+      flex: 1;
+      padding: 12px 20px;
+      font-weight: 600;
+      border-radius: 10px;
+      border: none;
+      cursor: pointer;
+      font-family: inherit;
+      transition: all 0.2s;
+    }
+
+    .modal-btn.cancel {
+      background: #edf2f7;
+      color: #4a5568;
+    }
+
+    .modal-btn.cancel:hover {
+      background: #e2e8f0;
+    }
+
+    .modal-btn.confirm {
+      background: var(--danger-color);
+      color: #ffffff;
+    }
+
+    .modal-btn.confirm:hover {
+      background: #c53030;
+    }
+
+    /* Live success toasts */
+    .toast-container {
+      position: fixed;
+      bottom: 30px;
+      right: 30px;
+      z-index: 2000;
+    }
+
+    .toast {
+      background: #2d3748;
+      color: #ffffff;
+      padding: 16px 24px;
+      border-radius: 12px;
+      font-weight: 600;
+      font-size: 0.95em;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      transform: translateY(100px);
+      opacity: 0;
+      transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
+
+    .toast.active {
+      transform: translateY(0);
+      opacity: 1;
+    }
+
+    .toast.success {
+      border-left: 5px solid var(--success-color);
+    }
+
+    .toast.danger {
+      border-left: 5px solid var(--danger-color);
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Simulation Metadata Header -->
+  <div class="simulation-header">
+    <h1>🛡️ Access Management Simulator</h1>
+    <p>Visualize pending users, instant approval states, and Flexbox-reordered mobile cards</p>
+  </div>
+
+  <!-- View Toggler (Desktop vs Mobile simulation) -->
+  <div class="view-selector">
+    <button class="view-btn active" onclick="setViewMode('desktop')">🖥️ Desktop View</button>
+    <button class="view-btn" onclick="setViewMode('mobile')">📱 Mobile View</button>
+  </div>
+
+  <!-- Core App Viewport -->
+  <div class="app-viewport" id="viewport">
+    
+    <div class="access-card">
+      <div class="access-header">
+        <h2>🛡️ Access Management Controls</h2>
+        <p>Authorize, search, approve, and manage email addresses allowed to access the system.</p>
+      </div>
+
+      <!-- Live Search Box -->
+      <div class="filter-container">
+        <div class="search-field">
+          <span class="search-icon">🔍</span>
+          <input type="text" id="searchInput" placeholder="Search emails..." oninput="handleSearch()">
+        </div>
+      </div>
+
+      <!-- List Table -->
+      <div class="table-container">
+        <table class="access-table">
+          <thead>
+            <tr>
+              <th>Email Address</th>
+              <th>Role</th>
+              <th>Added By</th>
+              <th>Added At</th>
+              <th style="text-align: center;">Actions</th>
+            </tr>
+          </thead>
+          <tbody id="tableBody">
+            <!-- Rendered Dynamically by Vanilla JS -->
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Revocation Confirmation Modal Overlay -->
+  <div class="modal-overlay" id="confirmModal">
+    <div class="confirm-card">
+      <div class="modal-icon">⚠️</div>
+      <h3 class="modal-title">Revoke System Access?</h3>
+      <p class="modal-desc">
+        Are you sure you want to permanently revoke system access for <br>
+        <strong id="targetEmail" style="color: #2d3748;">user@example.com</strong>?<br>
+        They will be instantly locked out.
+      </p>
+      <div class="modal-buttons">
+        <button class="modal-btn cancel" onclick="closeRevokeModal()">Cancel</button>
+        <button class="modal-btn confirm" onclick="executeRevocation()">Confirm Revoke</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Dynamic Success/Revoke Toast Alerts -->
+  <div class="toast-container">
+    <div class="toast" id="alertToast">
+      <span id="toastIcon">✔️</span>
+      <span id="toastMessage">Success Message</span>
+    </div>
+  </div>
+
+  <!-- Interactive Vanilla JS Engine -->
+  <script>
+    // Live database mock data representing exact application states
+    let databaseRecords = [
+      {
+        email: "jeromessenyonjo@gmail.com",
+        role: "admin",
+        status: "approved",
+        addedBy: "System Fallback",
+        addedAt: "2026-05-18T10:00:00Z",
+        protected: true
+      },
+      {
+        email: "new-assistant@gmail.com",
+        role: "user",
+        status: "pending",
+        addedBy: "Self Sign-In",
+        addedAt: new Date().toISOString(),
+        protected: false
+      },
+      {
+        email: "volunteer.lubowa@watotochurch.com",
+        role: "user",
+        status: "approved",
+        addedBy: "System Fallback",
+        addedAt: "2026-05-18T10:10:00Z",
+        protected: true
+      },
+      {
+        email: "denis.omoding@watotochurch.com",
+        role: "admin",
+        status: "approved",
+        addedBy: "System Fallback",
+        addedAt: "2026-05-18T10:05:00Z",
+        protected: true
+      }
+    ];
+
+    let searchFilterQuery = "";
+    let emailToRevoke = "";
+
+    // Toggle simulated mobile width classes
+    function setViewMode(mode) {
+      const viewport = document.getElementById("viewport");
+      const buttons = document.querySelectorAll(".view-btn");
+      
+      buttons.forEach(btn => btn.classList.remove("active"));
+      
+      if (mode === "mobile") {
+        viewport.classList.add("sim-mobile");
+        buttons[1].classList.add("active");
+        showToast("📱 Simulated Mobile Stack Card View loaded!", "success", "📱");
+      } else {
+        viewport.classList.remove("sim-mobile");
+        buttons[0].classList.add("active");
+        showToast("🖥️ Desktop standard table view loaded!", "success", "🖥️");
+      }
+    }
+
+    // Dynamic state renderer
+    function renderTable() {
+      const tableBody = document.getElementById("tableBody");
+      tableBody.innerHTML = "";
+
+      const filteredRecords = databaseRecords.filter(record => 
+        record.email.toLowerCase().includes(searchFilterQuery.toLowerCase())
+      );
+
+      if (filteredRecords.length === 0) {
+        tableBody.innerHTML = `
+          <tr>
+            <td colspan="5" style="text-align: center; color: #a0aec0; font-style: italic; padding: 40px;">
+              No matching records found.
+            </td>
+          </tr>
+        `;
+        return;
+      }
+
+      filteredRecords.forEach(record => {
+        const tr = document.createElement("tr");
+        tr.id = `row-${record.email.replace(/[@.]/g, "-")}`;
+        
+        // Define role badge
+        let roleBadge = "";
+        if (record.status === "pending") {
+          roleBadge = `<span class="role-badge pending">⏳ Pending Approval</span>`;
+        } else {
+          roleBadge = record.role === "admin" 
+            ? `<span class="role-badge admin">🔑 Admin</span>`
+            : `<span class="role-badge user">👤 User</span>`;
+        }
+
+        // Define dynamic action block
+        let actionMarkup = "";
+        if (record.protected) {
+          actionMarkup = `<span class="permanent-badge" title="Protected fallback admin account">🔒 Protected</span>`;
+        } else if (record.status === "pending") {
+          actionMarkup = `
+            <button class="btn-approve" onclick="approveUser('${record.email}')">✔️ Approve</button>
+            <button class="revoke-btn" onclick="openRevokeModal('${record.email}')">🗑️ Reject</button>
+          `;
+        } else {
+          actionMarkup = `
+            <button class="revoke-btn" onclick="openRevokeModal('${record.email}')">🗑️ Revoke</button>
+          `;
+        }
+
+        tr.innerHTML = `
+          <td>
+            <div class="email-cell">
+              <span class="envelope-icon">📧</span>
+              <span>${record.email}</span>
+            </div>
+          </td>
+          <td>${roleBadge}</td>
+          <td style="color: #718096; font-size: 0.9em;">${record.addedBy}</td>
+          <td style="color: #718096; font-size: 0.9em;">${new Date(record.addedAt).toLocaleDateString()}</td>
+          <td style="text-align: center;">${actionMarkup}</td>
+        `;
+
+        tableBody.appendChild(tr);
+      });
+    }
+
+    // Handles live text search input
+    function handleSearch() {
+      searchFilterQuery = document.getElementById("searchInput").value;
+      renderTable();
+    }
+
+    // Approve the pending user record
+    function approveUser(email) {
+      const record = databaseRecords.find(r => r.email === email);
+      if (record) {
+        record.status = "approved";
+        record.addedBy = "Approved by Admin";
+        record.addedAt = new Date().toISOString();
+        
+        // Animate the row
+        const rowId = `row-${email.replace(/[@.]/g, "-")}`;
+        const rowElement = document.getElementById(rowId);
+        if (rowElement) {
+          rowElement.style.background = "#e6fffa";
+          setTimeout(() => {
+            rowElement.style.background = "";
+            renderTable();
+          }, 350);
+        } else {
+          renderTable();
+        }
+
+        showToast(`Authorized email: ${email} approved successfully!`, "success", "🎉");
+      }
+    }
+
+    // Open confirm revoke modal
+    function openRevokeModal(email) {
+      emailToRevoke = email;
+      document.getElementById("targetEmail").innerText = email;
+      document.getElementById("confirmModal").classList.add("active");
+    }
+
+    // Close confirm revoke modal
+    function closeRevokeModal() {
+      document.getElementById("confirmModal").classList.remove("active");
+      emailToRevoke = "";
+    }
+
+    // Execute deletion from mock array
+    function executeRevocation() {
+      if (!emailToRevoke) return;
+
+      const recordIndex = databaseRecords.findIndex(r => r.email === emailToRevoke);
+      if (recordIndex !== -1) {
+        const email = emailToRevoke;
+        
+        // Slide out animate the card
+        const rowId = `row-${email.replace(/[@.]/g, "-")}`;
+        const rowElement = document.getElementById(rowId);
+        
+        if (rowElement) {
+          rowElement.style.opacity = "0";
+          rowElement.style.transform = "translateX(50px)";
+          setTimeout(() => {
+            databaseRecords.splice(recordIndex, 1);
+            closeRevokeModal();
+            renderTable();
+            showToast(`Access revoked for ${email}`, "danger", "🗑️");
+          }, 300);
+        } else {
+          databaseRecords.splice(recordIndex, 1);
+          closeRevokeModal();
+          renderTable();
+          showToast(`Access revoked for ${email}`, "danger", "🗑️");
+        }
+      }
+    }
+
+    // Premium dynamic toast popup alerts
+    function showToast(message, type, icon = "✔️") {
+      const toast = document.getElementById("alertToast");
+      const toastIcon = document.getElementById("toastIcon");
+      const toastMsg = document.getElementById("toastMessage");
+
+      toast.className = "toast active " + type;
+      toastIcon.innerText = icon;
+      toastMsg.innerText = message;
+
+      setTimeout(() => {
+        toast.classList.remove("active");
+      }, 3500);
+    }
+
+    // Initial boot render
+    renderTable();
+  </script>
+</body>
+</html>
