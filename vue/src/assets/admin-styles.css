@@ -1344,3 +1344,477 @@ html {
 .toggle-switch input:checked+.toggle-slider:before {
   transform: translateX(26px);
 }
+
+/* ==========================================
+   Google Sign-In Styles
+   ========================================== */
+.auth-divider {
+  display: flex;
+  align-items: center;
+  text-align: center;
+  margin: 20px 0;
+  color: #888;
+}
+
+.auth-divider::before,
+.auth-divider::after {
+  content: '';
+  flex: 1;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.auth-divider:not(:empty)::before {
+  margin-right: .5em;
+}
+
+.auth-divider:not(:empty)::after {
+  margin-left: .5em;
+}
+
+.google-btn-container {
+  margin-bottom: 20px;
+}
+
+.google-signin-btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  background-color: #ffffff;
+  border: 2px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 14px 20px;
+  font-size: 1.05em;
+  font-weight: 600;
+  color: #4a5568;
+  cursor: pointer;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+}
+
+.google-signin-btn:hover {
+  background-color: #f7fafc;
+  border-color: #cbd5e0;
+  color: #2d3748;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+}
+
+.google-signin-btn:active {
+  transform: translateY(0);
+}
+
+.google-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ==========================================
+   Dashboard Navigation Tabs
+   ========================================== */
+.dashboard-tabs {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 25px;
+  border-bottom: 2px solid rgba(226, 232, 240, 0.6);
+  padding-bottom: 8px;
+}
+
+.tab-btn {
+  background: rgba(255, 255, 255, 0.05) !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  font-size: 1.05em;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.75) !important;
+  padding: 12px 24px !important;
+  cursor: pointer;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  border-radius: 12px 12px 0 0 !important;
+  box-shadow: none !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  min-width: auto !important;
+  height: auto !important;
+}
+
+.tab-btn:hover {
+  color: #ffffff !important;
+  background: rgba(255, 255, 255, 0.12) !important;
+  border-color: rgba(255, 255, 255, 0.2) !important;
+}
+
+.tab-btn.active {
+  color: #ffffff !important;
+  background: rgba(255, 255, 255, 0.22) !important;
+  border-color: rgba(255, 255, 255, 0.35) !important;
+}
+
+.tab-btn.active::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: #ffffff !important;
+  border-radius: 4px 4px 0 0;
+  box-shadow: 0 0 8px rgba(255, 255, 255, 0.6);
+}
+
+/* ==========================================
+   Access Management Card & Form
+   ========================================== */
+.access-management-section {
+  animation: fadeInUp 0.5s ease-out;
+}
+
+.access-card {
+  background: white;
+  border-radius: 20px;
+  padding: 30px;
+  box-shadow: 0 10px 35px rgba(0, 0, 0, 0.05);
+  border: 1px solid #edf2f7;
+}
+
+.access-header {
+  margin-bottom: 30px;
+}
+
+.access-header h2 {
+  font-size: 1.6em;
+  color: #2d3748;
+  margin-bottom: 6px;
+}
+
+.access-header p {
+  color: #718096;
+  font-size: 0.95em;
+}
+
+.authorize-form-container {
+  background: #f7fafc;
+  border-radius: 12px;
+  padding: 20px;
+  margin-bottom: 30px;
+  border: 1px solid #edf2f7;
+}
+
+.authorize-form-container h3 {
+  font-size: 1.1em;
+  color: #4a5568;
+  margin: 0 0 15px 0;
+  font-weight: 600;
+}
+
+.authorize-form .form-row {
+  display: flex;
+  gap: 15px;
+  align-items: center;
+}
+
+.authorize-form .field {
+  margin: 0;
+  flex: 1;
+}
+
+.authorize-form input[type="email"],
+.authorize-form select {
+  width: 100%;
+  padding: 12px 16px;
+  border: 1px solid #cbd5e0;
+  border-radius: 8px;
+  font-size: 1em;
+  color: #2d3748;
+  background-color: #ffffff;
+  outline: none;
+  box-sizing: border-box;
+  transition: border-color 0.2s;
+}
+
+.authorize-form input[type="email"]:focus,
+.authorize-form select:focus {
+  border-color: #163A59;
+}
+
+.authorize-form .submit-btn {
+  padding: 12px 24px;
+  background: #163A59;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 1em;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.authorize-form .submit-btn:hover {
+  background: #0f2d47;
+  transform: translateY(-1px);
+}
+
+.authorize-form .submit-btn:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+/* ==========================================
+   Filter & Table Layout
+   ========================================== */
+.filter-container {
+  margin-bottom: 20px;
+}
+
+.search-field {
+  position: relative;
+  max-width: 350px;
+}
+
+.search-icon {
+  position: absolute;
+  left: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #a0aec0;
+  font-size: 1em;
+  pointer-events: none;
+}
+
+.search-field input {
+  width: 100%;
+  padding: 10px 14px 10px 40px;
+  border: 1px solid #cbd5e0;
+  border-radius: 8px;
+  font-size: 0.95em;
+  outline: none;
+  background-color: #fff;
+  transition: all 0.2s;
+  box-sizing: border-box;
+}
+
+.search-field input:focus {
+  border-color: #163A59;
+  box-shadow: 0 0 0 3px rgba(22, 58, 89, 0.15);
+}
+
+.table-container {
+  overflow-x: auto;
+  border-radius: 12px;
+  border: 1px solid #edf2f7;
+}
+
+.access-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+  font-size: 0.95em;
+}
+
+.access-table th {
+  background: #f7fafc;
+  color: #4a5568;
+  font-weight: 600;
+  padding: 14px 18px;
+  border-bottom: 2px solid #edf2f7;
+}
+
+.access-table td {
+  padding: 14px 18px;
+  border-bottom: 1px solid #edf2f7;
+  color: #4a5568;
+}
+
+.access-table tr:hover {
+  background-color: #fcfcfc;
+}
+
+.email-cell {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 500;
+}
+
+.envelope-icon {
+  font-size: 1.1em;
+  color: #a0aec0;
+}
+
+.added-by-cell {
+  font-size: 0.9em;
+  color: #718096;
+}
+
+/* ==========================================
+   Badges and Control Actions
+   ========================================== */
+.role-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 0.85em;
+  font-weight: 600;
+}
+
+.role-badge.admin {
+  background-color: #feebc8;
+  color: #c05621;
+}
+
+.role-badge.user {
+  background-color: #e2e8f0;
+  color: #4a5568;
+}
+
+.revoke-btn {
+  background: #ffe5e5;
+  color: #e53e3e;
+  border: 1px solid #ffcccc;
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 0.85em;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.revoke-btn:hover {
+  background: #e53e3e;
+  color: white;
+  border-color: #e53e3e;
+  transform: scale(1.03);
+}
+
+.permanent-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 12px;
+  background-color: #edf2f7;
+  color: #718096;
+  border-radius: 6px;
+  font-size: 0.85em;
+  font-weight: 500;
+  border: 1px dashed #cbd5e0;
+}
+
+.empty-table-cell {
+  text-align: center;
+  padding: 40px !important;
+  color: #a0aec0 !important;
+  font-style: italic;
+}
+
+@media (max-width: 768px) {
+  .authorize-form .form-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  
+  .search-field {
+    max-width: 100%;
+  }
+
+  /* Mobile Table to Card Transformation */
+  .access-table, 
+  .access-table thead, 
+  .access-table tbody, 
+  .access-table th, 
+  .access-table td, 
+  .access-table tr { 
+    display: block; 
+  }
+  
+  /* Hide table headers on mobile */
+  .access-table thead tr { 
+    position: absolute;
+    top: -9999px;
+    left: -9999px;
+  }
+  
+  .access-table tr { 
+    border: 2px solid #e2e8f0;
+    margin-bottom: 20px;
+    border-radius: 16px;
+    padding: 16px;
+    background: #ffffff;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.02);
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  
+  .access-table td { 
+    border: none !important;
+    border-bottom: 1px dashed #edf2f7 !important; 
+    position: relative;
+    padding: 12px 0 !important;
+    padding-left: 45% !important; 
+    text-align: left !important;
+    font-size: 0.95em;
+    display: flex;
+    align-items: center;
+  }
+  
+  /* Labels */
+  .access-table td::before { 
+    position: absolute;
+    left: 0;
+    width: 40%; 
+    font-weight: 700;
+    color: #4a5568;
+    text-transform: uppercase;
+    font-size: 0.75em;
+    letter-spacing: 0.5px;
+  }
+  
+  /* Assign labels */
+  .access-table td:nth-child(1)::before { content: "Email Address"; }
+  .access-table td:nth-child(2)::before { content: "Role"; }
+  .access-table td:nth-child(3)::before { content: "Added By"; }
+  .access-table td:nth-child(4)::before { content: "Added At"; }
+  .access-table td:nth-child(5)::before { content: "Actions"; }
+  
+  /* Ordering: Put Actions column FIRST */
+  .access-table td:nth-child(1) { order: 2; }
+  .access-table td:nth-child(2) { order: 3; }
+  .access-table td:nth-child(3) { order: 4; }
+  .access-table td:nth-child(4) { order: 5; }
+  .access-table td:nth-child(5) { 
+    order: 1; 
+    background: #f8fafc;
+    padding: 12px 10px !important;
+    border-radius: 8px;
+    border: 1px solid #e2e8f0 !important;
+    margin-bottom: 8px;
+    padding-left: 45% !important;
+  }
+
+  .access-table td:nth-child(5)::before {
+    left: 10px;
+  }
+  
+  /* Hide bottom dashed line on last element of the card */
+  .access-table td:nth-child(4) {
+    border-bottom: none !important;
+  }
+
+  /* Empty State styling */
+  .access-table td.empty-table-cell {
+    padding-left: 0 !important;
+    text-align: center !important;
+    width: 100%;
+    order: 1 !important;
+    display: block !important;
+  }
+  
+  .access-table td.empty-table-cell::before {
+    display: none !important;
+  }
+}

@@ -5,6 +5,27 @@
       <LoginForm @success="handleLoginSuccess" />
     </div>
 
+    <!-- Pending Approval Screen -->
+    <div v-else-if="authStore.isPendingApproval" class="main-container" style="max-width: 600px; text-align: center; padding: 45px; border-radius: 25px; box-shadow: 0 20px 60px rgba(0,0,0,0.12); animation: fadeInUp 0.5s ease-out;">
+      <div style="font-size: 4.5em; margin-bottom: 25px; animation: pulse 2s infinite;">⏳</div>
+      <h2 style="font-size: 1.8em; margin-bottom: 15px; color: #2d3748; background: none; -webkit-text-fill-color: initial; padding: 0;">Access Pending Approval</h2>
+      <p style="color: #4a5568; font-size: 1.1em; line-height: 1.6; margin-bottom: 30px;">
+        Your account <strong>({{ authStore.userEmail }})</strong> is currently pending administrator approval.
+        <br><br>
+        Please contact your system administrator to authorize your access to the Morph registration portal.
+      </p>
+      
+      <div style="border-top: 1px solid #edf2f7; padding-top: 25px; margin-top: 20px; display: flex; justify-content: center;">
+        <button 
+          @click="authStore.signOutUser" 
+          class="btn-secondary"
+          style="width: 100%; padding: 14px 20px; font-size: 1.05em; border-radius: 12px; font-weight: 600; display: inline-flex; align-items: center; justify-content: center; background: #e2e8f0; color: #4a5568; border: none; cursor: pointer; transition: all 0.2s;"
+        >
+          🚪 Sign Out / Use Different Account
+        </button>
+      </div>
+    </div>
+
     <!-- Registration Form -->
     <div v-else class="w-full">
       <!-- Success Card (for QR check-in) -->

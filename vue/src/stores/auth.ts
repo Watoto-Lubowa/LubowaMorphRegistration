@@ -9,6 +9,8 @@ import {
   setPersistence,
   browserSessionPersistence,
   sendPasswordResetEmail as firebaseSendPasswordReset,
+  GoogleAuthProvider,
+  signInWithPopup,
   type User
 } from '@/utils/firebase'
 import { appConfig, ERROR_MESSAGES } from '@/config'
@@ -19,17 +21,87 @@ export const useAuthStore = defineStore('auth', () => {
   const isAuthenticated = ref(false)
   const isAdmin = ref(false)
   const isAuthorizedUser = ref(false)
+  const isPendingApproval = ref(false)
 
   const userEmail = computed(() => currentUser.value?.email || '')
 
-  function checkAuthorization(email: string) {
-    const isAdminUser = appConfig.authorizedAdminEmails.includes(email)
-    const isAuthorized = appConfig.authorizedUserEmails.includes(email) || isAdminUser
+  async function checkAuthorization(email: string) {
+    const normalizedEmail = email.toLowerCase().trim()
+    
+    // 1. Check static fallbacks first to prevent breaking changes
+    const hardcodedAdmins = ['jeromessenyonjo@gmail.com', 'denis.omoding@watotochurch.com']
+    const hardcodedUsers = ['volunteer.lubowa@watotochurch.com']
+    
+    let isAdminUser = hardcodedAdmins.includes(normalizedEmail) || 
+                     appConfig.authorizedAdminEmails.includes(normalizedEmail)
+    let isAuthorized = hardcodedUsers.includes(normalizedEmail) || 
+                      appConfig.authorizedUserEmails.includes(normalizedEmail) || 
+                      isAdminUser
+    
+    let isPending = false
+
+    if (isAuthorized) {
+      isPendingApproval.value = false
+    }
+    
+    // 2. If not found in static lists, check Firestore collection "authorized_emails"
+    if (!isAuthorized && !isAdminUser) {
+      try {
+        const { getFirebaseInstances } = await import('@/utils/firebase')
+        const { db } = getFirebaseInstances()
+        if (db) {
+          const { doc, getDoc, setDoc } = await import('@/utils/firebase')
+          const docRef = doc(db, 'authorized_emails', normalizedEmail)
+          const docSnap = await getDoc(docRef)
+          
+          if (docSnap.exists()) {
+            const data = docSnap.data()
+            const status = data.status || 'pending'
+            const role = data.role || 'user'
+            
+            if (status === 'allowed') {
+              isAuthorized = true
+              isPending = false
+              if (role === 'admin') {
+                isAdminUser = true
+              }
+            } else if (status === 'pending') {
+              isAuthorized = false
+              isPending = true
+            } else {
+              // revoked or explicitly blocked
+              isAuthorized = false
+              isPending = false
+            }
+          } else {
+            // Document does NOT exist! Auto-register this login attempt as pending
+            await setDoc(docRef, {
+              email: normalizedEmail,
+              role: 'user',
+              status: 'pending',
+              addedAt: new Date().toISOString(),
+              addedBy: 'Self Sign-In'
+            })
+            isAuthorized = false
+            isPending = true
+          }
+        } else {
+          // Database connection fail fallback
+          isAuthorized = false
+          isPending = true
+        }
+      } catch (error) {
+        console.error('Error checking Firestore authorization:', error)
+        isAuthorized = false
+        isPending = true
+      }
+    }
     
     isAdmin.value = isAdminUser
     isAuthorizedUser.value = isAuthorized
+    isPendingApproval.value = isPending
     
-    return { isAdmin: isAdminUser, isAuthorized }
+    return { isAdmin: isAdminUser, isAuthorized, isPending }
   }
 
   async function signInAnonymously() {
@@ -75,11 +147,16 @@ export const useAuthStore = defineStore('auth', () => {
       isAuthenticated.value = true
       
       // Check authorization
-      const { isAuthorized } = checkAuthorization(email)
+      const { isAuthorized, isPending } = await checkAuthorization(email)
       
-      if (!isAuthorized) {
+      if (!isAuthorized && !isPending) {
         await signOutUser()
         throw new Error(ERROR_MESSAGES.UNAUTHORIZED)
+      }
+      
+      if (isPending) {
+        uiStore.info('Your account access is pending administrator approval.')
+        return true
       }
       
       uiStore.success('Sign in successful!')
@@ -87,6 +164,54 @@ export const useAuthStore = defineStore('auth', () => {
     } catch (error: any) {
       console.error('Sign in error:', error)
       uiStore.error(error.message || ERROR_MESSAGES.AUTH_FAILED)
+      return false
+    }
+  }
+
+  async function signInWithGoogle() {
+    const uiStore = useUIStore()
+    try {
+      const { auth } = getFirebaseInstances()
+      if (!auth) {
+        throw new Error(ERROR_MESSAGES.FIREBASE_NOT_INITIALIZED)
+      }
+
+      const provider = new GoogleAuthProvider()
+      provider.setCustomParameters({ prompt: 'select_account' })
+
+      // Set session persistence
+      await setPersistence(auth, browserSessionPersistence)
+
+      // Sign in with popup
+      const userCredential = await signInWithPopup(auth, provider)
+      const user = userCredential.user
+      const email = user.email || ''
+
+      currentUser.value = user
+      isAuthenticated.value = true
+
+      // Check authorization
+      const { isAuthorized, isPending } = await checkAuthorization(email)
+
+      if (!isAuthorized && !isPending) {
+        await signOutUser()
+        throw new Error('This Gmail account is not authorized to access the system.')
+      }
+
+      if (isPending) {
+        uiStore.info('Your account access is pending administrator approval.')
+        return true
+      }
+
+      uiStore.success('Google sign in successful!')
+      return true
+    } catch (error: any) {
+      console.error('Google sign in error:', error)
+      let errorMessage = error.message || ERROR_MESSAGES.AUTH_FAILED
+      if (error.code === 'auth/popup-closed-by-user') {
+        errorMessage = 'Sign in was cancelled.'
+      }
+      uiStore.error(errorMessage)
       return false
     }
   }
@@ -103,6 +228,7 @@ export const useAuthStore = defineStore('auth', () => {
       isAuthenticated.value = false
       isAdmin.value = false
       isAuthorizedUser.value = false
+      isPendingApproval.value = false
       
       uiStore.info('Signed out successfully')
     } catch (error: any) {
@@ -128,7 +254,8 @@ export const useAuthStore = defineStore('auth', () => {
 
       // Check if email is authorized
       const isAuthorized = appConfig.authorizedUserEmails.includes(email) || 
-                          appConfig.authorizedAdminEmails.includes(email)
+                          appConfig.authorizedAdminEmails.includes(email) ||
+                          ['jeromessenyonjo@gmail.com', 'denis.omoding@watotochurch.com', 'volunteer.lubowa@watotochurch.com'].includes(email.toLowerCase().trim())
       
       if (!isAuthorized) {
         uiStore.error('This email is not authorized to access the system')
@@ -168,16 +295,17 @@ export const useAuthStore = defineStore('auth', () => {
     const { auth } = getFirebaseInstances()
     if (!auth) return
 
-    onAuthStateChanged(auth, (user) => {
+    onAuthStateChanged(auth, async (user) => {
       if (user) {
         currentUser.value = user
         isAuthenticated.value = true
-        checkAuthorization(user.email || '')
+        await checkAuthorization(user.email || '')
       } else {
         currentUser.value = null
         isAuthenticated.value = false
         isAdmin.value = false
         isAuthorizedUser.value = false
+        isPendingApproval.value = false
       }
     })
   }
@@ -191,10 +319,12 @@ export const useAuthStore = defineStore('auth', () => {
     isAuthenticated,
     isAdmin,
     isAuthorizedUser,
+    isPendingApproval,
     userEmail,
     signIn,
     signInAnonymously,
     signInWithEmailAndPassword,
+    signInWithGoogle,
     signOutUser,
     resetPassword,
     sendPasswordResetEmail,

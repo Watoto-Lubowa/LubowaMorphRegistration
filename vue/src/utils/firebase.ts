@@ -30,6 +30,8 @@ import {
   onAuthStateChanged,
   setPersistence,
   browserSessionPersistence,
+  GoogleAuthProvider,
+  signInWithPopup,
   type User
 } from 'firebase/auth'
 import { 
@@ -95,6 +97,8 @@ export {
   onAuthStateChanged,
   setPersistence,
   browserSessionPersistence,
+  GoogleAuthProvider,
+  signInWithPopup,
   type User,
   type Firestore,
   type Auth,
