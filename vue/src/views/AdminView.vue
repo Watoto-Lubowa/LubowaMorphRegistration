@@ -26,8 +26,7 @@
         <div style="border-top: 1px solid #edf2f7; padding-top: 25px; margin-top: 20px; display: flex; justify-content: center;">
           <button 
             @click="authStore.signOutUser" 
-            class="action-btn"
-            style="width: 100%; padding: 14px 20px; font-size: 1.05em; border-radius: 12px; font-weight: 600; background: #e2e8f0; color: #4a5568; display: inline-flex; align-items: center; justify-content: center; border: none; cursor: pointer; transition: all 0.2s;"
+            style="width: 100%; padding: 14px 20px; font-size: 1.05em; border-radius: 12px; font-weight: 600; background: #e2e8f0; color: #4a5568; display: inline-flex; align-items: center; justify-content: center; border: none; cursor: pointer; transition: all 0.2s; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);"
           >
             🚪 Sign Out / Use Another Account
           </button>
