@@ -881,6 +881,18 @@ async function loadAuthorizedEmails() {
       }
     })
     
+    // Sort: pending status first, then sorted descending by addedAt (newest first)
+    list.sort((a, b) => {
+      const aPending = a.status === 'pending'
+      const bPending = b.status === 'pending'
+      if (aPending && !bPending) return -1
+      if (!aPending && bPending) return 1
+      
+      const dateA = new Date(a.addedAt).getTime()
+      const dateB = new Date(b.addedAt).getTime()
+      return dateB - dateA
+    })
+    
     authorizedEmails.value = list
   } catch (error) {
     console.error('Failed to load authorized emails:', error)
@@ -1084,12 +1096,20 @@ const itemsPerPage = computed(() => {
 
 const currentPage = ref(1)
 
-watch([filteredAuthorizedEmails, itemsPerPage], () => {
+// Reset to page 1 only when search query or items per page change
+watch([authSearchQuery, itemsPerPage], () => {
   currentPage.value = 1
 })
 
 const totalPages = computed(() => {
   return Math.ceil(filteredAuthorizedEmails.value.length / itemsPerPage.value)
+})
+
+// Prevent showing blank page if total pages decreases below current page
+watch(totalPages, (newTotal) => {
+  if (currentPage.value > newTotal) {
+    currentPage.value = Math.max(1, newTotal)
+  }
 })
 
 const paginatedAuthorizedEmails = computed(() => {

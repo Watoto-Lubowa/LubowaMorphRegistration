@@ -51,7 +51,7 @@ function getIcon(type: ToastMessage['type']): string {
 }
 </script>
 
-<style scoped>
+<style>
 .toast {
   box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
 }
