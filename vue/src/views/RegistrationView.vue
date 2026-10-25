@@ -772,7 +772,7 @@ import {
 } from '@/utils/validation'
 import { getCachedUserData, saveCachedUserData } from '@/utils/qrCache'
 import { startAutoCloseCountdown } from '@/utils/transitions'
-import { formatDateKey, getCurrentService, getServiceText as getServiceName, type ServiceNumber } from '@/utils/attendance'
+import { formatDateKey, getCurrentService, getServiceText as getServiceName, getUgandaZonedTime, type ServiceNumber } from '@/utils/attendance'
 import type { MemberData } from '@/types'
 import { SERVICE_TIMES } from '@/utils/attendance'
 
@@ -871,39 +871,42 @@ const isLogoVisible = ref(true)
 
 // Date logic
 const isDateAutoMode = ref(true)
-const manualDate = ref(new Date().toISOString().split('T')[0])
+const manualDate = ref(getUgandaZonedTime().isoDateStr)
+const currentNow = ref(new Date()) // Reactive live clock to prevent stale computed cache
 const showNonSundayWarning = ref(false)
 const pendingAction = ref<'save' | 'quickCheckIn' | 'search' | null>(null)
 
 const effectiveDate = computed(() => {
   if (isDateAutoMode.value) {
-    return new Date()
+    return currentNow.value
   }
   // Create date from manual input (YYYY-MM-DD)
   // Note: Date(string) creates UTC usually, but we want local day interpretation logic.
   // Using split and explicitly setting year/month/day avoids timezone shifts on different browsers effectively for "date only"
-  if (!manualDate.value) return new Date()
+  if (!manualDate.value) return currentNow.value
   
   const [y, m, d] = manualDate.value.split('-').map(Number)
   return new Date(y, m - 1, d)
 })
 
 const isEffectiveDateSunday = computed(() => {
+  if (isDateAutoMode.value) {
+    return getUgandaZonedTime(effectiveDate.value).dayOfWeek === 0
+  }
   return effectiveDate.value.getDay() === 0
 })
 
 const isFutureDate = computed(() => {
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
-  const effective = new Date(effectiveDate.value)
-  effective.setHours(0, 0, 0, 0)
-  return effective > today
+  const todayUganda = getUgandaZonedTime().isoDateStr
+  if (isDateAutoMode.value) {
+    return false
+  }
+  return manualDate.value > todayUganda
 })
 
 const maxSelectableDate = computed(() => {
-  // Today's date in YYYY-MM-DD format for the max attribute
-  const today = new Date()
-  return today.toISOString().split('T')[0]
+  // Today's date in YYYY-MM-DD format in Uganda for the max attribute
+  return getUgandaZonedTime().isoDateStr
 })
 
 const isDateAutoModeToggle = computed({
@@ -1017,7 +1020,10 @@ onMounted(() => {
   }, 100)
 })
 
+let serviceIntervalTimer: ReturnType<typeof setInterval> | null = null
+
 onBeforeUnmount(() => {
+  if (serviceIntervalTimer) clearInterval(serviceIntervalTimer)
   if (logoObserver) logoObserver.disconnect()
 })
 
@@ -1070,6 +1076,11 @@ function isCheckedInToday(attendanceRecord?: Record<string, string>): { isChecke
 }
 
 function updateCurrentServiceDisplay() {
+  // Always refresh live time if in auto mode to ensure effectiveDate is fresh
+  if (isDateAutoMode.value) {
+    currentNow.value = new Date()
+  }
+
   // Determine current service based on mode and date
   if (isServiceAutoMode.value) {
     // Pass effective date to detection
@@ -1186,7 +1197,7 @@ onMounted(async () => {
   // Update service display on mount
   updateCurrentServiceDisplay()
   // Set up interval to update every minute
-  setInterval(updateCurrentServiceDisplay, 60000)
+  serviceIntervalTimer = setInterval(updateCurrentServiceDisplay, 60000)
   
   // Load force update flow state
   await membersStore.loadForceUpdateFlowState()

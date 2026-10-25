@@ -643,6 +643,7 @@ import { useAuthStore } from '@/stores/auth'
 import { useMembersStore } from '@/stores/members'
 import { useUIStore } from '@/stores/ui'
 import { generateServiceQRForService } from '@/utils/cloudflareWorker'
+import { getUgandaZonedTime } from '@/utils/attendance'
 import QRCode from 'qrcode'
 
 // Chart.js import
@@ -708,8 +709,8 @@ onMounted(async () => {
     await loadForceUpdateFlowState()
     await loadAuthorizedEmails()
     
-    // Set default dates
-    const today = new Date().toISOString().split('T')[0]
+    // Set default dates anchored to Uganda time
+    const today = getUgandaZonedTime().isoDateStr
     selectedDate.value = today
 
     // Load initial data
@@ -724,9 +725,9 @@ watch([isAuthenticated, isAdmin], async ([authenticated, admin]) => {
     await loadForceUpdateFlowState()
     await loadAuthorizedEmails()
     
-    // Set default dates if not already set
+    // Set default dates if not already set (anchored to Uganda time)
     if (!selectedDate.value) {
-      const today = new Date().toISOString().split('T')[0]
+      const today = getUgandaZonedTime().isoDateStr
       selectedDate.value = today
     }
     

@@ -38,37 +38,113 @@ export const SERVICE_TIMES = {
   }
 } as const
 
+export interface UgandaZonedTime {
+  hour: number
+  minute: number
+  second: number
+  currentTimeMinutes: number
+  day: number
+  month: number
+  year: number
+  dayOfWeek: number // 0 = Sunday, 1 = Monday, ...
+  dateStr: string // DD_MM_YYYY
+  isoDateStr: string // YYYY-MM-DD
+}
+
 /**
- * Get the current service based on the current time
+ * Get date and time parts strictly anchored to East Africa Time (Africa/Kampala, UTC+3).
+ * This ensures immunity from client host OS timezone misconfigurations and DST transitions.
  * 
+ * @param date - Date object to project into Uganda time
+ * @returns UgandaZonedTime object with normalized components
+ */
+export function getUgandaZonedTime(date: Date = new Date()): UgandaZonedTime {
+  try {
+    const formatter = new Intl.DateTimeFormat('en-US', {
+      timeZone: 'Africa/Kampala',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      weekday: 'short',
+      hour12: false
+    })
+
+    const parts = Object.fromEntries(
+      formatter.formatToParts(date).map(p => [p.type, p.value])
+    )
+
+    const hour = parseInt(parts.hour, 10)
+    const minute = parseInt(parts.minute, 10)
+    const second = parseInt(parts.second, 10)
+    const day = parseInt(parts.day, 10)
+    const month = parseInt(parts.month, 10)
+    const year = parseInt(parts.year, 10)
+
+    const weekdayMap: Record<string, number> = {
+      Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6
+    }
+    const dayOfWeek = weekdayMap[parts.weekday] ?? 0
+
+    const currentTimeMinutes = hour * 60 + minute
+    const dateStr = `${parts.day}_${parts.month}_${parts.year}`
+    const isoDateStr = `${parts.year}-${parts.month}-${parts.day}`
+
+    return {
+      hour,
+      minute,
+      second,
+      currentTimeMinutes,
+      day,
+      month,
+      year,
+      dayOfWeek,
+      dateStr,
+      isoDateStr
+    }
+  } catch (error) {
+    console.warn('⚠️ Intl timezone formatting failed, using mathematical UTC+3 fallback:', error)
+    // Fallback: manually compute UTC+3
+    const utcTime = date.getTime() + (date.getTimezoneOffset() * 60000)
+    const eatDate = new Date(utcTime + (3 * 3600000))
+    const hour = eatDate.getHours()
+    const minute = eatDate.getMinutes()
+    const second = eatDate.getSeconds()
+    const day = eatDate.getDate()
+    const month = eatDate.getMonth() + 1
+    const year = eatDate.getFullYear()
+    const dayOfWeek = eatDate.getDay()
+    const currentTimeMinutes = hour * 60 + minute
+    const dayStr = day.toString().padStart(2, '0')
+    const monthStr = month.toString().padStart(2, '0')
+
+    return {
+      hour,
+      minute,
+      second,
+      currentTimeMinutes,
+      day,
+      month,
+      year,
+      dayOfWeek,
+      dateStr: `${dayStr}_${monthStr}_${year}`,
+      isoDateStr: `${year}-${monthStr}-${dayStr}`
+    }
+  }
+}
+
+/**
+ * Get the current service based on Uganda (Africa/Kampala, UTC+3) time
+ * 
+ * @param date - Date object (defaults to current time)
  * @returns ServiceNumber ('1', '2', '3') if within service hours, null otherwise
  */
 export function getCurrentService(date: Date = new Date()): ServiceNumber {
-  const now = date
-  const currentHour = now.getHours()
-  const currentMinutes = now.getMinutes()
-  const currentTimeMinutes = currentHour * 60 + currentMinutes
+  const { hour, minute, currentTimeMinutes, dateStr } = getUgandaZonedTime(date)
 
-  console.log(`🕐 Current time (${now.toDateString()}): ${currentHour}:${currentMinutes.toString().padStart(2, '0')} (${currentTimeMinutes} minutes)`)
-
-  // If the date is not today, we can't really "detect" the service time based on current time unless we assume full services ran on that day.
-  // Ideally, for manual dates, keying off time might be irrelevant if we just want to select "Service 1" for that day. 
-  // However, to keep it compatible with "Service Settings" (where we might pick a time?), let's just keep the time check.
-  // But wait, if I pick a date in the past, `new Date()` time will be NOW. 
-  // If I pick "Last Sunday", time is 00:00 if I just do `new Date('2023-...')`.
-  // So `getCurrentService` is a bit ambiguous for past dates without time.
-  // Use Case: "Entering data for particular Sunday". 
-  // Usually this means "I am entering data for last Sunday Service 1". 
-  // The service detection logic in `RegistrationView` uses `getCurrentService` to default the selection.
-  // If I pick a past date, `currentTimeMinutes` will likely be irrelevant if I don't set time.
-  // BUT the requirement says: "base on the current date. Now if this current date is a Sunday, it should proceed normally."
-  // And the settings allow Manual Service Selection.
-  // So if I pick a date, Auto Service Detection might fail if I don't set the time.
-  // Let's just strictly use the time components of the passed date object.
-  // If the passed date object has current real time (because created with `new Date()`), it works for today.
-  // If created from string "YYYY-MM-DD", it will be 00:00 (UTC or Local??). 
-  // If local 00:00, then `currentTimeMinutes` is 0, so "Outside service hours".
-  // This is fine, because the user can then Manually Select the service.
+  console.log(`🕐 Current Uganda time (${dateStr}): ${hour}:${minute.toString().padStart(2, '0')} (${currentTimeMinutes} minutes)`)
 
   if (currentTimeMinutes >= SERVICE_TIMES.SERVICE_1.start && currentTimeMinutes <= SERVICE_TIMES.SERVICE_1.end) {
     console.log('🔵 In Service 1 time range')
@@ -133,16 +209,13 @@ export function getServiceText(service: ServiceNumber): string {
 }
 
 /**
- * Format a date as a key for attendance records (DD_MM_YYYY)
+ * Format a date as a key for attendance records (DD_MM_YYYY) anchored to East Africa Time (Africa/Kampala)
  * 
- * @param date - Date to format (defaults to today)
- * @returns Formatted date string
+ * @param date - Date to format (defaults to current time)
+ * @returns Formatted date string in DD_MM_YYYY
  */
 export function formatDateKey(date: Date = new Date()): string {
-  const day = date.getDate().toString().padStart(2, '0')
-  const month = (date.getMonth() + 1).toString().padStart(2, '0')
-  const year = date.getFullYear()
-  return `${day}_${month}_${year}`
+  return getUgandaZonedTime(date).dateStr
 }
 
 /**
