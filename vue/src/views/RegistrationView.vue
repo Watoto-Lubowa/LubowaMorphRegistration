@@ -1076,10 +1076,10 @@ function isCheckedInToday(attendanceRecord?: Record<string, string>): { isChecke
 }
 
 function updateCurrentServiceDisplay() {
-  // Always refresh live time if in auto mode to ensure effectiveDate is fresh
-  if (isDateAutoMode.value) {
-    currentNow.value = new Date()
-  }
+  // NOTE: Do not mutate currentNow here. effectiveDate depends on currentNow,
+  // and effectiveDate is watched below, so writing it from this function creates
+  // an infinite update loop that freezes the registration page.
+  // The clock is advanced by the interval in onMounted instead.
 
   // Determine current service based on mode and date
   if (isServiceAutoMode.value) {
@@ -1196,8 +1196,12 @@ onMounted(async () => {
   countries.value = loadCountriesData()
   // Update service display on mount
   updateCurrentServiceDisplay()
-  // Set up interval to update every minute
-  serviceIntervalTimer = setInterval(updateCurrentServiceDisplay, 60000)
+  // Advance the clock every minute; the effectiveDate watcher refreshes the service display.
+  serviceIntervalTimer = setInterval(() => {
+    if (isDateAutoMode.value) {
+      currentNow.value = new Date()
+    }
+  }, 60000)
   
   // Load force update flow state
   await membersStore.loadForceUpdateFlowState()
