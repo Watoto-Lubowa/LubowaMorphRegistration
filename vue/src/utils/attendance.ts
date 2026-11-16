@@ -136,8 +136,14 @@ export function getUgandaZonedTime(date: Date = new Date()): UgandaZonedTime {
 }
 
 /**
- * Get the current service based on Uganda (Africa/Kampala, UTC+3) time
- * 
+ * Get the current service based on Uganda (Africa/Kampala, UTC+3) time.
+ *
+ * Windows are half-open: [start, end). This matters at the exact handover
+ * minutes (9:30, 11:30, 14:00) – with inclusive ends the previous service
+ * won and e.g. 11:30 was reported as the 2nd service even though the 3rd
+ * service check-in window had already opened. The Cloudflare Worker uses the
+ * same half-open convention, so both ends of the system now agree.
+ *
  * @param date - Date object (defaults to current time)
  * @returns ServiceNumber ('1', '2', '3') if within service hours, null otherwise
  */
@@ -146,13 +152,13 @@ export function getCurrentService(date: Date = new Date()): ServiceNumber {
 
   console.log(`🕐 Current Uganda time (${dateStr}): ${hour}:${minute.toString().padStart(2, '0')} (${currentTimeMinutes} minutes)`)
 
-  if (currentTimeMinutes >= SERVICE_TIMES.SERVICE_1.start && currentTimeMinutes <= SERVICE_TIMES.SERVICE_1.end) {
+  if (currentTimeMinutes >= SERVICE_TIMES.SERVICE_1.start && currentTimeMinutes < SERVICE_TIMES.SERVICE_1.end) {
     console.log('🔵 In Service 1 time range')
     return '1'
-  } else if (currentTimeMinutes >= SERVICE_TIMES.SERVICE_2.start && currentTimeMinutes <= SERVICE_TIMES.SERVICE_2.end) {
+  } else if (currentTimeMinutes >= SERVICE_TIMES.SERVICE_2.start && currentTimeMinutes < SERVICE_TIMES.SERVICE_2.end) {
     console.log('🟢 In Service 2 time range')
     return '2'
-  } else if (currentTimeMinutes >= SERVICE_TIMES.SERVICE_3.start && currentTimeMinutes <= SERVICE_TIMES.SERVICE_3.end) {
+  } else if (currentTimeMinutes >= SERVICE_TIMES.SERVICE_3.start && currentTimeMinutes < SERVICE_TIMES.SERVICE_3.end) {
     console.log('🟡 In Service 3 time range')
     return '3'
   } else {

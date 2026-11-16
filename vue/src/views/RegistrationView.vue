@@ -43,6 +43,9 @@
           <div class="success-icon">✅</div>
           <h2 class="success-title">{{ successState.title }}</h2>
           <p class="success-message">{{ successState.message }}</p>
+          <p v-if="successService" class="success-service">
+            Recorded service: {{ getServiceName(successService) }}
+          </p>
           <p class="success-name">{{ cachedUserData?.name }}</p>
           <p v-if="successCountdown > 0" class="success-countdown">This page will close in {{ successCountdown }} seconds...</p>
           <p v-else class="success-countdown">You can close this page now.</p>
@@ -853,6 +856,10 @@ const isFromQR = ref(!!route.query.qr)
 const showSuccessCard = ref(false)
 const successState = ref({ title: '', message: '' })
 const successCountdown = ref(3)
+// The service that was actually written to Firestore for this check-in.
+// Shown on the success card so the final screen can never disagree with the
+// attendance value that was saved.
+const successService = ref<ServiceNumber>(null)
 
 // Persistent confirmation flags
 const hasConfirmedNonSundayDate = ref(false)
@@ -1025,6 +1032,9 @@ let serviceIntervalTimer: ReturnType<typeof setInterval> | null = null
 onBeforeUnmount(() => {
   if (serviceIntervalTimer) clearInterval(serviceIntervalTimer)
   if (logoObserver) logoObserver.disconnect()
+  document.removeEventListener('visibilitychange', handleVisibilityChange)
+  window.removeEventListener('focus', handleWindowFocus)
+  window.removeEventListener('pageshow', handlePageShow)
 })
 
 // Phone validation error tracking
@@ -1114,6 +1124,39 @@ function updateCurrentServiceDisplay() {
 }
 
 /**
+ * Recompute the service from the live clock and return it.
+ *
+ * The 60s interval is not enough on phones: iOS/Android suspend timers while
+ * the tab is backgrounded or the screen is locked, so a page opened during
+ * the 2nd service can still be showing "2nd Service" when it is resumed
+ * during the 3rd. Call this whenever the page becomes visible again and
+ * immediately before anything is displayed as "current" or written to
+ * Firestore, so the display, the saved attendance and the success screen all
+ * use the same fresh value.
+ */
+function syncServiceWithClock(): ServiceNumber {
+  if (isDateAutoMode.value && isServiceAutoMode.value) {
+    currentNow.value = new Date()
+  }
+  // Run immediately as well: the watcher is queued and may flush after the
+  // caller has already read currentService.
+  updateCurrentServiceDisplay()
+  return currentService.value
+}
+
+function handleVisibilityChange() {
+  if (!document.hidden) syncServiceWithClock()
+}
+
+function handleWindowFocus() {
+  syncServiceWithClock()
+}
+
+function handlePageShow() {
+  syncServiceWithClock()
+}
+
+/**
  * Handle logo tap for secret gesture (7 taps in 7 seconds)
  * Only active on /register route
  */
@@ -1196,6 +1239,11 @@ onMounted(async () => {
   countries.value = loadCountriesData()
   // Update service display on mount
   updateCurrentServiceDisplay()
+  // Phones throttle/suspend the interval while the page is hidden, so also
+  // refresh the moment the user comes back to the page.
+  document.addEventListener('visibilitychange', handleVisibilityChange)
+  window.addEventListener('focus', handleWindowFocus)
+  window.addEventListener('pageshow', handlePageShow)
   // Advance the clock every minute; the effectiveDate watcher refreshes the service display.
   serviceIntervalTimer = setInterval(() => {
     if (isDateAutoMode.value) {
@@ -1453,17 +1501,33 @@ async function confirmCachedData() {
       
       // If quick check-in is active (not force update flow) and service is running, do quick check-in
       if (!forceUpdateFlow.value && (currentService.value || !isDateAutoMode.value)) {
+        // Recompute the service right before saving: a tab that was left open
+        // or backgrounded must not record the service from hours ago.
+        const serviceForCheckIn = syncServiceWithClock()
+        if (!serviceForCheckIn && isDateAutoMode.value) {
+          showQuickConfirm.value = false
+          uiStore.error('No service is currently running. Please ask a facilitator.')
+          return
+        }
+
+        const cached = cachedUserData.value
         // Pass context to quickCheckIn
         await membersStore.quickCheckIn({
             date: effectiveDate.value,
-            service: currentService.value as ServiceNumber
+            service: serviceForCheckIn
         })
         clearSearch()
         showQuickConfirm.value = false
-        
-        // Show success card and start countdown
-        showSuccessCard.value = true
-        startAutoCloseCountdown(successCountdown)
+
+        // Reuse the shared success card so the final screen shows the
+        // service that was actually recorded.
+        showSuccessCardAndClose(
+          cached.name,
+          cached.phoneNumber,
+          cached.countryCode,
+          false,
+          serviceForCheckIn
+        )
       } else {
         // Otherwise, proceed to edit/update form
         editMember()
@@ -1522,6 +1586,8 @@ async function handleSearch() {
   
   // isSearchingAgain.value = false // MOVED: Clear this flag AFTER setting loading to true to prevent UI flicker
   alreadyCheckedIn.value = false // Reset checked-in state
+  // Refresh the service before deciding what to show / what will be recorded.
+  syncServiceWithClock()
   
   // Validate phone format for Uganda numbers ONLY (using strict format rules)
   // For other countries, use the preexisting libphonenumber validation
@@ -1649,13 +1715,20 @@ function createNewMember() {
  * Shared function to display success card and start auto-close countdown
  * Used by both handleQuickCheckIn and handleSave for QR users
  */
-function showSuccessCardAndClose(name: string, phoneNumber: string, countryCode: string, isFirstTime: boolean = false) {
+function showSuccessCardAndClose(
+  name: string,
+  phoneNumber: string,
+  countryCode: string,
+  isFirstTime: boolean = false,
+  service: ServiceNumber = null
+) {
   // Set cached user data
   cachedUserData.value = {
     name,
     phoneNumber,
     countryCode
   }
+  successService.value = service
   
   // Set success state message based on whether it's a first-time guest
   if (isFirstTime) {
@@ -1840,8 +1913,11 @@ async function handleSave() {
     }
 
     // console.log("MemberData", memberData)
+    // Recompute from the live clock so a stale/backgrounded tab cannot write
+    // the service that was showing when the page was opened.
+    const serviceForSave = syncServiceWithClock()
     console.log("Effective Date for Attendance:", effectiveDate.value.toDateString())
-    console.log("Service Recorded:", currentService.value)
+    console.log("Service Recorded:", serviceForSave)
     
     // Pass attendance context to saveMember
     await membersStore.saveMember(
@@ -1849,7 +1925,7 @@ async function handleSave() {
         currentDocId.value,
         {
             date: effectiveDate.value,
-            service: currentService.value as ServiceNumber
+            service: serviceForSave
         }
     )
     
@@ -1869,7 +1945,8 @@ async function handleSave() {
         memberForm.value.Name,
         fullPhoneNumber,
         memberForm.value.MorphersCountryCode || 'UG',
-        isFirstTime
+        isFirstTime,
+        serviceForSave
       )
       
       return // Exit early to prevent clearSearch/cancelEdit
@@ -1890,11 +1967,18 @@ async function handleQuickCheckIn() {
   try {
     console.log('Starting quick check-in process')
     uiStore.setLoading(true)
-    
+
+    // Recompute from the live clock before writing attendance.
+    const serviceForCheckIn = syncServiceWithClock()
+    if (!serviceForCheckIn && isDateAutoMode.value) {
+      uiStore.error('No service is currently running. Please ask a facilitator.')
+      return
+    }
+
        // Pass context to quickCheckIn
     await membersStore.quickCheckIn({
         date: effectiveDate.value,
-        service: currentService.value as ServiceNumber
+        service: serviceForCheckIn
     })
 
     // Use searchResult.record (the confirmed member record) for caching, not memberForm
@@ -1916,7 +2000,8 @@ async function handleQuickCheckIn() {
         memberData.Name,
         memberData.MorphersNumber,
         memberData.MorphersCountryCode || 'UG',
-        false // Quick check-in is never for first-time guests
+        false, // Quick check-in is never for first-time guests
+        serviceForCheckIn
       )
       
       return // Exit early to prevent clearSearch
@@ -1961,6 +2046,17 @@ async function handleQuickCheckIn() {
 .success-message {
   font-size: 1.25rem;
   color: #666;
+  margin-bottom: 1.5rem;
+}
+
+.success-service {
+  display: inline-block;
+  background: #f0fdf4;
+  border: 1px solid #86efac;
+  color: #15803d;
+  font-weight: 600;
+  border-radius: 999px;
+  padding: 0.5rem 1.25rem;
   margin-bottom: 1.5rem;
 }
 

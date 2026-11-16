@@ -9,13 +9,14 @@ const testCases = [
   { timeStr: '2026-10-25T04:15:00.000Z', eatTime: '07:15 AM', expected: null, label: 'Before Service 1' },
   { timeStr: '2026-10-25T04:30:00.000Z', eatTime: '07:30 AM', expected: '1', label: 'Service 1 Start' },
   { timeStr: '2026-10-25T05:30:00.000Z', eatTime: '08:30 AM', expected: '1', label: 'Service 1 Peak' },
-  { timeStr: '2026-10-25T06:30:00.000Z', eatTime: '09:30 AM', expected: '1', label: 'Service 1 End' },
+  { timeStr: '2026-10-25T06:30:00.000Z', eatTime: '09:30 AM', expected: '2', label: 'Service 1 End (half-open -> Service 2)' },
   { timeStr: '2026-10-25T06:31:00.000Z', eatTime: '09:31 AM', expected: '2', label: 'Service 2 Start' },
   { timeStr: '2026-10-25T07:15:00.000Z', eatTime: '10:15 AM', expected: '2', label: 'Service 2 Peak' },
-  { timeStr: '2026-10-25T08:30:00.000Z', eatTime: '11:30 AM', expected: '2', label: 'Service 2 End' },
+  { timeStr: '2026-10-25T08:30:00.000Z', eatTime: '11:30 AM', expected: '3', label: 'Service 2 End (half-open -> Service 3)' },
+  { timeStr: '2026-10-25T09:15:00.000Z', eatTime: '12:15 PM', expected: '3', label: 'Reported 12:15 case' },
   { timeStr: '2026-10-25T08:31:00.000Z', eatTime: '11:31 AM', expected: '3', label: 'Service 3 Start' },
   { timeStr: '2026-10-25T09:45:00.000Z', eatTime: '12:45 PM', expected: '3', label: 'Service 3 Peak' },
-  { timeStr: '2026-10-25T11:00:00.000Z', eatTime: '02:00 PM', expected: '3', label: 'Service 3 End' },
+  { timeStr: '2026-10-25T11:00:00.000Z', eatTime: '02:00 PM', expected: null, label: 'Service 3 End (half-open)' },
   { timeStr: '2026-10-25T11:01:00.000Z', eatTime: '02:01 PM', expected: null, label: 'After Church Services' }
 ]
 
